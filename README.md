@@ -10,6 +10,9 @@ _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com
 [![Go Report Card](https://goreportcard.com/badge/github.com/wilhelm-murdoch/glazier)](https://goreportcard.com/report/github.com/wilhelm-murdoch/glazier)
 [![Stability: Experimental](https://masterminds.github.io/stability/experimental.svg)](https://masterminds.github.io/stability/experimental.html)
 
+> [!IMPORTANT]
+> While this project works in the most technical sense, it is not yet ready for "prime time". Working through supporting basic tmux features for session customisation as well as documentation and testing.
+
 `glaze`, or Glazier, is a command line tool that allows you to simplify and automate the management of your various tmux configurations and workspaces. It was borne out of the frustration of constantly having to recreate my workspaces after every reboot. 
 
 ## Features
