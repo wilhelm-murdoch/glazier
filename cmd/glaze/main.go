@@ -2,16 +2,17 @@ package main
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/format"
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/save"
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/up"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
@@ -33,8 +34,7 @@ var (
 )
 
 func main() {
-	log.SetTimeFormat(time.Kitchen)
-	log.SetLevel(log.DebugLevel)
+	logger := logger.New(slog.LevelDebug)
 
 	cli.VersionPrinter = func(ctx *cli.Context) {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
@@ -161,7 +161,7 @@ func main() {
 				},
 			},
 			Action: func(ctx *cli.Context) error {
-				action, err := up.NewAction(ctx)
+				action, err := up.NewAction(ctx, logger)
 				if err != nil {
 					return err
 				}
@@ -182,7 +182,7 @@ func main() {
 				},
 			},
 			Action: func(ctx *cli.Context) error {
-				action, err := format.NewAction(ctx)
+				action, err := format.NewAction(ctx, logger)
 				if err != nil {
 					return err
 				}
@@ -193,7 +193,7 @@ func main() {
 			Name:  "save",
 			Usage: "running this within a tmux session will save its current state to the specified glaze profile",
 			Action: func(ctx *cli.Context) error {
-				action, err := save.NewAction(ctx)
+				action, err := save.NewAction(ctx, logger)
 				if err != nil {
 					return err
 				}

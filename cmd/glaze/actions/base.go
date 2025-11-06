@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"log/slog"
+
 	"github.com/urfave/cli/v2"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
@@ -14,10 +16,11 @@ type BaseAction struct {
 	DiagnosticsManager *diagnostics.DiagnosticsManager
 	Parser             *parser.Parser
 	ProfilePath        string
+	Logger             *slog.Logger
 }
 
 // NewBaseAction is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
-func NewBaseAction(ctx *cli.Context) (*BaseAction, error) {
+func NewBaseAction(ctx *cli.Context, logger *slog.Logger) (*BaseAction, error) {
 	profilePath, err := profile.ResolveProfilePath(ctx.String("profile-path"))
 	if err != nil {
 		return nil, err
@@ -40,6 +43,7 @@ func NewBaseAction(ctx *cli.Context) (*BaseAction, error) {
 		DiagnosticsManager: diagsManager,
 		Parser:             parser,
 		ProfilePath:        profilePath,
+		Logger:             logger,
 	}, nil
 }
 

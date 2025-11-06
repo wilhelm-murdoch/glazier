@@ -35,10 +35,10 @@ session {
     }
 
     pane {
-      size {
-        # x = 5
-        # y = 5
-      }
+      # size {
+      #   x = 5
+      #   y = 5
+      # }
 
       commands = [
         "echo 2"

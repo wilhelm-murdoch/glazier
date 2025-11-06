@@ -2,9 +2,9 @@ package up
 
 import (
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/charmbracelet/log"
 	"github.com/urfave/cli/v2"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
@@ -23,8 +23,8 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance.
-func NewAction(ctx *cli.Context) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx)
+func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(ctx, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +95,7 @@ func (a *Action) Run() error {
 // generateWindows iterates through the windows and panes defined within the specified profile and create them within the tmux session.
 func (a *Action) generateWindows(windows []*window.Window) error {
 	for _, ws := range windows {
-		log.Info("creating new window", "window", ws.Name)
+		a.Logger.Info("creating new window", "name", ws.Name)
 		wtmx, err := a.session.NewWindow(ws.Name)
 		if err != nil {
 			return fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
@@ -128,7 +128,7 @@ func (a *Action) generateWindows(windows []*window.Window) error {
 		}
 
 		if ws.Focus {
-			log.Info("setting focus", "window", wtmx.Name)
+			a.Logger.Info("setting window focus", "name", wtmx.Name)
 			wtmx.Select()
 		}
 	}
@@ -142,7 +142,7 @@ func (a *Action) generatePanes(
 	wtmx *tmux.Window,
 ) error {
 	for _, ps := range panes {
-		log.Info("adding", "pane", ps.Name, "from", defaultPane.Target())
+		a.Logger.Info("splitting pane", "name", ps.Name, "from", defaultPane.Target())
 		ptmx, err := wtmx.Split(defaultPane.Target(), ps.Name, ps.StartingDirectory)
 		if err != nil {
 			return fmt.Errorf(
@@ -155,7 +155,7 @@ func (a *Action) generatePanes(
 
 		// Run any defined commands in order as defined within the current profile. Add a small delay between each command to ensure they are executed in order.
 		for _, cmd := range ps.Commands {
-			log.Info("setting", "command", cmd, "pane", ptmx.Name)
+			a.Logger.Info("setting pane command", "cmd", cmd, "name", ptmx.Name)
 			time.Sleep(time.Millisecond * time.Duration(100))
 			if err := ptmx.SendKeys(cmd); err != nil {
 				return fmt.Errorf(
@@ -169,12 +169,12 @@ func (a *Action) generatePanes(
 		}
 
 		if ps.Size.Valid() {
-			log.Debug("setting size", "x", ps.Size.X, "y", ps.Size.Y, "pane", ptmx.Name)
+			a.Logger.Info("setting size", "x", ps.Size.X, "y", ps.Size.Y, "name", ptmx.Name)
 			ptmx.Resize(ps.Size)
 		}
 
 		if ps.Focus {
-			log.Info("setting focus", "pane", ptmx.Name)
+			a.Logger.Info("setting pane focus", "name", ptmx.Name)
 			ptmx.Select()
 		}
 	}
@@ -223,9 +223,9 @@ func (a *Action) resolveSession(profile *session.Session) (bool, error) {
 	attached := false
 
 	if a.Context.Bool("clear") {
-		log.Info("clearing previous session", "session", profile.Name)
+		a.Logger.Info("clearing previous session", "name", profile.Name)
 		if err := a.client.KillSessionByName(profile.Name); err != nil {
-			log.Debug("could not kill session", "session", profile.Name, "reason", err)
+			a.Logger.Error("could not kill session", "name", profile.Name, "reason", err)
 		}
 	}
 
@@ -236,7 +236,7 @@ func (a *Action) resolveSession(profile *session.Session) (bool, error) {
 		}
 
 		if !a.Context.Bool("detached") {
-			log.Info("attaching to existing session", "session", profile.Name)
+			a.Logger.Info("attaching to existing session", "name", profile.Name)
 			if err := a.client.Attach(session); err != nil {
 				return attached, fmt.Errorf(
 					"could not attach to session `%s`: %w",
@@ -251,7 +251,7 @@ func (a *Action) resolveSession(profile *session.Session) (bool, error) {
 		return attached, nil
 	}
 
-	log.Info("creating new session", "session", profile.Name)
+	a.Logger.Info("creating new session", "name", profile.Name)
 	session, err := a.client.NewSession(profile.Name, profile.StartingDirectory)
 	if err != nil {
 		return attached, fmt.Errorf("could not create new session `%s`: %w", session.Name, err)

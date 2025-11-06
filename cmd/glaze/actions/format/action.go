@@ -2,6 +2,7 @@ package format
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
@@ -18,8 +19,8 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance for the format command.
-func NewAction(ctx *cli.Context) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx)
+func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(ctx, logger)
 	if err != nil {
 		return nil, err
 	}
