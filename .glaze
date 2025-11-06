@@ -1,5 +1,5 @@
 session {
-  name = "${path.base}"
+  name = path.base
 
   commands = [
     "set -g status-right \"#[align=absolute-centre]#[fg=#f8f9f2]#W#[fg=#51cd97]#{?client_prefix,#[fg=#d0689d],#[fg=#51cd97]}.#[align=right]#{?window_bigger,[#{window_offset_x}#,#{window_offset_y}] ,}#[fg=#404040,underscore]#S#[none] \"",
@@ -21,12 +21,12 @@ session {
 
       adjust {
         direction = "up"
-        amount = 30
+        amount    = 30
       }
 
       adjust {
         direction = "right"
-        amount = "50%"
+        amount    = "50%"
       }
 
       commands = [
@@ -35,6 +35,11 @@ session {
     }
 
     pane {
+      size {
+        # x = 5
+        # y = 5
+      }
+
       commands = [
         "echo 2"
       ]
@@ -54,7 +59,7 @@ session {
   }
 
   window {
-    name  = "terminal"
+    name   = "terminal"
     layout = "even-vertical"
 
     pane {
@@ -64,7 +69,7 @@ session {
     }
 
     pane {
-      focus = true
+      focus              = true
       starting_directory = "~/Downloads"
 
       commands = [

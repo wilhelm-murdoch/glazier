@@ -168,8 +168,8 @@ func (a *Action) generatePanes(
 			}
 		}
 
-		if ps.Size != "" {
-			log.Info("setting", "size", ps.Size, "pane", ptmx.Name)
+		if ps.Size.Valid() {
+			log.Debug("setting size", "x", ps.Size.X, "y", ps.Size.Y, "pane", ptmx.Name)
 			ptmx.Resize(ps.Size)
 		}
 

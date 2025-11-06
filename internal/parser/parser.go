@@ -13,7 +13,7 @@ type Parser struct {
 	parser *hclparse.Parser
 }
 
-// Decode is responsible for decoding the HCL file into a session.Session object.
+// Decode is responsible for decoding the HCL file into a session.Session struct.
 func (p *Parser) Decode(
 	spec hcldec.Spec,
 	ctx *hcl.EvalContext,
