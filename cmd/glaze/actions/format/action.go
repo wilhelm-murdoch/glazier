@@ -1,15 +1,16 @@
 package format
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/schema"
 )
@@ -19,8 +20,8 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance for the format command.
-func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx, logger)
+func NewAction(ctx context.Context, cmd *cli.Command, logger *logger.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(ctx, cmd, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -35,13 +36,13 @@ func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
 func (a *Action) Run() error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
-	if a.Context.Bool("validate") {
+	if a.Command.Bool("validate") {
 		if valid := a.isGlazeDefintionValid(); !valid {
 			return a.DiagnosticsManager.Write()
 		}
 	}
 
-	if a.Context.Bool("stdout") {
+	if a.Command.Bool("stdout") {
 		fmt.Print(formatted)
 		return nil
 	}
@@ -64,7 +65,7 @@ func (a *Action) Run() error {
 // isGlazeDefintionValid checks if the given glaze definition file and any variable
 // flags yield a valid result when run through the schema.Parser.
 func (a *Action) isGlazeDefintionValid() bool {
-	variables, err := parser.CollectVariables(a.Context.StringSlice("var"))
+	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
 		a.DiagnosticsManager.Append(&hcl.Diagnostic{
 			Severity: hcl.DiagError,

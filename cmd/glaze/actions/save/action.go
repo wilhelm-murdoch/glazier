@@ -1,11 +1,12 @@
 package save
 
 import (
-	"log/slog"
+	"context"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 )
 
 type Action struct {
@@ -13,8 +14,8 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance for the save command.
-func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx, logger)
+func NewAction(ctx context.Context, cmd *cli.Command, logger *logger.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(ctx, cmd, logger)
 	if err != nil {
 		return nil, err
 	}

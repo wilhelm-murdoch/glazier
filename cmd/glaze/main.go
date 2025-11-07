@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
+	"net/mail"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/format"
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/save"
@@ -34,9 +35,9 @@ var (
 )
 
 func main() {
-	logger := logger.New(slog.LevelDebug)
+	log := logger.New(logger.LevelTrace)
 
-	cli.VersionPrinter = func(ctx *cli.Context) {
+	cli.VersionPrinter = func(ctx *cli.Command) {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
 	}
 
@@ -48,27 +49,25 @@ func main() {
 
 	currentYear, _, _ := time.Now().Date()
 
-	app := &cli.App{
-		Name:     "glaze",
-		Usage:    "easily manage tmux sessions, windows and panes",
-		Version:  Version,
-		Compiled: time.Now(),
-		Authors: []*cli.Author{{
-			Name:  "Wilhelm Murdoch",
-			Email: "wilhelm@devilmayco.de",
-		}},
+	app := &cli.Command{
+		Name:    "glaze",
+		Usage:   "easily manage tmux sessions, windows and panes",
+		Version: Version,
+		Authors: []any{
+			mail.Address{Name: "Wilhelm Murdoch", Address: "wilhelm@devilmayco.de"},
+		},
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
-		Before: func(ctx *cli.Context) error {
+		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
 			ok, path := tmux.IsInstalled()
 
 			if !ok {
-				return fmt.Errorf(
+				return ctx, fmt.Errorf(
 					"could not find a valid tmux installation on path: %s",
 					path,
 				)
 			}
 
-			return nil
+			return ctx, nil
 		},
 		Commands: []*cli.Command{{
 			Name:  "up",
@@ -90,8 +89,8 @@ func main() {
 					Name:  "socket-path",
 					Value: "",
 					Usage: "optional path to the tmux socket",
-					Action: func(ctx *cli.Context, value string) error {
-						if ctx.String("socket-name") != "" && value != "" {
+					Action: func(ctx context.Context, cmd *cli.Command, value string) error {
+						if cmd.String("socket-name") != "" && value != "" {
 							return cli.Exit(
 								"cannot specify both --socket-name and --socket-path flags",
 								defaultErrCode,
@@ -117,8 +116,8 @@ func main() {
 					Name:  "socket-name",
 					Value: "",
 					Usage: "optional name for the tmux socket",
-					Action: func(ctx *cli.Context, value string) error {
-						if ctx.String("socket-path") != "" && value != "" {
+					Action: func(ctx context.Context, cmd *cli.Command, value string) error {
+						if cmd.String("socket-path") != "" && value != "" {
 							return cli.Exit(
 								"cannot specify both --socket-name and --socket-path flags",
 								defaultErrCode,
@@ -131,7 +130,7 @@ func main() {
 				&cli.StringSliceFlag{
 					Name:  "var",
 					Usage: "set multiple variables in the form of \"key=value\"",
-					Action: func(ctx *cli.Context, value []string) error {
+					Action: func(ctx context.Context, cmd *cli.Command, value []string) error {
 						for _, variable := range value {
 							if !strings.Contains(variable, "=") {
 								return cli.Exit(
@@ -160,8 +159,8 @@ func main() {
 					},
 				},
 			},
-			Action: func(ctx *cli.Context) error {
-				action, err := up.NewAction(ctx, logger)
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				action, err := up.NewAction(ctx, cmd, log)
 				if err != nil {
 					return err
 				}
@@ -181,8 +180,8 @@ func main() {
 					Usage: "validates the given glaze definition file and returns any diagnostics",
 				},
 			},
-			Action: func(ctx *cli.Context) error {
-				action, err := format.NewAction(ctx, logger)
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				action, err := format.NewAction(ctx, cmd, log)
 				if err != nil {
 					return err
 				}
@@ -192,8 +191,8 @@ func main() {
 		}, {
 			Name:  "save",
 			Usage: "running this within a tmux session will save its current state to the specified glaze profile",
-			Action: func(ctx *cli.Context) error {
-				action, err := save.NewAction(ctx, logger)
+			Action: func(ctx context.Context, cmd *cli.Command) error {
+				action, err := save.NewAction(ctx, cmd, log)
 				if err != nil {
 					return err
 				}
@@ -203,7 +202,7 @@ func main() {
 		}},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintf(os.Stderr, "Glaze %v\n", err)
 		os.Exit(1)
 	}

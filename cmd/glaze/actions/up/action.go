@@ -1,13 +1,14 @@
 package up
 
 import (
+	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
@@ -23,16 +24,16 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance.
-func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx, logger)
+func NewAction(ctx context.Context, cmd *cli.Command, logger *logger.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(ctx, cmd, logger)
 	if err != nil {
 		return nil, err
 	}
 
 	client := tmux.NewClient(
-		ctx.String("socket-name"),
-		ctx.String("socket-path"),
-		ctx.Bool("debug"),
+		cmd.String("socket-name"),
+		cmd.String("socket-path"),
+		cmd.Bool("debug"),
 	)
 
 	return &Action{
@@ -43,7 +44,7 @@ func NewAction(ctx *cli.Context, logger *slog.Logger) (*Action, error) {
 
 // Run is responsible for executing the up action, which includes parsing variables, decoding the profile, resolving the session, and generating windows.
 func (a *Action) Run() error {
-	variables, err := parser.CollectVariables(a.Context.StringSlice("var"))
+	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
 		return fmt.Errorf("could not parse specified variables: %w", err)
 	}
@@ -83,7 +84,7 @@ func (a *Action) Run() error {
 		}
 	}
 
-	if !a.Context.Bool("detached") {
+	if !a.Command.Bool("detached") {
 		if err := a.client.Attach(a.session); err != nil {
 			return err
 		}
@@ -222,7 +223,7 @@ func (a *Action) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
 func (a *Action) resolveSession(profile *session.Session) (bool, error) {
 	attached := false
 
-	if a.Context.Bool("clear") {
+	if a.Command.Bool("clear") {
 		a.Logger.Info("clearing previous session", "name", profile.Name)
 		if err := a.client.KillSessionByName(profile.Name); err != nil {
 			a.Logger.Error("could not kill session", "name", profile.Name, "reason", err)
@@ -235,7 +236,7 @@ func (a *Action) resolveSession(profile *session.Session) (bool, error) {
 			return attached, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
 		}
 
-		if !a.Context.Bool("detached") {
+		if !a.Command.Bool("detached") {
 			a.Logger.Info("attaching to existing session", "name", profile.Name)
 			if err := a.client.Attach(session); err != nil {
 				return attached, fmt.Errorf(

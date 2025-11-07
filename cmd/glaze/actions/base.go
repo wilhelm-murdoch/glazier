@@ -1,27 +1,33 @@
 package actions
 
 import (
-	"log/slog"
+	"context"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	ge "github.com/wilhelm-murdoch/glazier/internal/errors" // ge = "Glaze Errors"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/profile"
 )
 
 type BaseAction struct {
-	Context            *cli.Context
+	Context            context.Context
+	Command            *cli.Command
 	DiagnosticsManager *diagnostics.DiagnosticsManager
 	Parser             *parser.Parser
 	ProfilePath        string
-	Logger             *slog.Logger
+	Logger             *logger.Logger
 }
 
 // NewBaseAction is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
-func NewBaseAction(ctx *cli.Context, logger *slog.Logger) (*BaseAction, error) {
-	profilePath, err := profile.ResolveProfilePath(ctx.String("profile-path"))
+func NewBaseAction(
+	ctx context.Context,
+	cmd *cli.Command,
+	logger *logger.Logger,
+) (*BaseAction, error) {
+	profilePath, err := profile.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {
 		return nil, err
 	}
@@ -40,6 +46,7 @@ func NewBaseAction(ctx *cli.Context, logger *slog.Logger) (*BaseAction, error) {
 
 	return &BaseAction{
 		Context:            ctx,
+		Command:            cmd,
 		DiagnosticsManager: diagsManager,
 		Parser:             parser,
 		ProfilePath:        profilePath,
