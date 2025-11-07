@@ -23,7 +23,6 @@ type BaseAction struct {
 
 // NewBaseAction is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
 func NewBaseAction(
-	ctx context.Context,
 	cmd *cli.Command,
 	logger *logger.Logger,
 ) (*BaseAction, error) {
@@ -45,7 +44,6 @@ func NewBaseAction(
 	}
 
 	return &BaseAction{
-		Context:            ctx,
 		Command:            cmd,
 		DiagnosticsManager: diagsManager,
 		Parser:             parser,

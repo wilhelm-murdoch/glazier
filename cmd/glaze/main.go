@@ -160,7 +160,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := up.NewAction(ctx, cmd, log)
+				action, err := up.NewAction(cmd, log)
 				if err != nil {
 					return err
 				}
@@ -181,7 +181,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := format.NewAction(ctx, cmd, log)
+				action, err := format.NewAction(cmd, log)
 				if err != nil {
 					return err
 				}
@@ -192,7 +192,7 @@ func main() {
 			Name:  "save",
 			Usage: "running this within a tmux session will save its current state to the specified glaze profile",
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := save.NewAction(ctx, cmd, log)
+				action, err := save.NewAction(cmd, log)
 				if err != nil {
 					return err
 				}

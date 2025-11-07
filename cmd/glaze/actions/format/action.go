@@ -1,7 +1,6 @@
 package format
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -20,8 +19,8 @@ type Action struct {
 }
 
 // NewAction is responsible for creating a new Action instance for the format command.
-func NewAction(ctx context.Context, cmd *cli.Command, logger *logger.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(ctx, cmd, logger)
+func NewAction(cmd *cli.Command, logger *logger.Logger) (*Action, error) {
+	base, err := actions.NewBaseAction(cmd, logger)
 	if err != nil {
 		return nil, err
 	}
