@@ -31,7 +31,7 @@ func NewBaseAction(
 		return nil, err
 	}
 
-	diagsManager := diagnostics.NewDiagnosticsManager(profilePath)
+	diagsManager := diagnostics.New(profilePath)
 	if diagsManager.HasErrors() {
 		diagsManager.Write()
 		return nil, ge.ErrorInvalidDefinition

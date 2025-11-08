@@ -69,6 +69,18 @@ func main() {
 
 			return ctx, nil
 		},
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:  "log-level",
+				Value: logger.LevelTraceLabel,
+				Usage: "specify a log level",
+				Validator: func(value string) error {
+					log.Info("dropping some logs")
+					//	log = logger.New(logger.LevelTrace)
+					return nil
+				},
+			},
+		},
 		Commands: []*cli.Command{{
 			Name:  "up",
 			Usage: "apply the specified glaze profile",
@@ -203,7 +215,7 @@ func main() {
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "Glaze %v\n", err)
+		log.Error("Glaze exited with an error", "err", err)
 		os.Exit(1)
 	}
 }

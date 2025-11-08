@@ -6,60 +6,73 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/gocty"
+
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 )
 
 const DefaultGlazePaneName = "default"
 
+// Pane represents the configuration for a single tmux pane.
+type Pane struct {
+	schema.Base
+	StartingDirectory schema.Directory
+	Size              schema.Size
+	Options           schema.Options
+	Commands          schema.Commands
+	Focus             schema.Focus
+}
+
 // Decode is responsible for decoding a cty.Value into a Pane struct.
-func (p *Pane) Decode(value cty.Value) hcl.Diagnostics {
+func (p *Pane) Decode(pane cty.Value) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
-	p.Name = DefaultGlazePaneName
-	if !value.GetAttr("name").IsNull() {
-		p.Name = Name(value.GetAttr("name").AsString())
+	if !pane.GetAttr("name").IsNull() {
+		p.Name = schema.Name(pane.GetAttr("name").AsString())
+	} else {
+		p.Name = DefaultGlazePaneName
 	}
 
-	if !value.GetAttr("focus").IsNull() {
-		gocty.FromCtyValue(value.GetAttr("focus"), &p.Focus)
+	focus := pane.GetAttr("focus")
+	if !focus.IsNull() {
+		gocty.FromCtyValue(focus, &p.Focus)
 	}
 
-	if !value.GetAttr("starting_directory").IsNull() {
-		p.StartingDirectory = Directory(value.GetAttr("starting_directory").AsString())
+	startingDirectory := pane.GetAttr("starting_directory")
+	if !startingDirectory.IsNull() {
+		p.StartingDirectory = schema.Directory(startingDirectory.AsString())
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			p.StartingDirectory = Directory(pwd)
+			p.StartingDirectory = schema.Directory(pwd)
 		}
 	}
 
-	if !value.GetAttr("size").IsNull() {
-		size := value.GetAttr("size")
-
+	size := pane.GetAttr("size")
+	if !size.IsNull() {
 		p.Size.X = size.GetAttr("x").AsString()
 		p.Size.Y = size.GetAttr("y").AsString()
 	}
 
-	if !value.GetAttr("envs").IsNull() {
-		p.Envs = make(Envs)
-		for name, value := range value.GetAttr("envs").AsValueMap() {
-			p.Envs[Name(name)] = Value(value.AsString())
+	envs := pane.GetAttr("envs")
+	if !envs.IsNull() {
+		p.Envs = p.DecodeEnvs(envs)
+	}
+
+	hooks := pane.GetAttr("hooks")
+	if !hooks.IsNull() {
+		p.Hooks = make(schema.Hooks)
+		for name, hook := range hooks.AsValueMap() {
+			p.Hooks[schema.Name(name)] = schema.Value(hook.AsString())
 		}
 	}
 
-	if !value.GetAttr("hooks").IsNull() {
-		p.Hooks = make(Hooks)
-		for name, value := range value.GetAttr("hooks").AsValueMap() {
-			p.Hooks[Name(name)] = Value(value.AsString())
-		}
-	}
+	commands := pane.GetAttr("commands")
+	if commands.CanIterateElements() {
+		commandIterator := commands.ElementIterator()
 
-	if !value.GetAttr("commands").IsNull() {
-		if value.GetAttr("commands").CanIterateElements() {
-			cit := value.GetAttr("commands").ElementIterator()
-			for cit.Next() {
-				_, c := cit.Element()
-				if c.Type().FriendlyName() == "string" {
-					p.Commands = append(p.Commands, Command(c.AsString()))
-				}
+		for commandIterator.Next() {
+			_, command := commandIterator.Element()
+			if command.Type().FriendlyName() == "string" {
+				p.Commands = append(p.Commands, schema.Command(command.AsString()))
 			}
 		}
 	}

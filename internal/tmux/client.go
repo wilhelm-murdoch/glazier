@@ -8,7 +8,7 @@ import (
 
 	"github.com/wilhelm-murdoch/go-collection"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema/session"
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
 )
 
@@ -242,8 +242,8 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 
 // NewSession creates a new session with the given name and starting directory.
 func (c Client) NewSession(
-	sessionName session.Name,
-	startingDirectory session.Directory,
+	sessionName schema.Name,
+	startingDirectory schema.Directory,
 ) (*Session, error) {
 	var session *Session
 
@@ -277,8 +277,8 @@ func (c Client) NewSession(
 // NewSessionIfNotExists creates a new session with the given name and starting
 // directory if it does not already exist.
 func (c Client) NewSessionIfNotExists(
-	sessionName session.Name,
-	startingDirectory session.Directory,
+	sessionName schema.Name,
+	startingDirectory schema.Directory,
 ) (*Session, error) {
 	sessions, _ := c.Sessions()
 	exists := sessions.Find(func(i int, s *Session) bool {
@@ -293,7 +293,7 @@ func (c Client) NewSessionIfNotExists(
 }
 
 // KillSession kills the given session.
-func (c Client) KillSessionByName(sessionName session.Name) error {
+func (c Client) KillSessionByName(sessionName schema.Name) error {
 	cmd, _ := NewCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
 
 	if _, err := cmd.ExecWithOutput(); err != nil {
@@ -304,7 +304,7 @@ func (c Client) KillSessionByName(sessionName session.Name) error {
 }
 
 // FindSessionByName returns the session with the given name if it exists.
-func (c Client) FindSessionByName(sessionName session.Name) (*Session, error) {
+func (c Client) FindSessionByName(sessionName schema.Name) (*Session, error) {
 	sessions, _ := c.Sessions()
 
 	if found := sessions.Find(func(i int, s *Session) bool {
@@ -317,7 +317,7 @@ func (c Client) FindSessionByName(sessionName session.Name) (*Session, error) {
 }
 
 // SessionExists returns true if a session with the given name exists.
-func (c Client) SessionExists(sessionName session.Name) bool {
+func (c Client) SessionExists(sessionName schema.Name) bool {
 	cmd, _ := NewCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
 
 	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {

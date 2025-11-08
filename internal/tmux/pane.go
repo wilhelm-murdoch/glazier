@@ -3,7 +3,7 @@ package tmux
 import (
 	"fmt"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 )
 
 type PaneId int
@@ -30,7 +30,7 @@ func (p Pane) Target() string {
 }
 
 // SendKeys sends the given keystrokes to the current pane.
-func (p Pane) SendKeys(keys pane.Command) error {
+func (p Pane) SendKeys(keys schema.Command) error {
 	cmd, err := NewCommand(
 		p.Window.Session.Client,
 		"send",
@@ -47,7 +47,7 @@ func (p Pane) SendKeys(keys pane.Command) error {
 }
 
 // SetEnv sets the given environment variable to the given value in the current pane.
-func (p Pane) SetEnv(key pane.Name, value pane.Value) error {
+func (p Pane) SetEnv(key schema.Name, value schema.Value) error {
 	cmd, err := NewCommand(
 		p.Window.Session.Client,
 		"setenv",
@@ -64,7 +64,7 @@ func (p Pane) SetEnv(key pane.Name, value pane.Value) error {
 }
 
 // Resize is responsible for modifying the height, or width, of the current pane.
-func (p Pane) Resize(size pane.Size) error {
+func (p Pane) Resize(size schema.Size) error {
 	cmd, err := NewCommand(
 		p.Window.Session.Client,
 		"resizep",

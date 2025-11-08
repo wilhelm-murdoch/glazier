@@ -34,7 +34,7 @@ func (dm *DiagnosticsManager) HasErrors() bool {
 }
 
 // NewDiagnosticsManager is responsible for creating a new DiagnosticsManager instance.
-func NewDiagnosticsManager(filePath string) *DiagnosticsManager {
+func New(filePath string) *DiagnosticsManager {
 	parser := hclparse.NewParser()
 	file, diags := parser.ParseHCLFile(filePath)
 

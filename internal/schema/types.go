@@ -1,4 +1,4 @@
-package pane
+package schema
 
 type (
 	Value     string         // Value represents a generic string value used in various pane configurations.
@@ -8,6 +8,7 @@ type (
 	Hooks     map[Name]Value // Hooks is a map of hook names to their associated commands or values.
 	Options   map[Name]Value // Options is a map of pane-specific options to their values.
 	Command   string         // Command represents a command to be executed within a pane.
+	Commands  []Command      // Commands represents a list of Command types
 	Focus     bool           // Focus indicates whether a pane should be focused.
 )
 
@@ -18,16 +19,4 @@ type Size struct {
 // Valid is a function that returns True if both X and Y values are not blank
 func (s Size) Valid() bool {
 	return s.X != "" && s.Y != ""
-}
-
-// Pane represents the configuration for a single tmux pane.
-type Pane struct {
-	Name              Name
-	StartingDirectory Directory
-	Size              Size
-	Envs              Envs
-	Hooks             Hooks
-	Options           Options
-	Commands          []Command
-	Focus             Focus
 }

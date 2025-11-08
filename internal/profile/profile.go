@@ -30,7 +30,6 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	}
 
 	profilePath = filepath.Join(cwd, ".glaze")
-
 	if !files.FileExists(profilePath) && os.Getenv("GLAZE_PATH") != "" {
 		profilePath = filepath.Join(os.Getenv("GLAZE_PATH"), ".glaze")
 	}

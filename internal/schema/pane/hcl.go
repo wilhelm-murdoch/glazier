@@ -19,7 +19,7 @@ var Spec = &hcldec.BlockListSpec{
 				Type: cty.String,
 			},
 			"envs": &hcldec.AttrSpec{
-				Name: "hooks",
+				Name: "envs",
 				Type: cty.Map(cty.String),
 			},
 			"hooks": &hcldec.AttrSpec{

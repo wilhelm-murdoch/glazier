@@ -4,59 +4,67 @@ import (
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/wilhelm-murdoch/go-collection"
 	"github.com/zclconf/go-cty/cty"
 
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
 )
 
 const DefaultGlazeSesssionName = "default"
 
+type Session struct {
+	schema.Base
+	Name              schema.Name
+	StartingDirectory schema.Directory
+	Windows           collection.Collection[*window.Window]
+	Commands          schema.Commands
+}
+
 // Decode is responsible for decoding a cty.Value into a Session struct.
-func (s *Session) Decode(value cty.Value) hcl.Diagnostics {
+func (s *Session) Decode(session cty.Value) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
-	s.Name = DefaultGlazeSesssionName
-	if !value.GetAttr("name").IsNull() {
-		s.Name = Name(value.GetAttr("name").AsString())
+	name := session.GetAttr("name")
+	if !name.IsNull() {
+		s.Name = schema.Name(name.AsString())
+	} else {
+		s.Name = DefaultGlazeSesssionName
 	}
 
-	if !value.GetAttr("starting_directory").IsNull() {
-		s.StartingDirectory = Directory(value.GetAttr("starting_directory").AsString())
+	startingDirectory := session.GetAttr("starting_directory")
+	if !startingDirectory.IsNull() {
+		s.StartingDirectory = schema.Directory(startingDirectory.AsString())
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			s.StartingDirectory = Directory(pwd)
+			s.StartingDirectory = schema.Directory(pwd)
 		}
 	}
 
-	if !value.GetAttr("envs").IsNull() {
-		s.Envs = make(Envs)
-		for name, value := range value.GetAttr("envs").AsValueMap() {
-			s.Envs[Name(name)] = Value(value.AsString())
-		}
+	envs := session.GetAttr("envs")
+	if !envs.IsNull() {
+		s.Envs = s.DecodeEnvs(envs)
 	}
 
-	if !value.GetAttr("commands").IsNull() {
-		s.Commands = make(Commands, len(value.GetAttr("commands").AsValueSlice()))
-		for _, command := range value.GetAttr("commands").AsValueSlice() {
-			s.Commands = append(s.Commands, command.AsString())
-		}
+	commands := session.GetAttr("commands")
+	if !commands.IsNull() {
+		s.Commands = s.DecodeCommands(commands)
 	}
 
-	if !value.GetAttr("windows").IsNull() {
-		if value.GetAttr("windows").CanIterateElements() {
-			it := value.GetAttr("windows").ElementIterator()
+	windows := session.GetAttr("windows")
+	if windows.CanIterateElements() {
+		windowIterator := windows.ElementIterator()
 
-			for it.Next() {
-				_, value := it.Element()
+		for windowIterator.Next() {
+			_, element := windowIterator.Element()
 
-				window := new(window.Window)
-				if diags = window.Decode(value); diags.HasErrors() {
-					diags = diags.Extend(diags)
-					continue
-				}
-
-				s.Windows.Push(window)
+			window := new(window.Window)
+			if diags = window.Decode(element); diags.HasErrors() {
+				diags = diags.Extend(diags)
+				continue
 			}
+
+			s.Windows.Push(window)
 		}
 	}
 

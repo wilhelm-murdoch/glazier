@@ -4,65 +4,79 @@ import (
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/wilhelm-murdoch/go-collection"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/gocty"
 
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
 	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
 )
 
 const DefaultGlazeWindowName = "default"
 
+// Window represents the configuration for a single tmux window.
+type Window struct {
+	schema.Base
+	Name              schema.Name
+	StartingDirectory schema.Directory
+	Options           schema.Options
+	Panes             collection.Collection[*pane.Pane]
+	Layout            enums.Layout
+	Focus             schema.Focus
+}
+
 // Decode is responsible for decoding a cty.Value into a Window struct.
-func (w *Window) Decode(value cty.Value) hcl.Diagnostics {
+func (w *Window) Decode(window cty.Value) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
-	w.Name = "default"
-	if !value.GetAttr("name").IsNull() {
-		w.Name = Name(value.GetAttr("name").AsString())
+	name := window.GetAttr("name")
+	if !name.IsNull() {
+		w.Name = schema.Name(name.AsString())
+	} else {
+		w.Name = DefaultGlazeWindowName
 	}
 
-	if !value.GetAttr("layout").IsNull() {
-		w.Layout = enums.LayoutFromString(value.GetAttr("layout").AsString())
+	layout := window.GetAttr("layout")
+	if !layout.IsNull() {
+		w.Layout = enums.LayoutFromString(layout.AsString())
 	} else {
 		w.Layout = enums.LayoutTiled
 	}
 
-	if !value.GetAttr("focus").IsNull() {
-		gocty.FromCtyValue(value.GetAttr("focus"), &w.Focus)
+	focus := window.GetAttr("focus")
+	if !focus.IsNull() {
+		gocty.FromCtyValue(focus, &w.Focus)
 	}
 
-	if !value.GetAttr("starting_directory").IsNull() {
-		w.StartingDirectory = Directory(value.GetAttr("starting_directory").AsString())
+	startingDirectory := window.GetAttr("starting_directory")
+	if !startingDirectory.IsNull() {
+		w.StartingDirectory = schema.Directory(startingDirectory.AsString())
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			w.StartingDirectory = Directory(pwd)
+			w.StartingDirectory = schema.Directory(pwd)
 		}
 	}
 
-	if !value.GetAttr("envs").IsNull() {
-		w.Envs = make(Envs)
-		for name, value := range value.GetAttr("envs").AsValueMap() {
-			w.Envs[Name(name)] = Value(value.AsString())
-		}
+	envs := window.GetAttr("envs")
+	if !envs.IsNull() {
+		w.Envs = w.DecodeEnvs(envs)
 	}
 
-	if !value.GetAttr("panes").IsNull() {
-		if value.GetAttr("panes").CanIterateElements() {
-			it := value.GetAttr("panes").ElementIterator()
+	panes := window.GetAttr("panes")
+	if panes.CanIterateElements() {
+		paneIterator := panes.ElementIterator()
 
-			for it.Next() {
-				_, value := it.Element()
+		for paneIterator.Next() {
+			_, element := paneIterator.Element()
 
-				pane := new(pane.Pane)
-
-				if diags = pane.Decode(value); diags.HasErrors() {
-					diags = diags.Extend(diags)
-					continue
-				}
-
-				w.Panes.Push(pane)
+			pane := new(pane.Pane)
+			if diags = pane.Decode(element); diags.HasErrors() {
+				diags = diags.Extend(diags)
+				continue
 			}
+
+			w.Panes.Push(pane)
 		}
 	}
 

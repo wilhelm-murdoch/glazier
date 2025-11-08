@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
+	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
 )
 
@@ -37,8 +37,8 @@ func (w Window) Target() string {
 // Split splits the current window into two panes.
 func (w *Window) Split(
 	parentId string,
-	name pane.Name,
-	startingDirectory pane.Directory,
+	name schema.Name,
+	startingDirectory schema.Directory,
 ) (Pane, error) {
 	var pane Pane
 

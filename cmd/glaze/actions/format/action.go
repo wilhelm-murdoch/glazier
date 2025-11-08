@@ -11,7 +11,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
-	"github.com/wilhelm-murdoch/glazier/internal/schema"
+	"github.com/wilhelm-murdoch/glazier/internal/schema/session"
 )
 
 type Action struct {
@@ -76,7 +76,7 @@ func (a *Action) isGlazeDefintionValid() bool {
 	}
 
 	_, decodeDiags := a.Parser.Decode(
-		schema.PrimaryGlazeSpec,
+		session.Spec,
 		parser.BuildEvalContext(variables),
 	)
 

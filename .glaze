@@ -19,6 +19,12 @@ session {
     pane {
       name = "resized"
 
+      envs = {
+        PATH = "/usr/bin/"
+      }
+
+
+
       adjust {
         direction = "up"
         amount    = 30
