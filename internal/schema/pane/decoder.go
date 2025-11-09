@@ -15,19 +15,27 @@ const DefaultGlazePaneName = "default"
 // Pane represents the configuration for a single tmux pane.
 type Pane struct {
 	schema.Base
-	StartingDirectory schema.Directory
-	Size              schema.Size
-	Options           schema.Options
-	Commands          schema.Commands
-	Focus             schema.Focus
+	Size     Size
+	Commands []string
+	Focus    bool
+}
+
+type Size struct {
+	X, Y string
+}
+
+// Valid is a function that returns True if both X and Y values are not blank
+func (s Size) Valid() bool {
+	return s.X != "" && s.Y != ""
 }
 
 // Decode is responsible for decoding a cty.Value into a Pane struct.
 func (p *Pane) Decode(pane cty.Value) hcl.Diagnostics {
 	var diags hcl.Diagnostics
 
-	if !pane.GetAttr("name").IsNull() {
-		p.Name = schema.Name(pane.GetAttr("name").AsString())
+	name := pane.GetAttr("name")
+	if !name.IsNull() {
+		p.Name = name.AsString()
 	} else {
 		p.Name = DefaultGlazePaneName
 	}
@@ -39,10 +47,10 @@ func (p *Pane) Decode(pane cty.Value) hcl.Diagnostics {
 
 	startingDirectory := pane.GetAttr("starting_directory")
 	if !startingDirectory.IsNull() {
-		p.StartingDirectory = schema.Directory(startingDirectory.AsString())
+		p.StartingDirectory = startingDirectory.AsString()
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			p.StartingDirectory = schema.Directory(pwd)
+			p.StartingDirectory = pwd
 		}
 	}
 
@@ -59,9 +67,9 @@ func (p *Pane) Decode(pane cty.Value) hcl.Diagnostics {
 
 	hooks := pane.GetAttr("hooks")
 	if !hooks.IsNull() {
-		p.Hooks = make(schema.Hooks)
+		p.Hooks = make(map[string]string)
 		for name, hook := range hooks.AsValueMap() {
-			p.Hooks[schema.Name(name)] = schema.Value(hook.AsString())
+			p.Hooks[name] = hook.AsString()
 		}
 	}
 
@@ -72,7 +80,7 @@ func (p *Pane) Decode(pane cty.Value) hcl.Diagnostics {
 		for commandIterator.Next() {
 			_, command := commandIterator.Element()
 			if command.Type().FriendlyName() == "string" {
-				p.Commands = append(p.Commands, schema.Command(command.AsString()))
+				p.Commands = append(p.Commands, command.AsString())
 			}
 		}
 	}

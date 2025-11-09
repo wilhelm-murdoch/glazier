@@ -15,10 +15,8 @@ const DefaultGlazeSesssionName = "default"
 
 type Session struct {
 	schema.Base
-	Name              schema.Name
-	StartingDirectory schema.Directory
-	Windows           collection.Collection[*window.Window]
-	Commands          schema.Commands
+	Windows  collection.Collection[*window.Window]
+	Commands []string
 }
 
 // Decode is responsible for decoding a cty.Value into a Session struct.
@@ -27,17 +25,17 @@ func (s *Session) Decode(session cty.Value) hcl.Diagnostics {
 
 	name := session.GetAttr("name")
 	if !name.IsNull() {
-		s.Name = schema.Name(name.AsString())
+		s.Name = name.AsString()
 	} else {
 		s.Name = DefaultGlazeSesssionName
 	}
 
 	startingDirectory := session.GetAttr("starting_directory")
 	if !startingDirectory.IsNull() {
-		s.StartingDirectory = schema.Directory(startingDirectory.AsString())
+		s.StartingDirectory = startingDirectory.AsString()
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			s.StartingDirectory = schema.Directory(pwd)
+			s.StartingDirectory = pwd
 		}
 	}
 

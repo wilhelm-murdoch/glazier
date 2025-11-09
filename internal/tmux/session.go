@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
 )
 
@@ -31,7 +30,7 @@ func (s *Session) Target() string {
 }
 
 // NewWindow creates a new window in the current session and returns it.
-func (s *Session) NewWindow(windowName schema.Name) (*Window, error) {
+func (s *Session) NewWindow(windowName string) (*Window, error) {
 	var window *Window
 
 	format := []string{

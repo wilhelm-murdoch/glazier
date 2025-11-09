@@ -18,12 +18,9 @@ const DefaultGlazeWindowName = "default"
 // Window represents the configuration for a single tmux window.
 type Window struct {
 	schema.Base
-	Name              schema.Name
-	StartingDirectory schema.Directory
-	Options           schema.Options
-	Panes             collection.Collection[*pane.Pane]
-	Layout            enums.Layout
-	Focus             schema.Focus
+	Panes  collection.Collection[*pane.Pane]
+	Layout enums.Layout
+	Focus  bool
 }
 
 // Decode is responsible for decoding a cty.Value into a Window struct.
@@ -32,7 +29,7 @@ func (w *Window) Decode(window cty.Value) hcl.Diagnostics {
 
 	name := window.GetAttr("name")
 	if !name.IsNull() {
-		w.Name = schema.Name(name.AsString())
+		w.Name = name.AsString()
 	} else {
 		w.Name = DefaultGlazeWindowName
 	}
@@ -51,10 +48,10 @@ func (w *Window) Decode(window cty.Value) hcl.Diagnostics {
 
 	startingDirectory := window.GetAttr("starting_directory")
 	if !startingDirectory.IsNull() {
-		w.StartingDirectory = schema.Directory(startingDirectory.AsString())
+		w.StartingDirectory = startingDirectory.AsString()
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
-			w.StartingDirectory = schema.Directory(pwd)
+			w.StartingDirectory = pwd
 		}
 	}
 
