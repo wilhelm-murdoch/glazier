@@ -30,8 +30,8 @@ func (p *Parser) Decode(
 		panic("glaze definition invalid")
 	}
 
-	session, _ := session.New()
-	if diags := session.Decode(decodedGlazeDefinition); diags.HasErrors() {
+	session := session.New(decodedGlazeDefinition)
+	if diags := session.Decode(); diags.HasErrors() {
 		return nil, diags
 	}
 
@@ -48,7 +48,7 @@ func New(path string) (*Parser, hcl.Diagnostics) {
 	}
 
 	return &Parser{
-		parser: parser,
 		File:   file,
+		parser: parser,
 	}, nil
 }
