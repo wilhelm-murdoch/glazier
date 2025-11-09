@@ -4,7 +4,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/zclconf/go-cty/cty/gocty"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/pane"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 

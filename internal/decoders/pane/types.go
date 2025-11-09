@@ -1,13 +1,14 @@
 package pane
 
 import (
-	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 )
 
 // Pane represents the configuration for a single tmux pane.
 type Pane struct {
-	*schema.BaseSchema
+	*decoders.BaseDecoder
 	Size     Size
 	Commands []string
 	Focus    bool
@@ -23,9 +24,9 @@ func (s Size) Valid() bool {
 }
 
 func New(spec cty.Value) *Pane {
-	base := schema.New(spec)
+	base := decoders.New(spec)
 
 	return &Pane{
-		BaseSchema: base,
+		BaseDecoder: base,
 	}
 }

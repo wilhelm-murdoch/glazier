@@ -7,11 +7,11 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/pane"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/session"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/window"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
-	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
-	"github.com/wilhelm-murdoch/glazier/internal/schema/session"
-	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 

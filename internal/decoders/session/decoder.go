@@ -3,7 +3,7 @@ package session
 import (
 	"github.com/hashicorp/hcl/v2"
 
-	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/window"
 )
 
 // Decode is responsible for decoding a cty.Value into a Session struct.

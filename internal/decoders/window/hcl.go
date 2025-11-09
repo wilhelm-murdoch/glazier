@@ -1,17 +1,18 @@
-package session
+package window
 
 import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/zclconf/go-cty/cty"
 
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/pane"
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
-	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-var Spec = &hcldec.BlockSpec{
-	TypeName: "session",
-	Required: true,
+var Spec = &hcldec.BlockListSpec{
+	TypeName: "window",
+	MinItems: 1,
 	Nested: &hcldec.ObjectSpec{
 		"name": &hcldec.AttrSpec{
 			Name: "name",
@@ -25,9 +26,9 @@ var Spec = &hcldec.BlockSpec{
 			Name: "hooks",
 			Type: cty.Map(cty.String),
 		},
-		"commands": &hcldec.AttrSpec{
-			Name: "commands",
-			Type: cty.List(cty.String),
+		"focus": &hcldec.AttrSpec{
+			Name: "focus",
+			Type: cty.Bool,
 		},
 		"starting_directory": &hcldec.ValidateSpec{
 			Wrapped: &hcldec.AttrSpec{
@@ -38,6 +39,15 @@ var Spec = &hcldec.BlockSpec{
 				return diagnostics.DirectoryDiagnostic("starting directory", value)
 			},
 		},
-		"windows": window.Spec,
+		"layout": &hcldec.ValidateSpec{
+			Wrapped: &hcldec.AttrSpec{
+				Name: "layout",
+				Type: cty.String,
+			},
+			Func: func(value cty.Value) hcl.Diagnostics {
+				return diagnostics.ContainsDiagnostic("layout", value, enums.LayoutList)
+			},
+		},
+		"panes": pane.Spec,
 	},
 }

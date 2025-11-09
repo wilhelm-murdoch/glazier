@@ -1,22 +1,23 @@
 package session
 
 import (
-	"github.com/wilhelm-murdoch/glazier/internal/schema"
-	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
 	"github.com/wilhelm-murdoch/go-collection"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/wilhelm-murdoch/glazier/internal/decoders"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders/window"
 )
 
 type Session struct {
-	*schema.BaseSchema
+	*decoders.BaseDecoder
 	Windows  collection.Collection[*window.Window]
 	Commands []string
 }
 
 func New(spec cty.Value) *Session {
-	base := schema.New(spec)
+	base := decoders.New(spec)
 
 	return &Session{
-		BaseSchema: base,
+		BaseDecoder: base,
 	}
 }

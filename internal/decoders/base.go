@@ -1,4 +1,4 @@
-package schema
+package decoders
 
 import (
 	"os"
@@ -8,7 +8,7 @@ import (
 
 const DefaultGlazeElementName = "default"
 
-type BaseSchema struct {
+type BaseDecoder struct {
 	Name              string
 	Envs              map[string]string
 	Hooks             map[string]string
@@ -17,8 +17,8 @@ type BaseSchema struct {
 	Spec              cty.Value
 }
 
-func New(spec cty.Value) *BaseSchema {
-	base := &BaseSchema{
+func New(spec cty.Value) *BaseDecoder {
+	base := &BaseDecoder{
 		Spec: spec,
 	}
 
