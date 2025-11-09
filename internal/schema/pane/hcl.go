@@ -6,7 +6,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
-	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 var Spec = &hcldec.BlockListSpec{

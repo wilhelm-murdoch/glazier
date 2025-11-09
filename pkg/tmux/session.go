@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 type SessionId int

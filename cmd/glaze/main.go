@@ -14,8 +14,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/save"
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/up"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
-	"github.com/wilhelm-murdoch/glazier/internal/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
 const defaultErrCode = 1

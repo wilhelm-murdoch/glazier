@@ -10,7 +10,7 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/internal/schema"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
-	"github.com/wilhelm-murdoch/glazier/internal/tmux/enums"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 const DefaultGlazeWindowName = "default"

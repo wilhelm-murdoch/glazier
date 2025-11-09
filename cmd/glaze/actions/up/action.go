@@ -12,7 +12,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/session"
 	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
-	"github.com/wilhelm-murdoch/glazier/internal/tmux"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
 type Action struct {
@@ -169,7 +169,7 @@ func (a *Action) generatePanes(
 
 		if ps.Size.Valid() {
 			a.Logger.Info("setting size", "x", ps.Size.X, "y", ps.Size.Y, "name", ptmx.Name)
-			ptmx.Resize(ps.Size)
+			ptmx.Resize(ps.Size.X, ps.Size.Y)
 		}
 
 		if ps.Focus {

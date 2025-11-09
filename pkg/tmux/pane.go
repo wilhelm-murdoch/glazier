@@ -2,8 +2,6 @@ package tmux
 
 import (
 	"fmt"
-
-	"github.com/wilhelm-murdoch/glazier/internal/schema/pane"
 )
 
 type PaneId int
@@ -64,17 +62,8 @@ func (p Pane) SetEnv(key, value string) error {
 }
 
 // Resize is responsible for modifying the height, or width, of the current pane.
-func (p Pane) Resize(size pane.Size) error {
-	cmd, err := NewCommand(
-		p.Window.Session.Client,
-		"resizep",
-		"-t",
-		p.Target(),
-		"-x",
-		size.X,
-		"-y",
-		size.Y,
-	)
+func (p Pane) Resize(x, y string) error {
+	cmd, err := NewCommand(p.Window.Session.Client, "resizep", "-t", p.Target(), "-x", x, "-y", y)
 	if err != nil {
 		return err
 	}
