@@ -37,7 +37,7 @@ func NewBaseAction(
 		return nil, ge.ErrorInvalidDefinition
 	}
 
-	parser, parserDiags := parser.NewParser(profilePath)
+	parser, parserDiags := parser.New(profilePath)
 	if parserDiags.HasErrors() {
 		diagsManager.Write()
 		return nil, ge.ErrorInvalidDefinition

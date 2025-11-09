@@ -14,7 +14,7 @@ const DefaultGlazePaneName = "default"
 
 // Pane represents the configuration for a single tmux pane.
 type Pane struct {
-	schema.Base
+	schema.BaseSchema
 	Size     Size
 	Commands []string
 	Focus    bool

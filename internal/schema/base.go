@@ -1,8 +1,11 @@
 package schema
 
-import "github.com/zclconf/go-cty/cty"
+import (
+	"github.com/hashicorp/hcl/v2"
+	"github.com/zclconf/go-cty/cty"
+)
 
-type Base struct {
+type BaseSchema struct {
 	Name              string
 	Envs              map[string]string
 	Hooks             map[string]string
@@ -10,7 +13,11 @@ type Base struct {
 	StartingDirectory string
 }
 
-func (b *Base) DecodeEnvs(envs cty.Value) map[string]string {
+func New() (*BaseSchema, hcl.Diagnostics) {
+	return &BaseSchema{}, nil
+}
+
+func (b *BaseSchema) DecodeEnvs(envs cty.Value) map[string]string {
 	out := make(map[string]string, len(envs.AsValueMap()))
 	for name, value := range envs.AsValueMap() {
 		out[name] = value.AsString()
@@ -19,7 +26,7 @@ func (b *Base) DecodeEnvs(envs cty.Value) map[string]string {
 	return out
 }
 
-func (b *Base) DecodeCommands(commands cty.Value) []string {
+func (b *BaseSchema) DecodeCommands(commands cty.Value) []string {
 	var out []string
 
 	if commands.CanIterateElements() {

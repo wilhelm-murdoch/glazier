@@ -9,10 +9,9 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/schema/window"
 )
 
-var Spec = &hcldec.BlockListSpec{
+var Spec = &hcldec.BlockSpec{
 	TypeName: "session",
-	MinItems: 1,
-	MaxItems: 1,
+	Required: true,
 	Nested: &hcldec.ObjectSpec{
 		"name": &hcldec.AttrSpec{
 			Name: "name",

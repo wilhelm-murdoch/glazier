@@ -17,7 +17,7 @@ const DefaultGlazeWindowName = "default"
 
 // Window represents the configuration for a single tmux window.
 type Window struct {
-	schema.Base
+	schema.BaseSchema
 	Panes  collection.Collection[*pane.Pane]
 	Layout enums.Layout
 	Focus  bool

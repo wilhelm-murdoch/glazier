@@ -14,9 +14,15 @@ import (
 const DefaultGlazeSesssionName = "default"
 
 type Session struct {
-	schema.Base
+	schema.BaseSchema
 	Windows  collection.Collection[*window.Window]
 	Commands []string
+}
+
+func New() (*Session, hcl.Diagnostics) {
+	var diags hcl.Diagnostics
+
+	return &Session{}, diags
 }
 
 // Decode is responsible for decoding a cty.Value into a Session struct.

@@ -18,29 +18,28 @@ func (p *Parser) Decode(
 	spec hcldec.Spec,
 	ctx *hcl.EvalContext,
 ) (*session.Session, hcl.Diagnostics) {
-	var diags hcl.Diagnostics
-
-	decoded, diags := hcldec.Decode(p.File.Body, spec, ctx)
+	decodedGlazeDefinition, diags := hcldec.Decode(p.File.Body, spec, ctx)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	session := new(session.Session)
-
-	it := decoded.ElementIterator()
-	for it.Next() {
-		_, value := it.Element()
-		if diagsDecode := session.Decode(value); diagsDecode.HasErrors() {
-			diags = diags.Extend(diagsDecode)
-			continue
-		}
+	if decodedGlazeDefinition.IsNull() {
+		// We should never get to this point as the HCL specification for a glaze
+		// definition file would return a validation error if no session block is
+		// defined.
+		panic("glaze definition invalid")
 	}
 
-	return session, diags
+	session, _ := session.New()
+	if diags := session.Decode(decodedGlazeDefinition); diags.HasErrors() {
+		return nil, diags
+	}
+
+	return session, nil
 }
 
-// NewParser is responsible for creating a new Parser instance and parsing the HCL file.
-func NewParser(path string) (*Parser, hcl.Diagnostics) {
+// New is responsible for creating a new Parser and parsing the specified HCL file.
+func New(path string) (*Parser, hcl.Diagnostics) {
 	parser := hclparse.NewParser()
 	file, diags := parser.ParseHCLFile(path)
 
