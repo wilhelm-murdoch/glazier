@@ -16,8 +16,6 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 )
 
-const defaultErrCode = 1
-
 var (
 	// Version describes the version of the current build.
 	Version = "dev"
@@ -62,11 +60,9 @@ func main() {
 				Usage: "specify a log level",
 				Validator: func(value string) error {
 					if _, ok := logger.FriendlyToInternal[value]; !ok {
-						return cli.Exit(
-							fmt.Sprintf("specified an invalid log level value: %s", value),
-							defaultErrCode,
-						)
+						return fmt.Errorf("specified an invalid log level value: %s", value)
 					}
+
 					log = logger.New(logger.FriendlyToInternal[value])
 					return nil
 				},
@@ -109,24 +105,18 @@ func main() {
 					Validator: func(value []string) error {
 						for _, variable := range value {
 							if !strings.Contains(variable, "=") {
-								return cli.Exit(
-									fmt.Sprintf(
-										"the --var `%s` does not match the required format of `key=value`",
-										variable,
-									),
-									defaultErrCode,
+								return fmt.Errorf(
+									"the --var `%s` does not match the required format of `key=value`",
+									variable,
 								)
 							}
 
 							parts := strings.SplitN(variable, "=", 2)
 
 							if strings.HasSuffix(parts[0], " ") {
-								return cli.Exit(
-									fmt.Sprintf(
-										"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
-										parts[0],
-									),
-									defaultErrCode,
+								return fmt.Errorf(
+									"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
+									parts[0],
 								)
 							}
 						}
