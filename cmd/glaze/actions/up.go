@@ -1,4 +1,4 @@
-package up
+package actions
 
 import (
 	"fmt"
@@ -6,7 +6,6 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
@@ -14,15 +13,15 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-type Action struct {
-	actions.BaseAction
+type ActionUp struct {
+	ActionBase
 	client  *tmux.Client
 	session *tmux.Session
 }
 
 // NewAction is responsible for creating a new Action instance.
-func NewAction(cmd *cli.Command, logger *logger.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(cmd, logger)
+func NewUp(cmd *cli.Command, logger *logger.Logger) (*ActionUp, error) {
+	base, err := NewActionBase(cmd, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -33,14 +32,14 @@ func NewAction(cmd *cli.Command, logger *logger.Logger) (*Action, error) {
 		cmd.Bool("debug"),
 	)
 
-	return &Action{
-		BaseAction: *base,
+	return &ActionUp{
+		ActionBase: *base,
 		client:     client,
 	}, nil
 }
 
 // Run is responsible for executing the up action, which includes parsing variables, decoding the profile, resolving the session, and generating windows.
-func (a *Action) Run() error {
+func (a *ActionUp) Run() error {
 	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
 		return fmt.Errorf("could not parse specified variables: %w", err)
@@ -91,7 +90,7 @@ func (a *Action) Run() error {
 }
 
 // generateWindows iterates through the windows and panes defined within the specified profile and create them within the tmux session.
-func (a *Action) generateWindows(windows []*decoders.Window) error {
+func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 	for _, ws := range windows {
 		a.Logger.Info("creating new window", "name", ws.Name)
 		wtmx, err := a.session.NewWindow(ws.Name)
@@ -134,7 +133,7 @@ func (a *Action) generateWindows(windows []*decoders.Window) error {
 	return nil
 }
 
-func (a *Action) generatePanes(
+func (a *ActionUp) generatePanes(
 	panes []*decoders.Pane,
 	defaultPane *tmux.Pane,
 	wtmx *tmux.Window,
@@ -181,7 +180,7 @@ func (a *Action) generatePanes(
 }
 
 // getDefaultPane is responsible for retrieving the default pane for a given tmux window.
-func (a *Action) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
+func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 	panes, err := a.client.Panes(window)
 	if err != nil {
 		return nil, fmt.Errorf("could not read panes for window `%s`: %w", window.Name, err)
@@ -199,7 +198,7 @@ func (a *Action) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 }
 
 // getDefaultWindow is responsible for retrieving the default window for a given tmux session.
-func (a *Action) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
+func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
 	windows, err := a.client.Windows(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not read windows for session `%s`: %w", session.Name, err)
@@ -217,7 +216,7 @@ func (a *Action) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
 }
 
 // resolveSession is responsible for resolving the tmux session, either by attaching to an existing one or creating a new one.
-func (a *Action) resolveSession(profile *decoders.Session) (bool, error) {
+func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	attached := false
 
 	if a.Command.Bool("clear") {

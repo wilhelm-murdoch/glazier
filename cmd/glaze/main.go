@@ -10,9 +10,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
-	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/format"
-	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/save"
-	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/up"
+	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 )
 
@@ -126,7 +124,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := up.NewAction(cmd, log)
+				action, err := actions.NewUp(cmd, log)
 				if err != nil {
 					return err
 				}
@@ -147,7 +145,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := format.NewAction(cmd, log)
+				action, err := actions.NewFormat(cmd, log)
 				if err != nil {
 					return err
 				}
@@ -158,7 +156,7 @@ func main() {
 			Name:  "save",
 			Usage: "running this within a tmux session will save its current state to the specified glaze profile",
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := save.NewAction(cmd, log)
+				action, err := actions.NewSave(cmd, log)
 				if err != nil {
 					return err
 				}

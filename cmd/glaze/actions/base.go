@@ -12,7 +12,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
-type BaseAction struct {
+type ActionBase struct {
 	Context            context.Context
 	Command            *cli.Command
 	DiagnosticsManager *diagnostics.DiagnosticsManager
@@ -21,11 +21,11 @@ type BaseAction struct {
 	Logger             *logger.Logger
 }
 
-// NewBaseAction is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
-func NewBaseAction(
+// NewActionBase is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
+func NewActionBase(
 	cmd *cli.Command,
 	logger *logger.Logger,
-) (*BaseAction, error) {
+) (*ActionBase, error) {
 	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func NewBaseAction(
 		return nil, ge.ErrorInvalidDefinition
 	}
 
-	return &BaseAction{
+	return &ActionBase{
 		Command:            cmd,
 		DiagnosticsManager: diagsManager,
 		Parser:             parser,
@@ -53,6 +53,6 @@ func NewBaseAction(
 }
 
 // Run is responsible for executing the base action, which is not yet implemented and returns an error.
-func (ba *BaseAction) Run() error {
+func (ba *ActionBase) Run() error {
 	return ge.ErrorNotYetImplemented
 }

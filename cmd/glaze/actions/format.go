@@ -1,4 +1,4 @@
-package format
+package actions
 
 import (
 	"fmt"
@@ -8,31 +8,30 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
 
-	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
-type Action struct {
-	actions.BaseAction
+type ActionFormat struct {
+	ActionBase
 }
 
 // NewAction is responsible for creating a new Action instance for the format command.
-func NewAction(cmd *cli.Command, logger *logger.Logger) (*Action, error) {
-	base, err := actions.NewBaseAction(cmd, logger)
+func NewFormat(cmd *cli.Command, logger *logger.Logger) (*ActionFormat, error) {
+	base, err := NewActionBase(cmd, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Action{
-		BaseAction: *base,
+	return &ActionFormat{
+		ActionBase: *base,
 	}, nil
 }
 
 // Run is an action that will reformat the given glaze definition file to match
 // a canonical format and style, ensuring consistency.
-func (a *Action) Run() error {
+func (a *ActionFormat) Run() error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
 	if a.Command.Bool("validate") {
@@ -63,7 +62,7 @@ func (a *Action) Run() error {
 
 // isGlazeDefintionValid checks if the given glaze definition file and any variable
 // flags yield a valid result when run through the schema.Parser.
-func (a *Action) isGlazeDefintionValid() bool {
+func (a *ActionFormat) isGlazeDefintionValid() bool {
 	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
 		a.DiagnosticsManager.Append(&hcl.Diagnostic{
