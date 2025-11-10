@@ -14,8 +14,6 @@ import (
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/save"
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions/up"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
-	"github.com/wilhelm-murdoch/glazier/pkg/files"
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
 const defaultErrCode = 1
@@ -35,7 +33,7 @@ var (
 )
 
 func main() {
-	log := logger.New(logger.LevelTrace)
+	log := logger.New(logger.LevelInfo)
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
@@ -57,26 +55,19 @@ func main() {
 			mail.Address{Name: "Wilhelm Murdoch", Address: "wilhelm@devilmayco.de"},
 		},
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
-		Before: func(ctx context.Context, cmd *cli.Command) (context.Context, error) {
-			ok, path := tmux.IsInstalled()
-
-			if !ok {
-				return ctx, fmt.Errorf(
-					"could not find a valid tmux installation on path: %s",
-					path,
-				)
-			}
-
-			return ctx, nil
-		},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:  "log-level",
 				Value: logger.LevelTraceLabel,
 				Usage: "specify a log level",
 				Validator: func(value string) error {
-					log.Info("dropping some logs")
-					//	log = logger.New(logger.LevelTrace)
+					if _, ok := logger.FriendlyToInternal[value]; !ok {
+						return cli.Exit(
+							fmt.Sprintf("specified an invalid log level value: %s", value),
+							defaultErrCode,
+						)
+					}
+					log = logger.New(logger.FriendlyToInternal[value])
 					return nil
 				},
 			},
@@ -101,48 +92,21 @@ func main() {
 					Name:  "socket-path",
 					Value: "",
 					Usage: "optional path to the tmux socket",
-					Action: func(ctx context.Context, cmd *cli.Command, value string) error {
-						if cmd.String("socket-name") != "" && value != "" {
-							return cli.Exit(
-								"cannot specify both --socket-name and --socket-path flags",
-								defaultErrCode,
-							)
-						}
-
-						if value != "" && !files.FileExists(value) {
-							return cli.Exit(
-								fmt.Sprintf("specified --socket-path of %s does not exist", value),
-								defaultErrCode,
-							)
-						}
-
-						return nil
-					},
+				},
+				&cli.StringFlag{
+					Name:  "socket-name",
+					Value: "",
+					Usage: "optional name for the tmux socket",
 				},
 				&cli.StringFlag{
 					Name:  "profile-path",
 					Value: "",
 					Usage: "specify a path to a target glaze definition file",
 				},
-				&cli.StringFlag{
-					Name:  "socket-name",
-					Value: "",
-					Usage: "optional name for the tmux socket",
-					Action: func(ctx context.Context, cmd *cli.Command, value string) error {
-						if cmd.String("socket-path") != "" && value != "" {
-							return cli.Exit(
-								"cannot specify both --socket-name and --socket-path flags",
-								defaultErrCode,
-							)
-						}
-
-						return nil
-					},
-				},
 				&cli.StringSliceFlag{
 					Name:  "var",
 					Usage: "set multiple variables in the form of \"key=value\"",
-					Action: func(ctx context.Context, cmd *cli.Command, value []string) error {
+					Validator: func(value []string) error {
 						for _, variable := range value {
 							if !strings.Contains(variable, "=") {
 								return cli.Exit(
@@ -215,7 +179,6 @@ func main() {
 	}
 
 	if err := app.Run(context.Background(), os.Args); err != nil {
-		log.Error("Glaze exited with an error", "err", err)
 		os.Exit(1)
 	}
 }

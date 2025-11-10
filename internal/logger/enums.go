@@ -5,7 +5,7 @@ import "log/slog"
 const (
 	LevelTraceLabel    = "TRC"
 	LevelDebugLabel    = "DBG"
-	LevenInfoLabel     = "INF"
+	LevelInfoLabel     = "INF"
 	LevelWarningLabel  = "WRN"
 	LevelErrorLabel    = "ERR"
 	LevelCriticalLabel = "CRT"
@@ -17,3 +17,12 @@ const (
 	LevelError    = slog.LevelError
 	LevelCritical = slog.Level(12)
 )
+
+var FriendlyToInternal = map[string]slog.Level{
+	"trace":    LevelTrace,
+	"debug":    LevelDebug,
+	"info":     LevelInfo,
+	"warning":  LevelWarning,
+	"error":    LevelError,
+	"critical": LevelCritical,
+}

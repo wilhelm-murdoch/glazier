@@ -33,6 +33,16 @@ func NewClient(socketPath, socketName string, debug bool) *Client {
 func (c *Client) Attach(session *Session) error {
 	var args []string
 
+	// Technically, you can specify both -L and -S parameters when creating
+	// a tmux client session, but the last of the two will take precedence.
+	if c.socketName != "" {
+		args = append(args, "-L", c.socketName)
+	}
+
+	if c.socketPath != "" {
+		args = append(args, "-S", c.socketPath)
+	}
+
 	if !IsInsideTmux() {
 		args = append(args, "attach", "-t", session.Target())
 	} else {

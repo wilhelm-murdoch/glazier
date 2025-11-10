@@ -7,9 +7,9 @@ import (
 
 // IsInstalled returns true if tmux is installed on the system and also returns
 // the path to the associated binary.
-func IsInstalled() (bool, string) {
+func IsInstalled() (string, bool) {
 	path, err := exec.LookPath("tmux")
-	return err == nil, path
+	return path, err == nil
 }
 
 // IsInsideTmux checks if we are inside a tmux session. We assume we are in

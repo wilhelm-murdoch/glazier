@@ -16,7 +16,7 @@ type Command struct {
 
 // NewCommand returns a new command with the given arguments.
 func NewCommand(client Client, args ...string) (Command, error) {
-	ok, tmux := IsInstalled()
+	tmux, ok := IsInstalled()
 	if !ok {
 		return Command{}, fmt.Errorf("tmux is not installed")
 	}

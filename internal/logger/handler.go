@@ -22,7 +22,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	case slog.LevelDebug:
 		level = color.MagentaString(LevelDebugLabel)
 	case slog.LevelInfo:
-		level = color.BlueString(LevenInfoLabel)
+		level = color.BlueString(LevelInfoLabel)
 	case slog.LevelWarn:
 		level = color.YellowString(LevelWarningLabel)
 	case slog.LevelError:
