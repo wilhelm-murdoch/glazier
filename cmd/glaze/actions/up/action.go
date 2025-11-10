@@ -7,11 +7,10 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
-	"github.com/wilhelm-murdoch/glazier/internal/decoders/pane"
-	"github.com/wilhelm-murdoch/glazier/internal/decoders/session"
-	"github.com/wilhelm-murdoch/glazier/internal/decoders/window"
+	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
+	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -48,7 +47,7 @@ func (a *Action) Run() error {
 	}
 
 	profile, decodeDiags := a.Parser.Decode(
-		session.Spec,
+		spec.Session,
 		parser.BuildEvalContext(variables),
 	)
 
@@ -92,7 +91,7 @@ func (a *Action) Run() error {
 }
 
 // generateWindows iterates through the windows and panes defined within the specified profile and create them within the tmux session.
-func (a *Action) generateWindows(windows []*window.Window) error {
+func (a *Action) generateWindows(windows []*decoders.Window) error {
 	for _, ws := range windows {
 		a.Logger.Info("creating new window", "name", ws.Name)
 		wtmx, err := a.session.NewWindow(ws.Name)
@@ -136,7 +135,7 @@ func (a *Action) generateWindows(windows []*window.Window) error {
 }
 
 func (a *Action) generatePanes(
-	panes []*pane.Pane,
+	panes []*decoders.Pane,
 	defaultPane *tmux.Pane,
 	wtmx *tmux.Window,
 ) error {
@@ -218,7 +217,7 @@ func (a *Action) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
 }
 
 // resolveSession is responsible for resolving the tmux session, either by attaching to an existing one or creating a new one.
-func (a *Action) resolveSession(profile *session.Session) (bool, error) {
+func (a *Action) resolveSession(profile *decoders.Session) (bool, error) {
 	attached := false
 
 	if a.Command.Bool("clear") {

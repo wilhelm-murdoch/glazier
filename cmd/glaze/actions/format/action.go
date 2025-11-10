@@ -9,9 +9,9 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
-	"github.com/wilhelm-murdoch/glazier/internal/decoders/session"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
+	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
 type Action struct {
@@ -76,7 +76,7 @@ func (a *Action) isGlazeDefintionValid() bool {
 	}
 
 	_, decodeDiags := a.Parser.Decode(
-		session.Spec,
+		spec.Session,
 		parser.BuildEvalContext(variables),
 	)
 

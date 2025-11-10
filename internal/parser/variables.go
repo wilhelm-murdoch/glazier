@@ -15,6 +15,28 @@ import (
 
 const glazeEnvPrefix = "GLAZE_ENV_"
 
+// CollectVariables returns a key value map of all relevant environment variables, user-
+// defined variables picked up from the CLI and some useful default variables.
+func CollectVariables(flaggedVariables []string) (map[string]cty.Value, error) {
+	out := make(map[string]cty.Value)
+
+	// We import environmental variables first:
+	envs := collectEnvVariables(os.Environ(), glazeEnvPrefix)
+	maps.Copy(out, envs)
+
+	// Next, import all variables passed by the --var flag:
+	vars := collectFlagVariables(flaggedVariables)
+	maps.Copy(out, vars)
+
+	// Finally, we add some default variables that might be useful:
+	out, err := addDefaultVariables()
+	if err != nil {
+		return nil, err
+	}
+
+	return out, nil
+}
+
 // collectEnvVariables parses environment variables that start with the `glazeEnvPrefix` prefix.
 func collectEnvVariables(envs []string, prefix string) map[string]cty.Value {
 	out := make(map[string]cty.Value)
@@ -62,28 +84,6 @@ func addDefaultVariables() (map[string]cty.Value, error) {
 		"base": cty.StringVal(filepath.Base(pwd)),
 		"pwd":  cty.StringVal(pwd),
 	})
-
-	return out, nil
-}
-
-// CollectVariables returns a key value map of all relevant environment variables, user-
-// defined variables picked up from the CLI and some useful default variables.
-func CollectVariables(flaggedVariables []string) (map[string]cty.Value, error) {
-	out := make(map[string]cty.Value)
-
-	// We import environmental variables first:
-	envs := collectEnvVariables(os.Environ(), glazeEnvPrefix)
-	maps.Copy(out, envs)
-
-	// Next, import all variables passed by the --var flag:
-	vars := collectFlagVariables(flaggedVariables)
-	maps.Copy(out, vars)
-
-	// Finally, we add some default variables that might be useful:
-	out, err := addDefaultVariables()
-	if err != nil {
-		return nil, err
-	}
 
 	return out, nil
 }

@@ -1,12 +1,29 @@
-package window
+package decoders
 
 import (
 	"github.com/hashicorp/hcl/v2"
+	"github.com/wilhelm-murdoch/go-collection"
+	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/gocty"
 
-	"github.com/wilhelm-murdoch/glazier/internal/decoders/pane"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
+
+// Window represents the configuration for a single tmux window.
+type Window struct {
+	*Base
+	Panes  collection.Collection[*Pane]
+	Layout enums.Layout
+	Focus  bool
+}
+
+func NewWindow(spec cty.Value) *Window {
+	base := NewBase(spec)
+
+	return &Window{
+		Base: base,
+	}
+}
 
 // Decode is responsible for decoding a cty.Value into a Window struct.
 func (w *Window) Decode() hcl.Diagnostics {
@@ -31,7 +48,7 @@ func (w *Window) Decode() hcl.Diagnostics {
 		for paneIterator.Next() {
 			_, spec := paneIterator.Element()
 
-			pane := pane.New(spec)
+			pane := NewPane(spec)
 			if diags = pane.Decode(); diags.HasErrors() {
 				diags = diags.Extend(diags)
 				continue

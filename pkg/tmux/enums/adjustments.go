@@ -3,7 +3,7 @@ package enums
 type Adjustment int
 
 const (
-	AdjustmentUp = iota + 1
+	AdjustmentUp Adjustment = iota + 1
 	AdjustmentDown
 	AdjustmentLeft
 	AdjustmentRight
@@ -43,7 +43,7 @@ func (a Adjustment) String() string {
 }
 
 // LayoutFromString is responsible for converting a string to a Layout enum.
-func AdjustmentFromString(s string) Layout {
+func AdjustmentFromString(s string) Adjustment {
 	switch s {
 	case AdjustmentUpString:
 		return AdjustmentUp

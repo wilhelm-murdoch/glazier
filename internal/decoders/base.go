@@ -8,7 +8,7 @@ import (
 
 const DefaultGlazeElementName = "default"
 
-type BaseDecoder struct {
+type Base struct {
 	Name              string
 	Envs              map[string]string
 	Hooks             map[string]string
@@ -17,8 +17,8 @@ type BaseDecoder struct {
 	Spec              cty.Value
 }
 
-func New(spec cty.Value) *BaseDecoder {
-	base := &BaseDecoder{
+func NewBase(spec cty.Value) *Base {
+	base := &Base{
 		Spec: spec,
 	}
 
