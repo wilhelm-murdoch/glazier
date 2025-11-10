@@ -9,7 +9,7 @@ import (
 	ge "github.com/wilhelm-murdoch/glazier/internal/errors" // ge = "Glaze Errors"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
-	"github.com/wilhelm-murdoch/glazier/internal/profile"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
 type BaseAction struct {
@@ -26,7 +26,7 @@ func NewBaseAction(
 	cmd *cli.Command,
 	logger *logger.Logger,
 ) (*BaseAction, error) {
-	profilePath, err := profile.ResolveProfilePath(cmd.String("profile-path"))
+	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {
 		return nil, err
 	}

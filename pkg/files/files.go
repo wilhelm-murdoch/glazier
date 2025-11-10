@@ -2,8 +2,10 @@ package files
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -29,4 +31,36 @@ func ExpandPath(path string) string {
 	}
 
 	return path
+}
+
+func ResolveProfilePath(profilePath string) (string, error) {
+	if profilePath != "" {
+		if exists := FileExists(profilePath); !exists {
+			return profilePath, fmt.Errorf(
+				"could not locate profile `%s`; exiting ...",
+				profilePath,
+			)
+		}
+
+		return ExpandPath(profilePath), nil
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return profilePath, fmt.Errorf("could not read current working directory: %w", err)
+	}
+
+	profilePath = filepath.Join(cwd, ".glaze")
+	if !FileExists(profilePath) && os.Getenv("GLAZE_PATH") != "" {
+		profilePath = filepath.Join(os.Getenv("GLAZE_PATH"), ".glaze")
+	}
+
+	if !FileExists(profilePath) {
+		return profilePath, fmt.Errorf(
+			"profile `%s` not found with --profile-path, the current directory, or the GLAZE_PATH environment variable",
+			profilePath,
+		)
+	}
+
+	return profilePath, nil
 }
