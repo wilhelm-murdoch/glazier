@@ -33,13 +33,14 @@ func NewActionBase(
 		return nil, err
 	}
 
-	diagsManager := diagnostics.New(profilePath)
+	parser, parserDiags := parser.New(profilePath)
+
+	diagsManager := diagnostics.New(profilePath, parser.File)
 	if diagsManager.HasErrors() {
 		diagsManager.Write()
 		return nil, ge.ErrorInvalidDefinition
 	}
 
-	parser, parserDiags := parser.New(profilePath)
 	if parserDiags.HasErrors() {
 		diagsManager.Write()
 		return nil, ge.ErrorInvalidDefinition
