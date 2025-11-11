@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -22,6 +23,7 @@ type Session struct {
 	Name              string
 	StartingDirectory string
 	Id                int
+	logger            *slog.Logger
 }
 
 // Target returns the target session by its name.
@@ -51,6 +53,8 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 	}
 
 	cmd, err := NewCommand(s.Client, args...)
+
+	s.logger.Debug(cmd.String())
 	if err != nil {
 		return window, err
 	}
@@ -80,6 +84,8 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 	}
 
 	baseIndexCmd, err := NewCommand(s.Client, args...)
+
+	s.logger.Debug(cmd.String())
 	if err != nil {
 		return window, err
 	}
@@ -108,6 +114,8 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 // Kill closes the current session.
 func (s *Session) Kill() error {
 	cmd, err := NewCommand(s.Client, "kill-session", "-t", s.Target())
+
+	s.logger.Debug(cmd.String())
 	if err != nil {
 		return err
 	}

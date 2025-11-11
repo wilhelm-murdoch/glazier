@@ -25,7 +25,8 @@ func (dm *DiagnosticsManager) Extend(diags hcl.Diagnostics) hcl.Diagnostics {
 
 // Append is responsible for appending a single diagnostic to the existing ones.
 func (dm *DiagnosticsManager) Append(diag *hcl.Diagnostic) hcl.Diagnostics {
-	return dm.Diagnostics.Append(diag)
+	dm.Diagnostics = dm.Diagnostics.Append(diag)
+	return dm.Diagnostics
 }
 
 // HasErrors is responsible for checking if there are any errors in the diagnostics.

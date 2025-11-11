@@ -11,6 +11,7 @@ import (
 // additional logging levels.
 type Logger struct {
 	*slog.Logger
+	Level slog.Level
 }
 
 // Critical provides support for critical log entries; exits
@@ -34,5 +35,6 @@ func New(level slog.Level) *Logger {
 			}),
 			l: log.New(os.Stdout, "", 0),
 		}),
+		Level: level,
 	}
 }

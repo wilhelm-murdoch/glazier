@@ -29,7 +29,7 @@ var (
 )
 
 func main() {
-	log := logger.New(logger.LevelInfo)
+	log := logger.New(logger.LevelWarning)
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)

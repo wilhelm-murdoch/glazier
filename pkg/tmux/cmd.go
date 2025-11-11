@@ -29,10 +29,6 @@ func NewCommand(client Client, args ...string) (Command, error) {
 
 	args = append([]string{tmux}, args...)
 
-	if client.debug {
-		fmt.Println(args)
-	}
-
 	return Command{
 		args: args,
 		cmd:  exec.Command(args[0], args[1:]...),

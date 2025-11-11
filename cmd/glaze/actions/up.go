@@ -15,26 +15,26 @@ import (
 
 type ActionUp struct {
 	ActionBase
-	client  *tmux.Client
+	tmux    *tmux.Client
 	session *tmux.Session
 }
 
 // NewAction is responsible for creating a new Action instance.
-func NewUp(cmd *cli.Command, logger *logger.Logger) (*ActionUp, error) {
-	base, err := NewActionBase(cmd, logger)
+func NewUp(cmd *cli.Command, log *logger.Logger) (*ActionUp, error) {
+	base, err := NewActionBase(cmd, log)
 	if err != nil {
 		return nil, err
 	}
 
-	client := tmux.NewClient(
+	tmuxClient := tmux.NewClient(
 		cmd.String("socket-name"),
 		cmd.String("socket-path"),
-		cmd.Bool("debug"),
+		log.Logger,
 	)
 
 	return &ActionUp{
 		ActionBase: *base,
-		client:     client,
+		tmux:       tmuxClient,
 	}, nil
 }
 
@@ -81,7 +81,7 @@ func (a *ActionUp) Run() error {
 	}
 
 	if !a.Command.Bool("detached") {
-		if err := a.client.Attach(a.session); err != nil {
+		if err := a.tmux.Attach(a.session); err != nil {
 			return err
 		}
 	}
@@ -181,7 +181,7 @@ func (a *ActionUp) generatePanes(
 
 // getDefaultPane is responsible for retrieving the default pane for a given tmux window.
 func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
-	panes, err := a.client.Panes(window)
+	panes, err := a.tmux.Panes(window)
 	if err != nil {
 		return nil, fmt.Errorf("could not read panes for window `%s`: %w", window.Name, err)
 	}
@@ -199,7 +199,7 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 
 // getDefaultWindow is responsible for retrieving the default window for a given tmux session.
 func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
-	windows, err := a.client.Windows(session)
+	windows, err := a.tmux.Windows(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not read windows for session `%s`: %w", session.Name, err)
 	}
@@ -221,20 +221,20 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 
 	if a.Command.Bool("clear") {
 		a.Logger.Info("clearing previous session", "name", profile.Name)
-		if err := a.client.KillSessionByName(profile.Name); err != nil {
-			a.Logger.Error("could not kill session", "name", profile.Name, "reason", err)
+		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
+			a.Logger.Warn("could not kill session", "name", profile.Name, "reason", err)
 		}
 	}
 
-	if a.client.SessionExists(profile.Name) {
-		session, err := a.client.FindSessionByName(profile.Name)
+	if a.tmux.HasSession(profile.Name) {
+		session, err := a.tmux.FindSessionByName(profile.Name)
 		if err != nil {
 			return attached, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
 		}
 
 		if !a.Command.Bool("detached") {
 			a.Logger.Info("attaching to existing session", "name", profile.Name)
-			if err := a.client.Attach(session); err != nil {
+			if err := a.tmux.Attach(session); err != nil {
 				return attached, fmt.Errorf(
 					"could not attach to session `%s`: %w",
 					session.Name,
@@ -249,7 +249,7 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	}
 
 	a.Logger.Info("creating new session", "name", profile.Name)
-	session, err := a.client.NewSession(profile.Name, profile.StartingDirectory)
+	session, err := a.tmux.NewSession(profile.Name, profile.StartingDirectory)
 	if err != nil {
 		return attached, fmt.Errorf("could not create new session `%s`: %w", session.Name, err)
 	}

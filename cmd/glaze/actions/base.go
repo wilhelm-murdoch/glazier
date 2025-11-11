@@ -12,6 +12,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
+// ActionBase is a type that will be ultimately embedded within other action types in
+// an effort to deduplicate common fields and methods.
 type ActionBase struct {
 	Context            context.Context
 	Command            *cli.Command
@@ -21,10 +23,10 @@ type ActionBase struct {
 	Logger             *logger.Logger
 }
 
-// NewActionBase is responsible for creating a new BaseAction instance, resolving the profile path, and initializing the diagnostics manager and parser.
+// NewActionBase is responsible for creating a new ActionBase instance, resolving the profile path, and initializing the diagnostics manager and parser.
 func NewActionBase(
 	cmd *cli.Command,
-	logger *logger.Logger,
+	log *logger.Logger,
 ) (*ActionBase, error) {
 	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {
@@ -48,7 +50,7 @@ func NewActionBase(
 		DiagnosticsManager: diagsManager,
 		Parser:             parser,
 		ProfilePath:        profilePath,
-		Logger:             logger,
+		Logger:             log,
 	}, nil
 }
 

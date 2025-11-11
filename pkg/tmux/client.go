@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -14,17 +15,17 @@ import (
 // Client represents a tmux client.
 type Client struct {
 	CurrentSession *Session
-	debug          bool
 	socketPath     string
 	socketName     string
+	logger         *slog.Logger
 }
 
 // NewClient returns a new client.
-func NewClient(socketPath, socketName string, debug bool) *Client {
+func NewClient(socketPath, socketName string, logger *slog.Logger) *Client {
 	return &Client{
 		socketPath: socketPath,
 		socketName: socketName,
-		debug:      debug,
+		logger:     logger,
 	}
 }
 
@@ -50,6 +51,8 @@ func (c *Client) Attach(session *Session) error {
 	}
 
 	cmd, err := NewCommand(*c, args...)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return err
 	}
@@ -83,6 +86,8 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 	}
 
 	cmd, err := NewCommand(c, args...)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return sessions, err
 	}
@@ -105,6 +110,7 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 			Id:                id,
 			Name:              strings.TrimSpace(parts[1]),
 			StartingDirectory: strings.TrimSpace(parts[2]),
+			logger:            c.logger,
 		})
 	}
 
@@ -130,6 +136,8 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 	}
 
 	cmd, err := NewCommand(c, args...)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return windows, err
 	}
@@ -191,6 +199,8 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 	}
 
 	cmd, err := NewCommand(c, args...)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return panes, err
 	}
@@ -208,6 +218,8 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 	}
 
 	baseIndexCmd, err := NewCommand(c, args...)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return panes, err
 	}
@@ -262,6 +274,8 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		"-c",
 		fmt.Sprint(startingDirectory),
 	)
+
+	c.logger.Debug(cmd.String())
 	if err != nil {
 		return session, err
 	}
@@ -299,6 +313,7 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 func (c Client) KillSessionByName(sessionName string) error {
 	cmd, _ := NewCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
 
+	c.logger.Debug(cmd.String())
 	if _, err := cmd.ExecWithOutput(); err != nil {
 		return fmt.Errorf("%w", err)
 	}
@@ -310,19 +325,22 @@ func (c Client) KillSessionByName(sessionName string) error {
 func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	sessions, _ := c.Sessions()
 
-	if found := sessions.Find(func(i int, s *Session) bool {
+	found := sessions.Find(func(i int, s *Session) bool {
 		return s.Name == fmt.Sprint(sessionName)
-	}); found != nil {
+	})
+
+	if found != nil {
 		return found, nil
 	}
 
 	return nil, fmt.Errorf(`session "%s" not found`, sessionName)
 }
 
-// SessionExists returns true if a session with the given name exists.
-func (c Client) SessionExists(sessionName string) bool {
+// HasSession returns true if a session with the given name exists.
+func (c Client) HasSession(sessionName string) bool {
 	cmd, _ := NewCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
 
+	c.logger.Debug(cmd.String())
 	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
 		return false
 	}
