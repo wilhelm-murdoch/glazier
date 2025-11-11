@@ -87,26 +87,11 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 		return pane, err
 	}
 
-	args = []string{
-		"show",
-		"-gw",
-		"-t", w.Target(),
-		"pane-base-index",
-	}
-
-	baseIndexCmd, err := NewCommand(w.Session.Client, args...)
-
-	w.Session.logger.Debug(cmd.String())
+	baseIndexCmdParts, err := w.Session.Client.GetBaseIndex(w.Target(), "pane-base-index")
 	if err != nil {
 		return pane, err
 	}
 
-	baseIndexCmdOutput, err := baseIndexCmd.ExecWithOutput()
-	if err != nil {
-		return pane, err
-	}
-
-	baseIndexCmdParts := strings.Split(baseIndexCmdOutput, " ")
 	if len(baseIndexCmdParts) != 2 {
 		return pane, errors.New("could not determine pane base index")
 	}

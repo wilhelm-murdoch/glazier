@@ -6,11 +6,13 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 )
 
+// ActionSave is a struct that represents a Glazier "action".
 type ActionSave struct {
 	ActionBase
 }
 
-// NewAction is responsible for creating a new Action instance for the save command.
+// NewSave is responsible for creating a new ActionFormat struct value pre-populated
+// with fields that are common across all other action structs.
 func NewSave(cmd *cli.Command, logger *logger.Logger) (*ActionSave, error) {
 	base, err := NewActionBase(cmd, logger)
 	if err != nil {

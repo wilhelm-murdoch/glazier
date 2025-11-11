@@ -23,7 +23,8 @@ type ActionBase struct {
 	Logger             *logger.Logger
 }
 
-// NewActionBase is responsible for creating a new ActionBase instance, resolving the profile path, and initializing the diagnostics manager and parser.
+// NewActionBase is responsible for creating a new ActionBase struct value, resolving
+// the profile path, and initializing the diagnostics manager and parser.
 func NewActionBase(
 	cmd *cli.Command,
 	log *logger.Logger,
@@ -55,7 +56,8 @@ func NewActionBase(
 	}, nil
 }
 
-// Run is responsible for executing the base action, which is not yet implemented and returns an error.
+// Run is responsible for executing the base action, which is not yet implemented
+// and returns an error.
 func (ba *ActionBase) Run() error {
 	return ge.ErrorNotYetImplemented
 }

@@ -315,7 +315,7 @@ func (c Client) KillSessionByName(sessionName string) error {
 
 	c.logger.Debug(cmd.String())
 	if _, err := cmd.ExecWithOutput(); err != nil {
-		return fmt.Errorf("%w", err)
+		return err
 	}
 
 	return nil
@@ -346,4 +346,42 @@ func (c Client) HasSession(sessionName string) bool {
 	}
 
 	return true
+}
+
+// GetOption returns the specified option for the target of the attached client session.
+func (c Client) GetOption(target, option string) (string, error) {
+	args := []string{
+		"show",
+		"-g",
+		"-t",
+		target,
+		option,
+	}
+
+	cmd, err := NewCommand(c, args...)
+
+	c.logger.Debug(cmd.String())
+	if err != nil {
+		return "", err
+	}
+
+	output, err := cmd.ExecWithOutput()
+	if err != nil {
+		return "", err
+	}
+
+	return output, nil
+}
+
+// GetBaseIndex is a helper method which attempts to return the base index option
+// for the specified target which may be derived from a Window or a Pane.
+func (c Client) GetBaseIndex(target, option string) ([]string, error) {
+	var out []string
+
+	result, err := c.GetOption(target, option)
+	if err != nil {
+		return out, err
+	}
+
+	return strings.Split(result, " "), nil
 }

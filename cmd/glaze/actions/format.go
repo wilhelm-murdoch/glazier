@@ -13,11 +13,13 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
+// ActionFormat is a struct that represents a Glazier "action".
 type ActionFormat struct {
 	ActionBase
 }
 
-// NewAction is responsible for creating a new Action instance for the format command.
+// NewFormat is responsible for creating a new ActionFormat struct value pre-populated
+// with fields that are common across all other action structs.
 func NewFormat(cmd *cli.Command, logger *logger.Logger) (*ActionFormat, error) {
 	base, err := NewActionBase(cmd, logger)
 	if err != nil {
@@ -29,13 +31,14 @@ func NewFormat(cmd *cli.Command, logger *logger.Logger) (*ActionFormat, error) {
 	}, nil
 }
 
-// Run is an action that will reformat the given glaze definition file to match
-// a canonical format and style, ensuring consistency.
+// Run is a method that reformats the given glaze definition file to match a canonical
+// format and style, ensuring consistency.
 func (a *ActionFormat) Run() error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
 	if a.Command.Bool("validate") {
-		if valid := a.isGlazeDefintionValid(); !valid {
+		if validationDiags := a.isGlazeDefintionValid(); validationDiags != nil {
+			a.DiagnosticsManager.Extend(validationDiags)
 			return a.DiagnosticsManager.Write()
 		}
 	}
@@ -62,16 +65,14 @@ func (a *ActionFormat) Run() error {
 
 // isGlazeDefintionValid checks if the given glaze definition file and any variable
 // flags yield a valid result when run through the schema.Parser.
-func (a *ActionFormat) isGlazeDefintionValid() bool {
+func (a *ActionFormat) isGlazeDefintionValid() hcl.Diagnostics {
 	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
-		a.DiagnosticsManager.Append(&hcl.Diagnostic{
+		return hcl.Diagnostics{{
 			Severity: hcl.DiagError,
 			Summary:  fmt.Sprintf("could not parse specified variables: %s", err),
 			Detail:   err.Error(),
-		})
-
-		return false
+		}}
 	}
 
 	_, decodeDiags := a.Parser.Decode(
@@ -80,9 +81,8 @@ func (a *ActionFormat) isGlazeDefintionValid() bool {
 	)
 
 	if decodeDiags.HasErrors() {
-		a.DiagnosticsManager.Extend(decodeDiags)
-		return false
+		return decodeDiags
 	}
 
-	return true
+	return nil
 }

@@ -76,26 +76,11 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 		return window, err
 	}
 
-	args = []string{
-		"show",
-		"-g",
-		"-t", s.Target(),
-		"base-index",
-	}
-
-	baseIndexCmd, err := NewCommand(s.Client, args...)
-
-	s.logger.Debug(cmd.String())
+	baseIndexCmdParts, err := s.Client.GetBaseIndex(s.Target(), "base-index")
 	if err != nil {
 		return window, err
 	}
 
-	baseIndexCmdOutput, err := baseIndexCmd.ExecWithOutput()
-	if err != nil {
-		return window, err
-	}
-
-	baseIndexCmdParts := strings.Split(baseIndexCmdOutput, " ")
 	if len(baseIndexCmdParts) != 2 {
 		return window, errors.New("could not determine window base index")
 	}

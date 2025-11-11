@@ -13,13 +13,16 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
+// ActionUp is a struct that represents a Glazier "action".
 type ActionUp struct {
 	ActionBase
 	tmux    *tmux.Client
 	session *tmux.Session
 }
 
-// NewAction is responsible for creating a new Action instance.
+// NewUp is responsible for creating a new ActionFormat struct value pre-populated
+// with fields that are common across all other action structs as well as a tmux
+// client.
 func NewUp(cmd *cli.Command, log *logger.Logger) (*ActionUp, error) {
 	base, err := NewActionBase(cmd, log)
 	if err != nil {
@@ -38,48 +41,33 @@ func NewUp(cmd *cli.Command, log *logger.Logger) (*ActionUp, error) {
 	}, nil
 }
 
-// Run is responsible for executing the up action, which includes parsing variables, decoding the profile, resolving the session, and generating windows.
+// Run is responsible for executing the up action, which includes parsing variables,
+// decoding the profile, resolving the session, and generating windows.
 func (a *ActionUp) Run() error {
-	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
-	if err != nil {
-		return fmt.Errorf("could not parse specified variables: %w", err)
-	}
-
-	profile, decodeDiags := a.Parser.Decode(
-		spec.Session,
-		parser.BuildEvalContext(variables),
-	)
-
-	if decodeDiags.HasErrors() {
-		a.DiagnosticsManager.Extend(decodeDiags)
-		return a.DiagnosticsManager.Write()
-	}
-
-	attached, err := a.resolveSession(profile)
+	profile, err := a.loadProfile()
 	if err != nil {
 		return err
+	}
+
+	isAlreadyAttached, err := a.resolveSession(profile)
+	if err != nil {
+		return err
+	}
+
+	if err := a.provisionSession(profile); err != nil {
+		return fmt.Errorf("failed to provision session: %w", err)
 	}
 
 	// We're attached to a pre-existing session, so there is no need to do anything else here:
-	if attached {
+	if isAlreadyAttached {
 		return nil
 	}
 
-	if err := a.generateWindows(profile.Windows.Items()); err != nil {
-		return err
-	}
+	return a.attachToSession()
+}
 
-	defaultWindow, err := a.getDefaultWindow(a.session)
-	if err != nil {
-		return err
-	}
-
-	if defaultWindow != nil {
-		if err := defaultWindow.Kill(); err != nil {
-			return err
-		}
-	}
-
+// attachToSession handles attaching the tmux client to the newly created session.
+func (a *ActionUp) attachToSession() error {
 	if !a.Command.Bool("detached") {
 		if err := a.tmux.Attach(a.session); err != nil {
 			return err
@@ -89,7 +77,52 @@ func (a *ActionUp) Run() error {
 	return nil
 }
 
-// generateWindows iterates through the windows and panes defined within the specified profile and create them within the tmux session.
+// provisionSession creates the windows and panes as defined in the profile.
+func (a *ActionUp) provisionSession(profile *decoders.Session) error {
+	if err := a.generateWindows(profile.Windows.Items()); err != nil {
+		return err
+	}
+
+	defaultWindow, err := a.getDefaultWindow(a.session)
+	if err != nil {
+		a.Logger.Warn(
+			"could not find default window to kill",
+			"session",
+			a.session.Name,
+			"error",
+			err,
+		)
+	} else if defaultWindow != nil {
+		// After creating our own windows, we can remove the default one tmux created.
+		if err := defaultWindow.Kill(); err != nil {
+			return fmt.Errorf("failed to kill default window: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// loadProfile handles parsing variables and decoding the HCL definition.
+func (a *ActionUp) loadProfile() (*decoders.Session, error) {
+	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse specified variables: %w", err)
+	}
+
+	profile, decodeDiags := a.Parser.Decode(
+		spec.Session,
+		parser.BuildEvalContext(variables),
+	)
+	if decodeDiags.HasErrors() {
+		a.DiagnosticsManager.Extend(decodeDiags)
+		return nil, a.DiagnosticsManager.Write()
+	}
+
+	return profile, nil
+}
+
+// generateWindows iterates through the windows and panes defined within the
+// specified profile and create them within the tmux session.
 func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 	for _, ws := range windows {
 		a.Logger.Info("creating new window", "name", ws.Name)
@@ -103,7 +136,11 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			return err
 		}
 
-		// Panes are originally parsed and created in the reverse order of how they are defined within the glaze definition file. So, we'll just reverse them here to set them back to the user-defined order.
+		// Panes are originally parsed and created in the reverse order of how they
+		// are defined within the glaze definition file. So, we'll just reverse them
+		// here to set them back to the user-defined order. The reasoning is that a
+		// user will expect these panes to be arranged in the same order as they were
+		// defined within the definition file.
 		if err := a.generatePanes(ws.Panes.Reverse().Items(), defaultPane, wtmx); err != nil {
 			return err
 		}
