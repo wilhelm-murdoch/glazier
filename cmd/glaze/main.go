@@ -29,7 +29,7 @@ var (
 )
 
 func main() {
-	log := logger.New(logger.LevelWarning)
+	var logLevel string
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
@@ -53,15 +53,15 @@ func main() {
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
 		Flags: []cli.Flag{
 			&cli.StringFlag{
-				Name:  "log-level",
-				Value: logger.LevelTraceLabel,
-				Usage: "specify a log level",
+				Name:        "log-level",
+				Value:       logger.LevelTraceLabel,
+				Usage:       "specify a log level",
+				Destination: &logLevel,
 				Validator: func(value string) error {
 					if _, ok := logger.FriendlyToInternal[value]; !ok {
 						return fmt.Errorf("specified an invalid log level value: %s", value)
 					}
 
-					log = logger.New(logger.FriendlyToInternal[value])
 					return nil
 				},
 			},
@@ -124,7 +124,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := actions.NewUp(cmd, log)
+				action, err := actions.NewUp(cmd, logLevel)
 				if err != nil {
 					return err
 				}
@@ -145,7 +145,7 @@ func main() {
 				},
 			},
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := actions.NewFormat(cmd, log)
+				action, err := actions.NewFormat(cmd, logLevel)
 				if err != nil {
 					return err
 				}
@@ -156,7 +156,7 @@ func main() {
 			Name:  "save",
 			Usage: "running this within a tmux session will save its current state to the specified glaze profile",
 			Action: func(ctx context.Context, cmd *cli.Command) error {
-				action, err := actions.NewSave(cmd, log)
+				action, err := actions.NewSave(cmd, logLevel)
 				if err != nil {
 					return err
 				}

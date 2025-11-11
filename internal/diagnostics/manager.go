@@ -6,6 +6,8 @@ import (
 	"github.com/hashicorp/hcl/v2"
 )
 
+const diagnosticTextWriterWidth = 78
+
 // DiagnosticsManager embeds the structure of hcl.Diagnostics and combines it
 // with a DiagnosticsWriter to simplify use.
 type DiagnosticsManager struct {
@@ -25,7 +27,7 @@ func New(filePath string, file *hcl.File) *DiagnosticsManager {
 		Writer: hcl.NewDiagnosticTextWriter(
 			os.Stdout,
 			map[string]*hcl.File{filePath: file},
-			78,
+			diagnosticTextWriterWidth,
 			true,
 		),
 	}

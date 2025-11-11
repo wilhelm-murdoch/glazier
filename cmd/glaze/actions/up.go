@@ -7,7 +7,6 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
-	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
@@ -23,8 +22,8 @@ type ActionUp struct {
 // NewUp is responsible for creating a new ActionFormat struct value pre-populated
 // with fields that are common across all other action structs as well as a tmux
 // client.
-func NewUp(cmd *cli.Command, log *logger.Logger) (*ActionUp, error) {
-	base, err := NewActionBase(cmd, log)
+func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
+	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +31,7 @@ func NewUp(cmd *cli.Command, log *logger.Logger) (*ActionUp, error) {
 	tmuxClient := tmux.NewClient(
 		cmd.String("socket-name"),
 		cmd.String("socket-path"),
-		log.Logger,
+		base.Logger.Logger,
 	)
 
 	return &ActionUp{

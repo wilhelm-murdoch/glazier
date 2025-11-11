@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
 
-	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
@@ -20,8 +19,8 @@ type ActionFormat struct {
 
 // NewFormat is responsible for creating a new ActionFormat struct value pre-populated
 // with fields that are common across all other action structs.
-func NewFormat(cmd *cli.Command, logger *logger.Logger) (*ActionFormat, error) {
-	base, err := NewActionBase(cmd, logger)
+func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
+	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
 		return nil, err
 	}

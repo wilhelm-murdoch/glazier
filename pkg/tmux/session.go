@@ -10,6 +10,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+const formatNewWindowResponse = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
+
 type SessionId int
 
 // String is responsible for returning the string representation of the SessionId.
@@ -35,20 +37,12 @@ func (s *Session) Target() string {
 func (s *Session) NewWindow(windowName string) (*Window, error) {
 	var window *Window
 
-	format := []string{
-		"#{window_id}",
-		"#{window_index}",
-		"#{window_name}",
-		"#{window_layout}",
-		"#{window_active}",
-	}
-
 	args := []string{
 		"neww",
 		"-d",
 		"-t", s.Name,
 		"-n", fmt.Sprint(windowName),
-		"-F", strings.Join(format, ";"),
+		"-F", formatNewWindowResponse,
 		"-P",
 	}
 
@@ -64,7 +58,7 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 		return window, err
 	}
 
-	parts := strings.SplitN(output, ";", len(format))
+	parts := strings.Split(output, ";")
 
 	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "@", ""))
 	if err != nil {

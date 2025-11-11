@@ -12,6 +12,12 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+const (
+	formatActiveSessions = "#{session_id};#{session_name};#{session_path}"
+	formatActiveWindows  = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
+	formatActivePanes    = "#{pane_id};#{pane_index};#{pane_title};#{pane_active};#{pane_current_path}"
+)
+
 // Client represents a tmux client.
 type Client struct {
 	CurrentSession *Session
@@ -74,15 +80,10 @@ func (c *Client) Attach(session *Session) error {
 func (c Client) Sessions() (collection.Collection[*Session], error) {
 	var sessions collection.Collection[*Session]
 
-	format := []string{
-		"#{session_id}",
-		"#{session_name}",
-		"#{session_path}",
-	}
-
 	args := []string{
 		"ls",
-		"-F", strings.Join(format, ";"),
+		"-F",
+		formatActiveSessions,
 	}
 
 	cmd, err := NewCommand(c, args...)
@@ -121,17 +122,9 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 func (c Client) Windows(session *Session) (collection.Collection[*Window], error) {
 	var windows collection.Collection[*Window]
 
-	format := []string{
-		"#{window_id}",
-		"#{window_index}",
-		"#{window_name}",
-		"#{window_layout}",
-		"#{window_active}",
-	}
-
 	args := []string{
 		"lsw",
-		"-F", strings.Join(format, ";"),
+		"-F", formatActiveWindows,
 		"-t", session.Target(),
 	}
 
@@ -146,11 +139,6 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 	if err != nil {
 		return windows, err
 	}
-
-	// baseIndex, err := getOption[enums.OptionsSession](c, "show", "-g", "-t", session.Target(), enums.OptionsSessionBaseIndexString)
-	// if err != nil {
-	// 	return windows, err
-	// }
 
 	for window := range strings.SplitSeq(output, "\n") {
 		parts := strings.SplitN(window, ";", 5)
@@ -172,8 +160,7 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 			Layout:   enums.LayoutFromString(parts[3]),
 			IsActive: parts[4] == "1",
 			IsFirst:  parts[1] == "1",
-			// IsFirst:  parts[1] == baseIndex.Value,
-			Session: session,
+			Session:  session,
 		})
 	}
 
@@ -184,17 +171,9 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 	var panes collection.Collection[*Pane]
 
-	format := []string{
-		"#{pane_id}",
-		"#{pane_index}",
-		"#{pane_title}",
-		"#{pane_active}",
-		"#{pane_current_path}",
-	}
-
 	args := []string{
 		"lsp",
-		"-F", strings.Join(format, ";"),
+		"-F", formatActivePanes,
 		"-t", window.Target(),
 	}
 
@@ -210,32 +189,17 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 		return panes, err
 	}
 
-	args = []string{
-		"show",
-		"-gw",
-		"-t", window.Target(),
-		"pane-base-index",
-	}
-
-	baseIndexCmd, err := NewCommand(c, args...)
-
-	c.logger.Debug(cmd.String())
+	baseIndexCmdParts, err := c.GetBaseIndex(window.Target(), "pane-base-index")
 	if err != nil {
 		return panes, err
 	}
 
-	baseIndexCmdOutput, err := baseIndexCmd.ExecWithOutput()
-	if err != nil {
-		return panes, err
-	}
-
-	baseIndexCmdParts := strings.Split(baseIndexCmdOutput, " ")
 	if len(baseIndexCmdParts) != 2 {
-		return panes, errors.New("could not determine global base index")
+		return panes, errors.New("could not determine pane base index")
 	}
 
 	for pane := range strings.SplitSeq(output, "\n") {
-		parts := strings.SplitN(pane, ";", len(format))
+		parts := strings.Split(pane, ";")
 
 		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "%", ""))
 		if err != nil {
@@ -350,6 +314,8 @@ func (c Client) HasSession(sessionName string) bool {
 
 // GetOption returns the specified option for the target of the attached client session.
 func (c Client) GetOption(target, option string) (string, error) {
+	// Currently supports looking for globally-set options, but can be extended for additional
+	// targeted flags for sessions, windows and panes if needed.
 	args := []string{
 		"show",
 		"-g",

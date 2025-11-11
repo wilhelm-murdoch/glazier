@@ -27,7 +27,7 @@ type ActionBase struct {
 // the profile path, and initializing the diagnostics manager and parser.
 func NewActionBase(
 	cmd *cli.Command,
-	log *logger.Logger,
+	logLevel string,
 ) (*ActionBase, error) {
 	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {
@@ -46,6 +46,8 @@ func NewActionBase(
 		diagsManager.Write()
 		return nil, ge.ErrorInvalidDefinition
 	}
+
+	log := logger.New(logger.FriendlyToInternal[logLevel])
 
 	return &ActionBase{
 		Command:            cmd,

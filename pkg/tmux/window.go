@@ -9,6 +9,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+const formatNewPaneResponse = "#{pane_id};#{pane_index};#{pane_title};#{pane_active}"
+
 type WindowId int
 
 // String is responsible for returning the string representation of the WindowId.
@@ -37,19 +39,12 @@ func (w Window) Target() string {
 func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 	var pane Pane
 
-	format := []string{
-		"#{pane_id}",
-		"#{pane_index}",
-		"#{pane_title}",
-		"#{pane_active}",
-	}
-
 	args := []string{
 		"splitw",
 		"-Pd",
 		"-t", parentId,
-		"-c", fmt.Sprint(startingDirectory),
-		"-F", strings.Join(format, ";"),
+		"-c", startingDirectory,
+		"-F", formatNewPaneResponse,
 	}
 
 	cmd, err := NewCommand(w.Session.Client, args...)
@@ -64,7 +59,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 		return pane, err
 	}
 
-	parts := strings.SplitN(output, ";", len(format))
+	parts := strings.Split(output, ";")
 
 	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "%", ""))
 	if err != nil {
