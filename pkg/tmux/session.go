@@ -29,7 +29,7 @@ type Session struct {
 }
 
 // Target returns the target session by its name.
-func (s *Session) Target() string {
+func (s Session) Target() string {
 	return s.Name
 }
 
@@ -91,7 +91,7 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 }
 
 // Kill closes the current session.
-func (s *Session) Kill() error {
+func (s Session) Kill() error {
 	cmd, err := NewCommand(s.Client, "kill-session", "-t", s.Target())
 
 	s.logger.Debug(cmd.String())
