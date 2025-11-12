@@ -29,7 +29,7 @@ func (p Pane) Target() string {
 
 // SendKeys sends the given keystrokes to the current pane.
 func (p Pane) SendKeys(keys string) error {
-	cmd, err := NewCommand(
+	cmd, err := newCommand(
 		p.Window.Session.Client,
 		"send",
 		"-t",
@@ -48,7 +48,7 @@ func (p Pane) SendKeys(keys string) error {
 
 // SetEnv sets the given environment variable to the given value in the current pane.
 func (p Pane) SetEnv(key, value string) error {
-	cmd, err := NewCommand(
+	cmd, err := newCommand(
 		p.Window.Session.Client,
 		"setenv",
 		"-t",
@@ -67,7 +67,7 @@ func (p Pane) SetEnv(key, value string) error {
 
 // Resize is responsible for modifying the height, or width, of the current pane.
 func (p Pane) Resize(x, y string) error {
-	cmd, err := NewCommand(p.Window.Session.Client, "resizep", "-t", p.Target(), "-x", x, "-y", y)
+	cmd, err := newCommand(p.Window.Session.Client, "resizep", "-t", p.Target(), "-x", x, "-y", y)
 
 	p.Window.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -79,7 +79,7 @@ func (p Pane) Resize(x, y string) error {
 
 // Select is responsible for selecting the current pane.
 func (p Pane) Select() error {
-	cmd, err := NewCommand(p.Window.Session.Client, "selectp", "-t", p.Target())
+	cmd, err := newCommand(p.Window.Session.Client, "selectp", "-t", p.Target())
 
 	p.Window.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -91,7 +91,7 @@ func (p Pane) Select() error {
 
 // Kill closes the current pane.
 func (p Pane) Kill() error {
-	cmd, err := NewCommand(p.Window.Session.Client, "killp", "-t", p.Target())
+	cmd, err := newCommand(p.Window.Session.Client, "killp", "-t", p.Target())
 
 	p.Window.Session.logger.Debug(cmd.String())
 	if err != nil {

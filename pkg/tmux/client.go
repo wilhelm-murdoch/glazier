@@ -56,7 +56,7 @@ func (c *Client) Attach(session *Session) error {
 		args = append(args, "switchc", "-t", session.Target())
 	}
 
-	cmd, err := NewCommand(*c, args...)
+	cmd, err := newCommand(*c, args...)
 
 	c.logger.Debug(cmd.String())
 	if err != nil {
@@ -86,7 +86,7 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 		formatActiveSessions,
 	}
 
-	cmd, err := NewCommand(c, args...)
+	cmd, err := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 	if err != nil {
@@ -100,6 +100,17 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 
 	for line := range strings.SplitSeq(output, "\n") {
 		parts := strings.SplitN(line, ";", 3)
+
+		if len(parts) != 3 {
+			c.logger.Warn(
+				fmt.Sprintf(
+					"was expecting 3 parts for session `%s`, but got %d instead",
+					line,
+					len(parts),
+				),
+			)
+			continue
+		}
 
 		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "$", ""))
 		if err != nil {
@@ -128,7 +139,7 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 		"-t", session.Target(),
 	}
 
-	cmd, err := NewCommand(c, args...)
+	cmd, err := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 	if err != nil {
@@ -177,7 +188,7 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 		"-t", window.Target(),
 	}
 
-	cmd, err := NewCommand(c, args...)
+	cmd, err := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 	if err != nil {
@@ -229,7 +240,7 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 func (c Client) NewSession(sessionName, startingDirectory string) (*Session, error) {
 	var session *Session
 
-	cmd, err := NewCommand(
+	cmd, err := newCommand(
 		c,
 		"new",
 		"-d",
@@ -275,11 +286,11 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 
 // KillSession kills the given session.
 func (c Client) KillSessionByName(sessionName string) error {
-	cmd, _ := NewCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
+	cmd, _ := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
 
 	c.logger.Debug(cmd.String())
 	if _, err := cmd.ExecWithOutput(); err != nil {
-		return err
+		return fmt.Errorf(`session "%s" could not be killed: %w`, sessionName, err)
 	}
 
 	return nil
@@ -302,7 +313,7 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 
 // HasSession returns true if a session with the given name exists.
 func (c Client) HasSession(sessionName string) bool {
-	cmd, _ := NewCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
+	cmd, _ := newCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
 
 	c.logger.Debug(cmd.String())
 	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
@@ -324,7 +335,7 @@ func (c Client) GetOption(target, option string) (string, error) {
 		option,
 	}
 
-	cmd, err := NewCommand(c, args...)
+	cmd, err := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 	if err != nil {

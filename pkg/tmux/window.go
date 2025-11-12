@@ -47,7 +47,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 		"-F", formatNewPaneResponse,
 	}
 
-	cmd, err := NewCommand(w.Session.Client, args...)
+	cmd, err := newCommand(w.Session.Client, args...)
 
 	w.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -71,7 +71,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 		return pane, err
 	}
 
-	cmd, err = NewCommand(w.Session.Client, "selectp", "-T", fmt.Sprint(name), "-t", parts[0])
+	cmd, err = newCommand(w.Session.Client, "selectp", "-T", fmt.Sprint(name), "-t", parts[0])
 
 	w.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -104,7 +104,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 
 // Kill is responsible for closing the current window.
 func (w Window) Kill() error {
-	cmd, err := NewCommand(w.Session.Client, "killw", "-t", w.Target())
+	cmd, err := newCommand(w.Session.Client, "killw", "-t", w.Target())
 
 	w.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -116,7 +116,7 @@ func (w Window) Kill() error {
 
 // Select is responsible for selecting the current window.
 func (w Window) Select() error {
-	cmd, err := NewCommand(w.Session.Client, "selectw", "-t", w.Target())
+	cmd, err := newCommand(w.Session.Client, "selectw", "-t", w.Target())
 
 	w.Session.logger.Debug(cmd.String())
 	if err != nil {
@@ -128,7 +128,7 @@ func (w Window) Select() error {
 
 // SelectLayout is responsible for selecting the layout for the current window.
 func (w Window) SelectLayout(layout enums.Layout) error {
-	cmd, err := NewCommand(w.Session.Client, "selectl", "-t", w.Target(), fmt.Sprint(layout))
+	cmd, err := newCommand(w.Session.Client, "selectl", "-t", w.Target(), fmt.Sprint(layout))
 
 	w.Session.logger.Debug(cmd.String())
 	if err != nil {

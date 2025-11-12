@@ -189,6 +189,7 @@ func (a *ActionUp) generatePanes(
 		// Run any defined commands in order as defined within the current profile. Add a small delay between each command to ensure they are executed in order.
 		for _, cmd := range ps.Commands {
 			a.Logger.Info("setting pane command", "cmd", cmd, "name", ptmx.Name)
+			// TODO: Replace this entire bit of functionality with support for `tmux wait-for ...`
 			time.Sleep(time.Millisecond * time.Duration(100))
 			if err := ptmx.SendKeys(cmd); err != nil {
 				return fmt.Errorf(

@@ -35,8 +35,7 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 
 	diagsManager := diagnostics.New(profilePath, parser.File)
 	if diagsManager.HasErrors() || parserDiags.HasErrors() {
-		diagsManager.Write()
-		return nil, errors.New("encountered one or more formatting errors")
+		return nil, diagsManager.Write()
 	}
 
 	log := logger.New(logger.FriendlyToInternal[logLevel])

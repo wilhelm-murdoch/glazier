@@ -46,7 +46,7 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 		"-P",
 	}
 
-	cmd, err := NewCommand(s.Client, args...)
+	cmd, err := newCommand(s.Client, args...)
 
 	s.logger.Debug(cmd.String())
 	if err != nil {
@@ -92,7 +92,7 @@ func (s *Session) NewWindow(windowName string) (*Window, error) {
 
 // Kill closes the current session.
 func (s Session) Kill() error {
-	cmd, err := NewCommand(s.Client, "kill-session", "-t", s.Target())
+	cmd, err := newCommand(s.Client, "kill-session", "-t", s.Target())
 
 	s.logger.Debug(cmd.String())
 	if err != nil {

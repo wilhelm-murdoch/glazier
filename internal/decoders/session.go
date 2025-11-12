@@ -22,7 +22,7 @@ func NewSession(spec cty.Value) *Session {
 
 // Decode is responsible for decoding a cty.Value into a Session struct.
 func (s *Session) Decode() hcl.Diagnostics {
-	var diags hcl.Diagnostics
+	var allDiags hcl.Diagnostics
 
 	windows := s.Spec.GetAttr("windows")
 	if windows.CanIterateElements() {
@@ -32,14 +32,14 @@ func (s *Session) Decode() hcl.Diagnostics {
 			_, spec := windowIterator.Element()
 
 			window := NewWindow(spec)
-			if diags = window.Decode(); diags.HasErrors() {
-				diags = diags.Extend(diags)
-				continue
+			windowDiags := window.Decode()
+			if windowDiags.HasErrors() {
+				allDiags = allDiags.Extend(windowDiags)
 			}
 
 			s.Windows.Push(window)
 		}
 	}
 
-	return diags
+	return allDiags
 }
