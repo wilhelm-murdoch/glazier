@@ -14,8 +14,6 @@ const (
 	testSocketName = ""
 )
 
-var testDiscardLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
-
 type ClientTestDeps struct {
 	capturedArgs []string
 	mockExec     *MockCommander
@@ -23,7 +21,8 @@ type ClientTestDeps struct {
 }
 
 func setupClientTest(t *testing.T) *ClientTestDeps {
-	client := NewClient(testSocketPath, testSocketName, testDiscardLogger)
+	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	client := NewClient(testSocketPath, testSocketName, discardLogger)
 
 	deps := &ClientTestDeps{
 		mockExec: new(MockCommander),

@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Executor is an interface that represents what kind of actions a Command, and
+// Commander is an interface that represents what kind of actions a Command, and
 // other implemenations, can perform.
 type Commander interface {
 	fmt.Stringer
@@ -18,7 +18,7 @@ type Commander interface {
 }
 
 var (
-	// Ensure Command properly implements the Executor interface.
+	// Ensure Command properly implements the Commander interface.
 	_ Commander = (*Command)(nil)
 
 	// Assign NewCommand to newCommand so we can test its functionality via
