@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strconv"
 	"strings"
 
@@ -50,18 +51,18 @@ func (c *Client) Attach(session *Session) error {
 		args = append(args, "-S", c.socketPath)
 	}
 
-	if !IsInsideTmux() {
+	if os.Getenv("TMUX") != "" {
 		args = append(args, "attach", "-t", session.Target())
 	} else {
 		args = append(args, "switchc", "-t", session.Target())
 	}
 
 	cmd, err := newCommand(*c, args...)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	if err := cmd.Exec(); err != nil {
 		if strings.Contains(err.Error(), "can't find session") {
@@ -87,11 +88,11 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 	}
 
 	cmd, err := newCommand(c, args...)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return sessions, err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
@@ -102,14 +103,11 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 		parts := strings.SplitN(line, ";", 3)
 
 		if len(parts) != 3 {
-			c.logger.Warn(
-				fmt.Sprintf(
-					"was expecting 3 parts for session `%s`, but got %d instead",
-					line,
-					len(parts),
-				),
+			return sessions, fmt.Errorf(
+				"expected 3 parts for session line, but got %d instead: %s",
+				len(parts),
+				line,
 			)
-			continue
 		}
 
 		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "$", ""))
@@ -140,11 +138,11 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 	}
 
 	cmd, err := newCommand(c, args...)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return windows, err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
@@ -189,11 +187,11 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 	}
 
 	cmd, err := newCommand(c, args...)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return panes, err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
@@ -249,11 +247,11 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		"-c",
 		fmt.Sprint(startingDirectory),
 	)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return session, err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	if err := cmd.Exec(); err != nil {
 		return session, err
@@ -288,10 +286,11 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 func (c Client) KillSessionByName(sessionName string) error {
 	cmd, _ := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
 
-	c.logger.Debug(cmd.String())
 	if _, err := cmd.ExecWithOutput(); err != nil {
 		return fmt.Errorf(`session "%s" could not be killed: %w`, sessionName, err)
 	}
+
+	c.logger.Debug(cmd.String())
 
 	return nil
 }
@@ -315,10 +314,11 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 func (c Client) HasSession(sessionName string) bool {
 	cmd, _ := newCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
 
-	c.logger.Debug(cmd.String())
 	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
 		return false
 	}
+
+	c.logger.Debug(cmd.String())
 
 	return true
 }
@@ -336,11 +336,11 @@ func (c Client) GetOption(target, option string) (string, error) {
 	}
 
 	cmd, err := newCommand(c, args...)
-
-	c.logger.Debug(cmd.String())
 	if err != nil {
 		return "", err
 	}
+
+	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {

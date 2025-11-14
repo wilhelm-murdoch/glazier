@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+var defaultTmuxExecutablePath = "tmux"
+
 // Commander is an interface that represents what kind of actions a Command, and
 // other implemenations, can perform.
 type Commander interface {
@@ -36,9 +38,9 @@ type Command struct {
 
 // NewCommand returns a new command with the given arguments.
 func NewCommand(client Client, args ...string) (*Command, error) {
-	tmux, ok := IsInstalled()
-	if !ok {
-		return &Command{}, fmt.Errorf("tmux is not installed")
+	tmux, err := exec.LookPath(defaultTmuxExecutablePath)
+	if err != nil {
+		return nil, fmt.Errorf("tmux is not installed")
 	}
 
 	if client.socketName != "" {
