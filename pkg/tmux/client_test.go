@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"testing"
@@ -72,6 +73,13 @@ func TestClientSessions(t *testing.T) {
 			expectedError:  "strconv.Atoi: parsing \"a\": invalid syntax",
 			expectedValues: nil,
 			sessionCount:   0,
+		}, {
+			name:           "fails to return sessions from tmux client",
+			cmdResponse:    "",
+			cmdError:       errors.New("command failed"),
+			expectedError:  "command failed",
+			expectedValues: nil,
+			sessionCount:   0,
 		},
 	}
 
@@ -80,9 +88,7 @@ func TestClientSessions(t *testing.T) {
 			deps, err := setupClientTestDeps(t)
 			assert.NoError(t, err)
 
-			deps.withNewCommandError(testCase.cmdError)
-
-			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, nil)
+			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, testCase.cmdError)
 
 			sessions, err := deps.Client.Sessions()
 
@@ -113,10 +119,49 @@ func TestClientSessions(t *testing.T) {
 		assert.NoError(t, err)
 
 		deps.mockExec.On("ExecWithOutput").Return("", nil)
-		defaultTmuxExecutablePath = "tmux"
+		defaultTmuxExecutablePath = "/this/path/does/not/work/tmux"
 
 		_, err = deps.Client.Sessions()
 
 		assert.Error(t, err)
 	})
+}
+
+func TestClientAttach(t *testing.T) {
+	t.Skip("not yet implemented")
+
+	testCases := []struct {
+		name           string
+		cmdResponse    string
+		cmdError       error
+		expectedError  string
+		expectedValues [][]string
+		sessionCount   int
+	}{}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			deps, err := setupClientTestDeps(t)
+			assert.NoError(t, err)
+
+			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, testCase.cmdError)
+
+			sessions, err := deps.Client.Sessions()
+
+			if testCase.expectedError != "" {
+				assert.Error(t, err)
+				assert.Equal(t, testCase.expectedError, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+
+			assert.Equal(t, sessions.Length(), testCase.sessionCount)
+
+			for _, value := range testCase.expectedValues {
+				assert.NotNil(t, sessions.Find(func(i int, item *Session) bool {
+					return item.Name == value[0] && item.StartingDirectory == value[1]
+				}))
+			}
+		})
+	}
 }

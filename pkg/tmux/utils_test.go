@@ -36,20 +36,6 @@ type TestDepsBase struct {
 	mockExec     *MockCommander
 }
 
-func (tdb TestDepsBase) withNewCommandError(err error) {
-	newCommand = func(client Client, args ...string) Commander {
-		tdb.capturedArgs = args
-		return tdb.mockExec
-	}
-}
-
-func (tdb TestDepsBase) withNewCommandSuccess() {
-	newCommand = func(client Client, args ...string) Commander {
-		tdb.capturedArgs = args
-		return tdb.mockExec
-	}
-}
-
 func setupTestDeps(t *testing.T) *TestDepsBase {
 	deps := &TestDepsBase{
 		mockExec: new(MockCommander),
@@ -57,6 +43,10 @@ func setupTestDeps(t *testing.T) *TestDepsBase {
 
 	deps.mockExec.On("String").Return("mocked tmux command")
 
+	newCommand = func(client Client, args ...string) Commander {
+		deps.capturedArgs = args
+		return deps.mockExec
+	}
 	originalNewCommand := newCommand
 	t.Cleanup(func() {
 		newCommand = originalNewCommand

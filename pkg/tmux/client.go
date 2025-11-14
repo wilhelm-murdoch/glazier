@@ -331,12 +331,25 @@ func (c Client) HasSession(sessionName string) bool {
 }
 
 // GetOption returns the specified option for the target of the attached client session.
-func (c Client) GetOption(target, option string) (string, error) {
-	// Currently supports looking for globally-set options, but can be extended for additional
-	// targeted flags for sessions, windows and panes if needed.
+func (c Client) GetOption(target, option, scope string) (string, error) {
+	scopes := map[string]string{
+		"global":  "-g",
+		"pane":    "-p",
+		"window":  "-w",
+		"session": "-s",
+	}
+
+	resolvedScope, ok := scopes[scope]
+	if !ok {
+		c.logger.Warn(
+			"get option scope `%s` could not be resolved for target `%s`, option `%s`; reverting to server scope instead",
+		)
+		resolvedScope = ""
+	}
+
 	args := []string{
 		"show",
-		"-g",
+		resolvedScope,
 		"-t",
 		target,
 		option,
@@ -359,7 +372,8 @@ func (c Client) GetOption(target, option string) (string, error) {
 func (c Client) GetBaseIndex(target, option string) ([]string, error) {
 	var out []string
 
-	result, err := c.GetOption(target, option)
+	// TODO: update this function to accept various scopes; defaulting to global for now
+	result, err := c.GetOption(target, option, "")
 	if err != nil {
 		return out, err
 	}
