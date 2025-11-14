@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -25,15 +26,35 @@ type Client struct {
 	socketPath     string
 	socketName     string
 	logger         *slog.Logger
+	tmuxPath       string
 }
 
 // NewClient returns a new client.
-func NewClient(socketPath, socketName string, logger *slog.Logger) *Client {
+func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, error) {
+	resolvedTmuxPath, err := exec.LookPath(defaultTmuxExecutablePath)
+	if err != nil {
+		return nil, fmt.Errorf("tmux is not installed")
+	}
+
 	return &Client{
 		socketPath: socketPath,
 		socketName: socketName,
 		logger:     logger,
+		tmuxPath:   resolvedTmuxPath,
+	}, nil
+}
+
+// IsRunning returns true if the local tmux server is currently running.
+func (c Client) IsRunning() (bool, error) {
+	cmd := newCommand(c, "info")
+
+	c.logger.Debug(cmd.String())
+
+	if exitStatus := cmd.ExecWithStatus(); exitStatus == 0 {
+		return true, nil
 	}
+
+	return false, nil
 }
 
 // Attach attaches to the given session. If we are inside a tmux session,
@@ -57,10 +78,7 @@ func (c *Client) Attach(session *Session) error {
 		args = append(args, "switchc", "-t", session.Target())
 	}
 
-	cmd, err := newCommand(*c, args...)
-	if err != nil {
-		return err
-	}
+	cmd := newCommand(*c, args...)
 
 	c.logger.Debug(cmd.String())
 
@@ -87,10 +105,7 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 		formatActiveSessions,
 	}
 
-	cmd, err := newCommand(c, args...)
-	if err != nil {
-		return sessions, err
-	}
+	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
@@ -137,10 +152,7 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 		"-t", session.Target(),
 	}
 
-	cmd, err := newCommand(c, args...)
-	if err != nil {
-		return windows, err
-	}
+	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
@@ -186,10 +198,7 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 		"-t", window.Target(),
 	}
 
-	cmd, err := newCommand(c, args...)
-	if err != nil {
-		return panes, err
-	}
+	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
@@ -238,18 +247,16 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 func (c Client) NewSession(sessionName, startingDirectory string) (*Session, error) {
 	var session *Session
 
-	cmd, err := newCommand(
-		c,
+	args := []string{
 		"new",
 		"-d",
 		"-s",
 		fmt.Sprint(sessionName),
 		"-c",
 		fmt.Sprint(startingDirectory),
-	)
-	if err != nil {
-		return session, err
 	}
+
+	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
@@ -284,13 +291,13 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 
 // KillSession kills the given session.
 func (c Client) KillSessionByName(sessionName string) error {
-	cmd, _ := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
+	cmd := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
+
+	c.logger.Debug(cmd.String())
 
 	if _, err := cmd.ExecWithOutput(); err != nil {
 		return fmt.Errorf(`session "%s" could not be killed: %w`, sessionName, err)
 	}
-
-	c.logger.Debug(cmd.String())
 
 	return nil
 }
@@ -312,13 +319,13 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 
 // HasSession returns true if a session with the given name exists.
 func (c Client) HasSession(sessionName string) bool {
-	cmd, _ := newCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
+	cmd := newCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
+
+	c.logger.Debug(cmd.String())
 
 	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
 		return false
 	}
-
-	c.logger.Debug(cmd.String())
 
 	return true
 }
@@ -335,10 +342,7 @@ func (c Client) GetOption(target, option string) (string, error) {
 		option,
 	}
 
-	cmd, err := newCommand(c, args...)
-	if err != nil {
-		return "", err
-	}
+	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 

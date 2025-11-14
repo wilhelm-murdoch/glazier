@@ -25,7 +25,7 @@ var (
 
 	// Assign NewCommand to newCommand so we can test its functionality via
 	// dependency injection.
-	newCommand = func(client Client, args ...string) (Commander, error) {
+	newCommand = func(client Client, args ...string) Commander {
 		return NewCommand(client, args...)
 	}
 )
@@ -37,28 +37,23 @@ type Command struct {
 }
 
 // NewCommand returns a new command with the given arguments.
-func NewCommand(client Client, args ...string) (*Command, error) {
-	tmux, err := exec.LookPath(defaultTmuxExecutablePath)
-	if err != nil {
-		return nil, fmt.Errorf("tmux is not installed")
-	}
-
+func NewCommand(client Client, args ...string) *Command {
 	if client.socketName != "" {
 		args = append([]string{"-L", client.socketName}, args...)
 	} else if client.socketPath != "" {
 		args = append([]string{"-S", client.socketPath}, args...)
 	}
 
-	args = append([]string{tmux}, args...)
+	args = append([]string{client.tmuxPath}, args...)
 
 	return &Command{
 		args: args,
 		cmd:  exec.Command(args[0], args[1:]...),
-	}, nil
+	}
 }
 
 // String returns the full command with arguments as a string.
-func (c *Command) String() string {
+func (c Command) String() string {
 	return strings.Join(c.args, " ")
 }
 
@@ -77,7 +72,7 @@ func (c *Command) Exec() error {
 }
 
 // ExecWithStatus executes the command and attempts to return its exit status.
-func (c *Command) ExecWithStatus() int {
+func (c Command) ExecWithStatus() int {
 	err := c.cmd.Run()
 	if err != nil && !errors.Is(err, CommandError{}) {
 		return 1
@@ -87,7 +82,7 @@ func (c *Command) ExecWithStatus() int {
 }
 
 // ExecWithOutput executes the command and returns the output as a string.
-func (c *Command) ExecWithOutput() (string, error) {
+func (c Command) ExecWithOutput() (string, error) {
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
 		return "", NewCommandErrorWithOutput(c.args, err, string(output))

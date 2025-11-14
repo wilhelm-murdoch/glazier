@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -19,15 +20,19 @@ type TestDepsClient struct {
 	Client *Client
 }
 
-func setupClientTestDeps(t *testing.T) *TestDepsClient {
+func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
 	base := setupTestDeps(t)
 	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	client := NewClient(testSocketPath, testSocketName, discardLogger)
+
+	client, err := NewClient(testSocketPath, testSocketName, discardLogger)
+	if err != nil {
+		return nil, err
+	}
 
 	return &TestDepsClient{
 		TestDepsBase: base,
 		Client:       client,
-	}
+	}, nil
 }
 
 func TestClientSessions(t *testing.T) {
@@ -81,8 +86,12 @@ func TestClientSessions(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			deps := setupClientTestDeps(t)
-			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, testCase.cmdError)
+			deps, err := setupClientTestDeps(t)
+			assert.NoError(t, err)
+
+			deps.withNewCommandError(testCase.cmdError)
+
+			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, nil)
 
 			sessions, err := deps.Client.Sessions()
 
@@ -108,11 +117,16 @@ func TestClientSessions(t *testing.T) {
 		t.Cleanup(func() {
 			defaultTmuxExecutablePath = originalDefaultTmuxExecutablePath
 		})
-		deps := setupClientTestDeps(t)
-		deps.mockExec.On("ExecWithOutput").Return("", nil)
-		defaultTmuxExecutablePath = "/an/invalid/path/to/tmux"
 
-		_, err := deps.Client.Sessions()
+		deps, err := setupClientTestDeps(t)
+		assert.NoError(t, err)
+
+		deps.mockExec.On("ExecWithOutput").Return("", nil)
+		defaultTmuxExecutablePath = "tmux"
+
+		_, err = deps.Client.Sessions()
+
+		fmt.Println(err)
 
 		assert.Error(t, err)
 	})

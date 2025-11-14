@@ -28,11 +28,14 @@ func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 		return nil, err
 	}
 
-	tmuxClient := tmux.NewClient(
+	tmuxClient, err := tmux.NewClient(
 		cmd.String("socket-name"),
 		cmd.String("socket-path"),
 		base.Logger.Logger,
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ActionUp{
 		ActionBase: *base,

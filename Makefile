@@ -17,7 +17,7 @@ VERSION    :=`git describe --tags 2>/dev/null`
 COMMIT     :=`git rev-parse --short HEAD 2>/dev/null`
 DATE       :=`date "+%FT%T%z"`
 
-LDBASE     := github.com/wilhelm-murdoch/glaze/cmd/glaze/main
+LDBASE     := github.com/wilhelm-murdoch/glazier/cmd/glaze/main
 LDFLAGS    := -ldflags "-w -s -X $(LDBASE).ver=${VERSION} -X $(LDBASE).date=${DATE} -X $(LDBASE).commit=${COMMIT}"
 
 GOARCH     ?= amd64

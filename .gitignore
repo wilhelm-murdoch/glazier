@@ -1,6 +1,6 @@
 .envrc
-cover.out
-cover.html
+cover*.out
+cover*.html
 .vscode
 
 bin/
