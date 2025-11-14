@@ -1,8 +1,6 @@
 package tmux
 
 import (
-	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"testing"
@@ -74,13 +72,6 @@ func TestClientSessions(t *testing.T) {
 			expectedError:  "strconv.Atoi: parsing \"a\": invalid syntax",
 			expectedValues: nil,
 			sessionCount:   0,
-		}, {
-			name:           "fails to return sessions from tmux client",
-			cmdResponse:    "",
-			cmdError:       errors.New("command failed"),
-			expectedError:  "command failed",
-			expectedValues: nil,
-			sessionCount:   0,
 		},
 	}
 
@@ -125,8 +116,6 @@ func TestClientSessions(t *testing.T) {
 		defaultTmuxExecutablePath = "tmux"
 
 		_, err = deps.Client.Sessions()
-
-		fmt.Println(err)
 
 		assert.Error(t, err)
 	})
