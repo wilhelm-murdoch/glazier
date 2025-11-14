@@ -31,6 +31,37 @@ func (m *MockCommander) String() string {
 	return args.String(0)
 }
 
+type TestCase struct {
+	name           string
+	funcSetup      func(t *testing.T)
+	funcTeardown   func(t *testing.T)
+	cmdResponse    string
+	cmdError       error
+	expectedError  string
+	expectedValues [][]string
+	sessionCount   int
+}
+
+type TestSuite struct {
+	Cases []TestCase
+}
+
+func NewTestSuite(testCases []TestCase) *TestSuite {
+	return &TestSuite{
+		Cases: testCases,
+	}
+}
+
+func (ts *TestSuite) Append(testCase TestCase) *TestSuite {
+	ts.Cases = append(ts.Cases, testCase)
+	return ts
+}
+
+func (ts *TestSuite) Extend(testCases []TestCase) *TestSuite {
+	ts.Cases = append(ts.Cases, testCases...)
+	return ts
+}
+
 type TestDepsBase struct {
 	capturedArgs []string
 	mockExec     *MockCommander

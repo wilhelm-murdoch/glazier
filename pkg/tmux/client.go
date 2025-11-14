@@ -20,6 +20,8 @@ const (
 	formatActivePanes    = "#{pane_id};#{pane_index};#{pane_title};#{pane_active};#{pane_current_path}"
 )
 
+var defaultTmuxExecutablePath = "tmux"
+
 // Client represents a tmux client.
 type Client struct {
 	CurrentSession *Session
@@ -45,16 +47,16 @@ func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, err
 }
 
 // IsRunning returns true if the local tmux server is currently running.
-func (c Client) IsRunning() (bool, error) {
+func (c Client) IsRunning() bool {
 	cmd := newCommand(c, "info")
 
 	c.logger.Debug(cmd.String())
 
 	if exitStatus := cmd.ExecWithStatus(); exitStatus == 0 {
-		return true, nil
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 // Attach attaches to the given session. If we are inside a tmux session,

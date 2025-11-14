@@ -8,8 +8,6 @@ import (
 	"strings"
 )
 
-var defaultTmuxExecutablePath = "tmux"
-
 // Commander is an interface that represents what kind of actions a Command, and
 // other implemenations, can perform.
 type Commander interface {

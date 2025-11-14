@@ -14,6 +14,8 @@ const (
 	testSocketName = ""
 )
 
+var discardLogger = slog.New(slog.NewTextHandler(io.Discard, nil))
+
 type TestDepsClient struct {
 	*TestDepsBase
 	Client *Client
@@ -21,7 +23,6 @@ type TestDepsClient struct {
 
 func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
 	base := setupTestDeps(t)
-	discardLogger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	client, err := NewClient(testSocketPath, testSocketName, discardLogger)
 	if err != nil {
@@ -35,14 +36,7 @@ func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
 }
 
 func TestClientSessions(t *testing.T) {
-	testCases := []struct {
-		name           string
-		cmdResponse    string
-		cmdError       error
-		expectedError  string
-		expectedValues [][]string
-		sessionCount   int
-	}{
+	testCases := []TestCase{
 		{
 			name:          "successfully returns multiple sessions",
 			cmdResponse:   "$1;test-session-a;/tmp/foo\n$2;test-session-b;/tmp/bar\n$3;test-session-c;/tmp/baz",
@@ -83,10 +77,17 @@ func TestClientSessions(t *testing.T) {
 		},
 	}
 
-	for _, testCase := range testCases {
+	testSuite := NewTestSuite(testCases)
+
+	for _, testCase := range testSuite.Cases {
 		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.funcSetup != nil {
+				testCase.funcSetup(t)
+			}
+
 			deps, err := setupClientTestDeps(t)
 			assert.NoError(t, err)
+			assert.NotNil(t, deps)
 
 			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, testCase.cmdError)
 
@@ -108,60 +109,78 @@ func TestClientSessions(t *testing.T) {
 			}
 		})
 	}
+}
 
+func TestClientNew(t *testing.T) {
 	t.Run("fails to find tmux executable", func(t *testing.T) {
 		originalDefaultTmuxExecutablePath := defaultTmuxExecutablePath
+		defaultTmuxExecutablePath = "/this/path/does/not/work/tmux"
 		t.Cleanup(func() {
 			defaultTmuxExecutablePath = originalDefaultTmuxExecutablePath
 		})
 
-		deps, err := setupClientTestDeps(t)
-		assert.NoError(t, err)
-
-		deps.mockExec.On("ExecWithOutput").Return("", nil)
-		defaultTmuxExecutablePath = "/this/path/does/not/work/tmux"
-
-		_, err = deps.Client.Sessions()
+		client, err := NewClient(testSocketPath, testSocketPath, discardLogger)
 
 		assert.Error(t, err)
+		assert.Equal(t, err.Error(), "tmux is not installed")
+		assert.Nil(t, client)
+	})
+
+	t.Run("successfully finds tmux executable", func(t *testing.T) {
+		_, err := NewClient(testSocketPath, testSocketPath, discardLogger)
+
+		assert.Nil(t, err)
 	})
 }
 
-func TestClientAttach(t *testing.T) {
-	t.Skip("not yet implemented")
-
+func TestClientIsRunning(t *testing.T) {
 	testCases := []struct {
 		name           string
-		cmdResponse    string
-		cmdError       error
-		expectedError  string
-		expectedValues [][]string
-		sessionCount   int
-	}{}
+		exitStatus     int
+		expectedResult bool
+	}{
+		{
+			name:           "simulate tmux server is running",
+			exitStatus:     0,
+			expectedResult: true,
+		},
+		{
+			name:           "simulate tmux server has stopped",
+			exitStatus:     1,
+			expectedResult: false,
+		},
+	}
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			deps, err := setupClientTestDeps(t)
 			assert.NoError(t, err)
+			assert.NotNil(t, deps)
 
-			deps.mockExec.On("ExecWithOutput").Return(testCase.cmdResponse, testCase.cmdError)
+			deps.mockExec.On("ExecWithStatus").Return(testCase.exitStatus)
 
-			sessions, err := deps.Client.Sessions()
+			assert.Equal(t, deps.Client.IsRunning(), testCase.expectedResult)
+		})
+	}
+}
 
-			if testCase.expectedError != "" {
-				assert.Error(t, err)
-				assert.Equal(t, testCase.expectedError, err.Error())
-			} else {
-				assert.NoError(t, err)
-			}
+func TestClientAttach(t *testing.T) {
+	testCases := []struct {
+		name string
+	}{
+		{
+			name: "simulate tmux server is running",
+		},
+		{
+			name: "simulate tmux server has stopped",
+		},
+	}
 
-			assert.Equal(t, sessions.Length(), testCase.sessionCount)
-
-			for _, value := range testCase.expectedValues {
-				assert.NotNil(t, sessions.Find(func(i int, item *Session) bool {
-					return item.Name == value[0] && item.StartingDirectory == value[1]
-				}))
-			}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			deps, err := setupClientTestDeps(t)
+			assert.NoError(t, err)
+			assert.NotNil(t, deps)
 		})
 	}
 }
