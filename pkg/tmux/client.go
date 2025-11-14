@@ -83,11 +83,11 @@ func (c *Client) Attach(session *Session) error {
 	c.logger.Debug(cmd.String())
 
 	if err := cmd.Exec(); err != nil {
-		if strings.Contains(err.Error(), "can't find session") {
-			return fmt.Errorf(`session "%s" not found`, session.Name)
-		}
-
-		return err
+		return fmt.Errorf(
+			`attaching to session "%s" yielded the following error from the client: %w`,
+			session.Name,
+			err,
+		)
 	}
 
 	c.CurrentSession = session
