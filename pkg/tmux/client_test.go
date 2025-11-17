@@ -58,7 +58,7 @@ func TestClientSessions(t *testing.T) {
 		}, {
 			name:           "fails with missing expected return values from tmux client",
 			cmdResponse:    "$1;test-session-a",
-			expectedError:  "expected 3 parts for session line, but got 2 instead: $1;test-session-a",
+			expectedError:  "expected 3 parts for tmux line, but got 2 instead: $1;test-session-a",
 			expectedValues: nil,
 			sessionCount:   0,
 		}, {
@@ -164,23 +164,50 @@ func TestClientIsRunning(t *testing.T) {
 	}
 }
 
-func TestClientAttach(t *testing.T) {
-	testCases := []struct {
-		name string
-	}{
-		{
-			name: "simulate tmux server is running",
-		},
-		{
-			name: "simulate tmux server has stopped",
-		},
-	}
+func TestClientNewSession(t *testing.T) {
+	t.Run("successfully create a new session", func(t *testing.T) {
+		deps, err := setupClientTestDeps(t)
+		assert.NoError(t, err)
+		assert.NotNil(t, deps)
 
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			deps, err := setupClientTestDeps(t)
-			assert.NoError(t, err)
-			assert.NotNil(t, deps)
-		})
-	}
+		deps.mockExec.On("Exec").Return(nil).Once()
+		deps.mockExec.On("ExecWithOutput").Return("$1;test;/foo/bar", nil).Once()
+
+		session, err := deps.Client.NewSession("test", "/foo/bar")
+
+		assert.NoError(t, err)
+		assert.Equal(t, session.Id, 1)
+		assert.Equal(t, session.Name, "test")
+		assert.Equal(t, session.StartingDirectory, "/foo/bar")
+	})
+
+	t.Run("fail to create a new session ( primary exec )", func(t *testing.T) {
+		deps, err := setupClientTestDeps(t)
+		assert.NoError(t, err)
+		assert.NotNil(t, deps)
+
+		deps.mockExec.On("Exec").Return(errors.New("generic error message")).Once()
+		deps.mockExec.On("ExecWithOutput").Return("$1;test;/foo/bar", nil).Once()
+
+		session, err := deps.Client.NewSession("test", "/foo/bar")
+
+		assert.Error(t, err)
+		assert.Nil(t, session)
+		assert.Equal(t, err.Error(), "generic error message")
+	})
+
+	t.Run("fail to create a new session ( secondary exec )", func(t *testing.T) {
+		deps, err := setupClientTestDeps(t)
+		assert.NoError(t, err)
+		assert.NotNil(t, deps)
+
+		deps.mockExec.On("Exec").Return(nil).Once()
+		deps.mockExec.On("ExecWithOutput").Return("", errors.New("generic error message")).Once()
+
+		session, err := deps.Client.NewSession("test", "/foo/bar")
+
+		assert.Error(t, err)
+		assert.Nil(t, session)
+		assert.Equal(t, err.Error(), "generic error message")
+	})
 }

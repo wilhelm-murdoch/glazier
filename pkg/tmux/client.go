@@ -117,31 +117,30 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 	}
 
 	for line := range strings.SplitSeq(output, "\n") {
-		parts := strings.SplitN(line, ";", 3)
-
-		if len(parts) != 3 {
-			return sessions, fmt.Errorf(
-				"expected 3 parts for session line, but got %d instead: %s",
-				len(parts),
-				line,
-			)
-		}
-
-		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "$", ""))
+		session, err := c.NewSessionFromLine(line)
 		if err != nil {
 			return sessions, err
 		}
 
-		sessions.Push(&Session{
-			Client:            c,
-			Id:                id,
-			Name:              strings.TrimSpace(parts[1]),
-			StartingDirectory: strings.TrimSpace(parts[2]),
-			logger:            c.logger,
-		})
+		sessions.Push(session)
 	}
 
 	return sessions, err
+}
+
+func (c Client) NewSessionFromLine(line string) (*Session, error) {
+	parts, id, err := c.getPartsFromTmuxLine(line, "$", 3)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Session{
+		Client:            c,
+		Id:                id,
+		Name:              strings.TrimSpace(parts[1]),
+		StartingDirectory: strings.TrimSpace(parts[2]),
+		logger:            c.logger,
+	}, nil
 }
 
 // Windows returns a collection of windows for the given session.
@@ -163,31 +162,38 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 		return windows, err
 	}
 
-	for window := range strings.SplitSeq(output, "\n") {
-		parts := strings.SplitN(window, ";", 5)
-
-		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "@", ""))
+	for line := range strings.SplitSeq(output, "\n") {
+		window, err := c.NewWindowFromLine(line, session)
 		if err != nil {
 			return windows, err
 		}
 
-		index, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return windows, err
-		}
-
-		windows.Push(&Window{
-			Id:       id,
-			Index:    index,
-			Name:     parts[2],
-			Layout:   enums.LayoutFromString(parts[3]),
-			IsActive: parts[4] == "1",
-			IsFirst:  parts[1] == "1",
-			Session:  session,
-		})
+		windows.Push(window)
 	}
 
 	return windows, nil
+}
+
+func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error) {
+	parts, id, err := c.getPartsFromTmuxLine(line, "@", 5)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, err
+	}
+
+	return &Window{
+		Id:       id,
+		Index:    index,
+		Name:     parts[2],
+		Layout:   enums.LayoutFromString(parts[3]),
+		IsActive: parts[4] == "1",
+		IsFirst:  parts[1] == "1",
+		Session:  session,
+	}, nil
 }
 
 // Panes returns a collection of panes for the given window.
@@ -218,31 +224,38 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 		return panes, errors.New("could not determine pane base index")
 	}
 
-	for pane := range strings.SplitSeq(output, "\n") {
-		parts := strings.Split(pane, ";")
-
-		id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "%", ""))
+	for line := range strings.SplitSeq(output, "\n") {
+		pane, err := c.NewPaneFromLine(line, baseIndexCmdParts[1], window)
 		if err != nil {
 			return panes, err
 		}
 
-		index, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return panes, err
-		}
-
-		panes.Push(&Pane{
-			Id:                PaneId(id),
-			Index:             index,
-			Name:              parts[2],
-			StartingDirectory: parts[4],
-			IsActive:          parts[3] == "1",
-			IsFirst:           parts[1] == baseIndexCmdParts[1],
-			Window:            window,
-		})
+		panes.Push(pane)
 	}
 
 	return panes, nil
+}
+
+func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, error) {
+	parts, id, err := c.getPartsFromTmuxLine(line, "%", 5)
+	if err != nil {
+		return nil, err
+	}
+
+	index, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return nil, err
+	}
+
+	return &Pane{
+		Id:                PaneId(id),
+		Index:             index,
+		Name:              parts[2],
+		StartingDirectory: parts[4],
+		IsActive:          parts[3] == "1",
+		IsFirst:           parts[1] == baseIndex,
+		Window:            window,
+	}, nil
 }
 
 // NewSession creates a new session with the given name and starting directory.
@@ -381,4 +394,27 @@ func (c Client) GetBaseIndex(target, option string) ([]string, error) {
 	}
 
 	return strings.Split(result, " "), nil
+}
+
+func (c Client) getPartsFromTmuxLine(
+	line, prefix string,
+	expectedLength int,
+) ([]string, int, error) {
+	parts := strings.SplitN(line, ";", expectedLength)
+
+	if len(parts) != expectedLength {
+		return parts, 0, fmt.Errorf(
+			"expected %d parts for tmux line, but got %d instead: %s",
+			expectedLength,
+			len(parts),
+			line,
+		)
+	}
+
+	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], prefix, ""))
+	if err != nil {
+		return parts, 0, err
+	}
+
+	return parts, id, nil
 }
