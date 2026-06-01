@@ -1,0 +1,125 @@
+package tmux
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+)
+
+// TestEndToEndProvisioning exercises the tmux client against a real tmux server
+// on a throwaway socket. It is skipped when tmux is not installed. Unlike the
+// rest of the suite (which fakes the command factory), this test issues real
+// tmux commands and parses real tmux output, guarding the parts most likely to
+// drift against new tmux versions: output formats, base-index logic, and the
+// wait-for synchronisation.
+func TestEndToEndProvisioning(t *testing.T) {
+	if _, err := exec.LookPath("tmux"); err != nil {
+		t.Skip("tmux is not installed; skipping end-to-end test")
+	}
+
+	socket := fmt.Sprintf("glaze-e2e-%d", os.Getpid())
+
+	client, err := NewClient("", socket, discardLogger)
+	if err != nil {
+		t.Fatalf("could not create client: %v", err)
+	}
+
+	// Ensure the throwaway server is always torn down.
+	t.Cleanup(func() {
+		_ = exec.Command("tmux", "-L", socket, "kill-server").Run()
+	})
+
+	dir := t.TempDir()
+
+	session, err := client.NewSession("e2e", dir)
+	assert.NoError(t, err)
+	assert.NotNil(t, session)
+	assert.Equal(t, "e2e", session.Name)
+
+	assert.True(t, client.IsRunning())
+	assert.True(t, client.HasSession("e2e"))
+
+	// Session-scoped option round-trips through tmux.
+	assert.NoError(t, session.SetOption("history-limit", "4242"))
+	option, err := client.GetOption(session.Target(), "history-limit", "session")
+	assert.NoError(t, err)
+	assert.Contains(t, option, "4242")
+
+	// Create a window with its own starting directory and split it.
+	windowDir := t.TempDir()
+	window, err := session.NewWindow("editor", windowDir)
+	assert.NoError(t, err)
+	assert.Equal(t, "editor", window.Name)
+
+	windows, err := client.Windows(session)
+	assert.NoError(t, err)
+	assert.NotNil(t, windows.Find(func(i int, w *Window) bool {
+		return w.Name == "editor"
+	}))
+
+	defaultPane, err := firstPaneOf(client, window)
+	assert.NoError(t, err)
+	assert.NotNil(t, defaultPane)
+	// The window's default pane should inherit the window's starting directory.
+	// tmux reports the symlink-resolved path, so compare against that.
+	resolvedDir, err := filepath.EvalSymlinks(windowDir)
+	assert.NoError(t, err)
+	assert.Equal(t, resolvedDir, defaultPane.StartingDirectory)
+
+	pane, err := window.Split(defaultPane.Target(), "shell", dir)
+	assert.NoError(t, err)
+	assert.Equal(t, "shell", pane.Name)
+
+	panes, err := client.Panes(window)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, panes.Length())
+
+	// SendKeysAndWait must block until the command completes. Prove it by
+	// touching a marker file and asserting it exists immediately afterwards.
+	marker := filepath.Join(dir, "done.marker")
+	runWithTimeout(t, 10*time.Second, func() error {
+		return pane.SendKeysAndWait(fmt.Sprintf("touch %q", marker), "glaze-e2e-marker")
+	})
+	assert.FileExists(t, marker)
+
+	// Tear the session down explicitly and confirm it is gone.
+	assert.NoError(t, client.KillSessionByName("e2e"))
+	assert.False(t, client.HasSession("e2e"))
+}
+
+// firstPaneOf returns the base-index pane of the given window.
+func firstPaneOf(client *Client, window *Window) (*Pane, error) {
+	panes, err := client.Panes(window)
+	if err != nil {
+		return nil, err
+	}
+
+	pane := panes.Find(func(i int, p *Pane) bool {
+		return p.IsFirst
+	})
+	if pane == nil {
+		return nil, fmt.Errorf("no first pane found for window %q", window.Name)
+	}
+
+	return pane, nil
+}
+
+// runWithTimeout fails the test if fn does not return within d, preventing a
+// hung wait-for from stalling the whole suite.
+func runWithTimeout(t *testing.T, d time.Duration, fn func() error) {
+	t.Helper()
+	done := make(chan error, 1)
+	go func() { done <- fn() }()
+
+	select {
+	case err := <-done:
+		assert.NoError(t, err)
+	case <-time.After(d):
+		t.Fatalf("operation did not complete within %s", d)
+	}
+}

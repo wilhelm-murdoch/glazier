@@ -57,3 +57,21 @@ func AdjustmentFromString(s string) Adjustment {
 
 	return AdjustmentUnknown
 }
+
+// ResizeFlag returns the `tmux resize-pane` flag corresponding to the
+// adjustment direction (-U, -D, -L, -R). The second return value is false for
+// unknown directions, for which no flag exists.
+func (a Adjustment) ResizeFlag() (string, bool) {
+	switch a {
+	case AdjustmentUp:
+		return "-U", true
+	case AdjustmentDown:
+		return "-D", true
+	case AdjustmentLeft:
+		return "-L", true
+	case AdjustmentRight:
+		return "-R", true
+	}
+
+	return "", false
+}

@@ -46,9 +46,14 @@ func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, err
 	}, nil
 }
 
-// IsRunning returns true if the local tmux server is currently running.
+// IsRunning returns true if the local tmux server is currently running. It uses
+// `list-sessions` rather than `server-info` (`info`): the latter requires an
+// attached client and exits non-zero with "no current client" when a server is
+// running but only has detached sessions (e.g. in CI), which is a false
+// negative. `list-sessions` talks to the server without needing a client and
+// exits 0 whenever the server is up.
 func (c Client) IsRunning() bool {
-	cmd := newCommand(c, "info")
+	cmd := newCommand(c, "list-sessions")
 
 	c.logger.Debug(cmd.String())
 
@@ -75,9 +80,9 @@ func (c *Client) Attach(session *Session) error {
 	}
 
 	if os.Getenv("TMUX") != "" {
-		args = append(args, "attach", "-t", session.Target())
-	} else {
 		args = append(args, "switchc", "-t", session.Target())
+	} else {
+		args = append(args, "attach", "-t", session.Target())
 	}
 
 	cmd := newCommand(*c, args...)
@@ -284,9 +289,18 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		return session, err
 	}
 
-	return sessions.Find(func(i int, s *Session) bool {
+	session = sessions.Find(func(i int, s *Session) bool {
 		return s.Name == fmt.Sprint(sessionName)
-	}), nil
+	})
+
+	if session == nil {
+		return nil, fmt.Errorf(
+			"session `%s` was created but could not be found afterwards",
+			sessionName,
+		)
+	}
+
+	return session, nil
 }
 
 // NewSessionIfNotExists creates a new session with the given name and starting
@@ -345,6 +359,22 @@ func (c Client) HasSession(sessionName string) bool {
 	return true
 }
 
+// CurrentSessionName returns the name of the session attached to the current
+// client. This is intended to be called from within a running tmux session
+// (e.g. by the `save` command) to determine which session to capture.
+func (c Client) CurrentSessionName() (string, error) {
+	cmd := newCommand(c, "display-message", "-p", "#{session_name}")
+
+	c.logger.Debug(cmd.String())
+
+	output, err := cmd.ExecWithOutput()
+	if err != nil {
+		return "", fmt.Errorf("could not determine current session: %w", err)
+	}
+
+	return strings.TrimSpace(output), nil
+}
+
 // GetOption returns the specified option for the target of the attached client session.
 func (c Client) GetOption(target, option, scope string) (string, error) {
 	scopes := map[string]string{
@@ -357,18 +387,17 @@ func (c Client) GetOption(target, option, scope string) (string, error) {
 	resolvedScope, ok := scopes[scope]
 	if !ok {
 		c.logger.Warn(
-			"get option scope `%s` could not be resolved for target `%s`, option `%s`; reverting to server scope instead",
+			"get option scope could not be resolved; reverting to global scope instead",
+			"scope", scope,
+			"target", target,
+			"option", option,
 		)
-		resolvedScope = ""
+		resolvedScope = "-g"
 	}
 
-	args := []string{
-		"show",
-		resolvedScope,
-		"-t",
-		target,
-		option,
-	}
+	// Note: an empty scope flag must not be appended, since tmux treats an empty
+	// argument as an extra positional and rejects the command.
+	args := []string{"show", resolvedScope, "-t", target, option}
 
 	cmd := newCommand(c, args...)
 
@@ -382,13 +411,31 @@ func (c Client) GetOption(target, option, scope string) (string, error) {
 	return output, nil
 }
 
+// WaitFor blocks until the given channel is signalled with `tmux wait-for -S`,
+// which is used to serialise command execution within a pane. The tmux server
+// records the signal even if it is sent before the wait begins, so there is no
+// race between dispatching a command and waiting on its completion.
+func (c Client) WaitFor(channel string) error {
+	cmd := newCommand(c, "wait-for", channel)
+
+	c.logger.Debug(cmd.String())
+
+	if err := cmd.Exec(); err != nil {
+		return fmt.Errorf("waiting on channel `%s` failed: %w", channel, err)
+	}
+
+	return nil
+}
+
 // GetBaseIndex is a helper method which attempts to return the base index option
 // for the specified target which may be derived from a Window or a Pane.
 func (c Client) GetBaseIndex(target, option string) ([]string, error) {
 	var out []string
 
-	// TODO: update this function to accept various scopes; defaulting to global for now
-	result, err := c.GetOption(target, option, "")
+	// base-index / pane-base-index are typically configured globally; querying
+	// at global scope reliably returns the effective value (a session-scoped
+	// query only reports values explicitly set on that session).
+	result, err := c.GetOption(target, option, "global")
 	if err != nil {
 		return out, err
 	}

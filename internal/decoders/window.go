@@ -38,7 +38,13 @@ func (w *Window) Decode() hcl.Diagnostics {
 
 	focus := w.Spec.GetAttr("focus")
 	if !focus.IsNull() {
-		gocty.FromCtyValue(focus, &w.Focus)
+		if err := gocty.FromCtyValue(focus, &w.Focus); err != nil {
+			diags = diags.Append(&hcl.Diagnostic{
+				Severity: hcl.DiagError,
+				Summary:  "Invalid window focus value",
+				Detail:   err.Error(),
+			})
+		}
 	}
 
 	panes := w.Spec.GetAttr("panes")

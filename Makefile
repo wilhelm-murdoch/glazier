@@ -1,4 +1,4 @@
-SHELL 	   := $(shell which bash)
+SHELL      := $(shell which bash)
 
 ## BOF define block
 
@@ -13,75 +13,84 @@ BIN_DIR    := $(ROOT_DIR)/bin
 REL_DIR    := $(ROOT_DIR)/release
 SRC_DIR    := $(ROOT_DIR)/cmd
 
-VERSION    :=`git describe --tags 2>/dev/null`
-COMMIT     :=`git rev-parse --short HEAD 2>/dev/null`
-DATE       :=`date "+%FT%T%z"`
+VERSION    := $(shell git describe --tags 2>/dev/null || echo dev)
+COMMIT     := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
+DATE       := $(shell date "+%FT%T%z")
+STAGE      ?= development
 
-LDBASE     := github.com/wilhelm-murdoch/glazier/cmd/glaze/main
-LDFLAGS    := -ldflags "-w -s -X $(LDBASE).ver=${VERSION} -X $(LDBASE).date=${DATE} -X $(LDBASE).commit=${COMMIT}"
+# The main package's linker symbols are addressed as `main.X`, not by the full
+# import path (a Go quirk for package main), so -X targets use the `main` prefix.
+LDBASE     := main
+LDFLAGS    := -ldflags "-w -s \
+	-X $(LDBASE).Version=$(VERSION) \
+	-X $(LDBASE).Commit=$(COMMIT) \
+	-X $(LDBASE).Date=$(DATE) \
+	-X $(LDBASE).Stage=$(STAGE)"
 
 GOARCH     ?= amd64
 GOOS       ?= $(shell go env GOOS)
 
-LINTER     := $(BIN_DIR)/golangci-lint
-LINTVERSION:= v1.27.0
-
-TESTRUNNER := $(BIN_DIR)/gotestsum
-TESTVERSION:= v0.5.0
+# Tooling is installed into BIN_DIR via `go run <tool>@<version>` so versions are
+# pinned without network-piped install scripts.
+LINTER       := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
+TESTRUNNER   := go run gotest.tools/gotestsum@v1.13.0
 
 NO_COLOR   :=\033[0m
-OK_COLOR   :=\033[32;01m
-ERR_COLOR  :=\033[31;01m
-WARN_COLOR :=\033[36;01m
 ATTN_COLOR :=\033[33;01m
 
 ## EOF define block
 
 .PHONY: all
-all: deps gen build test lint
+all: deps build test lint
 
+.PHONY: deps
 deps:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@GO111MODULE=on go mod download
+	@go mod download
 
-.PHONY: gen
-gen: deps $(BIN_DIR)
+.PHONY: tidy
+tidy:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@go generate ./...
+	@go mod tidy
+
+.PHONY: fmt
+fmt:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@gofmt -w $(ROOT_DIR)
 
 .PHONY: dobuild
 dobuild:
 	@echo -e "$(ATTN_COLOR)==> $@ $(B) GOOS=$(P) GOARCH=$(GOARCH) VERSION=$(VERSION) COMMIT=$(COMMIT) DATE=$(DATE) $(NO_COLOR)"
-	@GOOS=$(P) GOARCH=$(GOARCH) GO111MODULE=on go build $(LDFLAGS) -o $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(SRC_DIR)/$(B)
+	@GOOS=$(P) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(SRC_DIR)/$(B)
 ifneq ($(P),windows)
 	@chmod +x $(T)/$(P)-$(GOARCH)/$(B)
 endif
 
-.PHONY: build 
+.PHONY: build
 build: $(BIN_DIR) deps
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@for b in ${BINARIES}; 									\
-	do 														\
-		$(MAKE) dobuild B=$${b} P=${GOOS} T=${BIN_DIR}; 	\
-	done 													
+	@for b in ${BINARIES}; \
+	do \
+		$(MAKE) dobuild B=$${b} P=${GOOS} T=${BIN_DIR}; \
+	done
 
 .PHONY: doinstall
 doinstall:
 	@echo -e "$(ATTN_COLOR)==> $@ $(B) GOOS=$(P) GOARCH=$(GOARCH) VERSION=$(VERSION) COMMIT=$(COMMIT) DATE=$(DATE) $(NO_COLOR)"
-	@GOOS=$(P) GOARCH=$(GOARCH) GO111MODULE=on go install $(LDFLAGS) $(SRC_DIR)/$(B)
+	@GOOS=$(P) GOARCH=$(GOARCH) go install $(LDFLAGS) $(SRC_DIR)/$(B)
 
 .PHONY: install
-install: 
+install:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@for b in ${BINARIES}; 									\
-	do 														\
-		$(MAKE) doinstall B=$${b} P=${GOOS}; 			 	\
-	done 													
+	@for b in ${BINARIES}; \
+	do \
+		$(MAKE) doinstall B=$${b} P=${GOOS}; \
+	done
 
 .PHONY: dorelease
 dorelease:
 	@echo -e "$(ATTN_COLOR)==> $@ build GOOS=$(P) GOARCH=$(GOARCH) VERSION=$(VERSION) COMMIT=$(COMMIT) DATE=$(DATE) $(NO_COLOR)"
-	@GOOS=$(P) GOARCH=$(GOARCH) GO111MODULE=on go build $(LDFLAGS) -o $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(SRC_DIR)/$(B)
+	@GOOS=$(P) GOARCH=$(GOARCH) go build $(LDFLAGS) -o $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(SRC_DIR)/$(B)
 ifneq ($(P),windows)
 	@chmod +x $(T)/$(P)-$(GOARCH)/$(B)
 endif
@@ -91,40 +100,33 @@ endif
 .PHONY: release
 release: $(REL_DIR)
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@for b in ${BINARIES}; 									\
-	do 														\
-		for p in ${PLATFORMS};								\
-		do 													\
-			$(MAKE) dorelease B=$${b} P=$${p} T=${REL_DIR}; 	\
-		done;												\
-	done 													\
+	@for b in ${BINARIES}; \
+	do \
+		for p in ${PLATFORMS}; \
+		do \
+			$(MAKE) dorelease B=$${b} P=$${p} T=${REL_DIR}; \
+		done; \
+	done
 
-$(TESTRUNNER):
-	@echo -e "$(ATTN_COLOR)==> get $@  $(NO_COLOR)"
-	@GOBIN=$(BIN_DIR) go get -u gotest.tools/gotestsum
-
-.PHONY: test 
-test: $(TESTRUNNER)
+.PHONY: test
+test:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@CGO_ENABLED=0 $(BIN_DIR)/gotestsum --format short-verbose -- -count=1 -v $(ROOT_DIR)/...
+	@CGO_ENABLED=0 $(TESTRUNNER) --format short-verbose -- -count=1 ./...
 
-$(LINTER):
-	@echo -e "$(ATTN_COLOR)==> get $@  $(NO_COLOR)"
-	@curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | sh -s $(LINTVERSION)
- 
+.PHONY: cover
+cover:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@CGO_ENABLED=0 go test -count=1 -cover ./...
+
+.PHONY: vet
+vet:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@go vet ./...
+
 .PHONY: lint
-lint: $(LINTER)
+lint:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@CGO_ENABLED=0 $(LINTER) run --enable-all
-	@echo -e "$(NO_COLOR)\c"
-
-.PHONY: doclean
-doclean:
-	@echo -e "$(ATTN_COLOR)==> $@ $(B) GOOS=$(P) $(NO_COLOR)"
-	@if [ -a $(GOPATH)/bin/$(B)$(if $(findstring $(P),windows),".exe","") ];\
-	then																	\
-		rm $(GOPATH)/bin/$(B)$(if $(findstring $(P),windows),".exe","");	\
-	fi
+	@CGO_ENABLED=0 $(LINTER) run ./...
 
 .PHONY: clean
 clean:
@@ -132,10 +134,6 @@ clean:
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(REL_DIR)
 	@go clean
-	@for b in ${BINARIES}; 									\
-	do 														\
-		$(MAKE) doclean B=$${b} P=${GOOS};	 				\
-	done 													
 
 $(REL_DIR):
 	@echo -e "$(ATTN_COLOR)==> create REL_DIR $(REL_DIR) $(NO_COLOR)"

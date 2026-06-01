@@ -58,6 +58,15 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 
 	parts := strings.Split(output, ";")
 
+	if len(parts) != 4 {
+		return pane, fmt.Errorf(
+			"expected 4 fields from tmux when splitting pane `%s`, but got %d: %q",
+			name,
+			len(parts),
+			output,
+		)
+	}
+
 	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "%", ""))
 	if err != nil {
 		return pane, err
@@ -117,6 +126,32 @@ func (w Window) Select() error {
 // SelectLayout is responsible for selecting the layout for the current window.
 func (w Window) SelectLayout(layout enums.Layout) error {
 	cmd := newCommand(w.Session.Client, "selectl", "-t", w.Target(), fmt.Sprint(layout))
+
+	w.Session.logger.Debug(cmd.String())
+
+	return cmd.Exec()
+}
+
+// SetEnv sets an environment variable on the session that owns this window.
+// tmux scopes environment variables to sessions, so window-level variables are
+// applied to the parent session.
+func (w Window) SetEnv(key, value string) error {
+	return w.Session.SetEnv(key, value)
+}
+
+// SetHook registers a window-scoped hook command which tmux will run when the
+// named hook fires for this window.
+func (w Window) SetHook(hook, command string) error {
+	cmd := newCommand(w.Session.Client, "set-hook", "-w", "-t", w.Target(), fmt.Sprint(hook), fmt.Sprint(command))
+
+	w.Session.logger.Debug(cmd.String())
+
+	return cmd.Exec()
+}
+
+// SetOption sets a window-scoped tmux option.
+func (w Window) SetOption(option, value string) error {
+	cmd := newCommand(w.Session.Client, "set-option", "-w", "-t", w.Target(), fmt.Sprint(option), fmt.Sprint(value))
 
 	w.Session.logger.Debug(cmd.String())
 

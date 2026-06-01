@@ -37,7 +37,7 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	if profilePath != "" {
 		if exists := FileExists(profilePath); !exists {
 			return profilePath, fmt.Errorf(
-				"could not locate profile `%s`; exiting ...",
+				"could not locate profile `%s`",
 				profilePath,
 			)
 		}
@@ -56,9 +56,8 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	}
 
 	if !FileExists(profilePath) {
-		return profilePath, fmt.Errorf(
-			"profile `%s` not found with --profile-path, the current directory, or the GLAZE_PATH environment variable",
-			profilePath,
+		return profilePath, errors.New(
+			"glaze profile not found:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
 		)
 	}
 

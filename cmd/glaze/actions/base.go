@@ -32,9 +32,14 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 	}
 
 	parser, parserDiags := parser.New(profilePath)
+	if parserDiags.HasErrors() {
+		diagsManager := diagnostics.New(profilePath, nil)
+		diagsManager.Extend(parserDiags)
+		return nil, diagsManager.Write()
+	}
 
 	diagsManager := diagnostics.New(profilePath, parser.File)
-	if diagsManager.HasErrors() || parserDiags.HasErrors() {
+	if diagsManager.HasErrors() {
 		return nil, diagsManager.Write()
 	}
 

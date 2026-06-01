@@ -24,6 +24,18 @@ func NewSession(spec cty.Value) *Session {
 func (s *Session) Decode() hcl.Diagnostics {
 	var allDiags hcl.Diagnostics
 
+	commands := s.Spec.GetAttr("commands")
+	if !commands.IsNull() && commands.CanIterateElements() {
+		commandIterator := commands.ElementIterator()
+
+		for commandIterator.Next() {
+			_, command := commandIterator.Element()
+			if command.Type().FriendlyName() == "string" {
+				s.Commands = append(s.Commands, command.AsString())
+			}
+		}
+	}
+
 	windows := s.Spec.GetAttr("windows")
 	if windows.CanIterateElements() {
 		windowIterator := windows.ElementIterator()

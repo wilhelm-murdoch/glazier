@@ -19,6 +19,11 @@ var (
 		Type: cty.Map(cty.String),
 	}
 
+	Options = &hcldec.AttrSpec{
+		Name: "options",
+		Type: cty.Map(cty.String),
+	}
+
 	Name = &hcldec.AttrSpec{
 		Name: "name",
 		Type: cty.String,

@@ -1,34 +1,333 @@
 # Glazier
-
 _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com/search?q=pronounce+glazier)</sup>
 > a person whose trade is fitting glass into windows and doors.
 ---
 
-![CI Status](https://github.com/wilhelm-murdoch/glazier/actions/workflows/test.yml/badge.svg)
-![Release Status](https://github.com/wilhelm-murdoch/glazier/actions/workflows/release.yml/badge.svg)
+![CI Status](https://woodpecker.nightcity.network/api/badges/4/status.svg)
 [![GoDoc](https://godoc.org/github.com/wilhelm-murdoch/glazier?status.svg)](https://pkg.go.dev/github.com/wilhelm-murdoch/glazier)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wilhelm-murdoch/glazier)](https://goreportcard.com/report/github.com/wilhelm-murdoch/glazier)
 [![Stability: Experimental](https://masterminds.github.io/stability/experimental.svg)](https://masterminds.github.io/stability/experimental.html)
 
 > [!IMPORTANT]
-> While this project works in the most technical sense, it is not yet ready for "prime time". Working through supporting basic tmux features for session customisation as well as documentation and testing.
+> This project works, but it is still experimental. Expect rough edges and breaking
+> changes while session-customisation features, docs, and tests fill out.
 
-`glaze`, or Glazier, is a command line tool that allows you to simplify and automate the management of your various tmux configurations and workspaces. It was borne out of the frustration of constantly having to recreate my workspaces after every reboot. 
+`glaze` (Glazier) is a command-line tool for declaratively managing your tmux workspaces. Describe your sessions, windows, and panes once in an HCL `.glaze` file, then recreate them on demand. No more rebuilding layouts by hand after every reboot.
+
+```hcl
+session {
+  name = "daemon-run"
+
+  window {
+    name   = "ice-breaker"
+    layout = "main-vertical"
+
+    pane {
+      commands = ["nvim ./payloads"]
+    }
+
+    pane {
+      commands = ["watch -n1 netwatch --target arasaka-mainframe"]
+    }
+  }
+}
+```
+
+Simply type the following alongside a `.glaze` file.
+```console
+$ glaze up
+```
 
 ## Features
-- support for multiple `*.glaze` definition files
-- HCL-based syntax
-- injection of arbitrary variables
-- template functions for string manipulation
-- built-in linting, validation and formatting support
-- Terraform-like diagnostic error reporting
-- ... adding more as I think of them
+- HCL-based syntax with Terraform-style diagnostics.
+- Multiple `*.glaze` definition files, resolved from flag, CWD, or `$GLAZE_PATH`.
+- Arbitrary variable injection from `--var` flags and `GLAZE_ENV_*` env vars.
+- Template functions for string manipulation.
+- Per session/window/pane environment variables, hooks, and tmux options.
+- Reliable command sequencing via `tmux wait-for` (no fixed sleeps).
+- Built-in formatting and validation (`glaze format`).
+- Capture a live session back into a profile (`glaze save`).
+
+## Requirements
+- Go **1.26+** (to build from source)
+- `tmux` available on your `PATH`
 
 ## Installation
+
+### From source
+The following will build and install the `glaze` binary via `go install`.
+```console
+$ git clone https://github.com/wilhelm-murdoch/glazier.git
+$ cd glazier
+$ make install
+```
+
+### With `go install`
+```console
+$ go install github.com/wilhelm-murdoch/glazier/cmd/glaze@latest
+```
+
+### Build a local binary
+Will compile and write the resulting binaries in `bin/<os>-amd64/glaze`.
+```console
+$ make build
+```
+
+> [!NOTE]
+> At the moment only Linux and MacOS are supported operating systems.
+
 ## Usage
+All subcommands have their own `--help` output.
+```console
+$ glaze --help
+$ go run cmd/glaze/main.go --help
+NAME:
+   glaze - easily manage tmux sessions, windows and panes
+
+USAGE:
+   glaze [global options] [command [command options]]
+
+VERSION:
+   dev
+
+AUTHOR:
+   {Wilhelm Murdoch wilhelm@devilmayco.de}
+
+COMMANDS:
+   up       apply the specified glaze profile
+   format   rewrites the target glaze profile file to a canonical format
+   save     running this within a tmux session will save its current state to the specified glaze profile
+   help, h  Shows a list of commands or help for one command
+
+GLOBAL OPTIONS:
+   --log-level string  specify a log level (default: "TRC")
+   --help, -h          show help
+   --version, -v       print only the version
+
+COPYRIGHT:
+   (c) 2026 Wilhelm Codes ( https://wilhelm.codes )
+```
+
+Global flags:
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--log-level` | `trace` | one of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical` |
+
+### `glaze up`
+Apply a profile, creating the session, windows, and panes.
+```console
+$ glaze up                          # apply ./.glaze and jack in
+$ glaze up --detached               # spin it up without jacking in
+$ glaze up --clear                  # flatline an existing session of the same name first
+$ glaze up --profile-path ./gig.glaze
+$ glaze up --var district=watson --var fixer=wakako
+```
+
+| Flag | Description |
+|------|-------------|
+| `--detached` | create the session without attaching to it |
+| `--clear` | kill an existing session with the same name before starting |
+| `--debug` | print every command sent to the tmux socket |
+| `--socket-path` | path to a custom tmux socket |
+| `--socket-name` | name of a custom tmux socket |
+| `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
+| `--var key=value` | set a variable; repeatable |
+
+### `glaze format`
+
+Rewrite a profile into canonical HCL, optionally validating it first.
+
+```console
+$ glaze format                      # format ./.glaze in place
+$ glaze format --stdout             # print formatted output instead of writing
+$ glaze format --validate           # decode + report diagnostics, then format
+```
+
+### `glaze save`
+
+Capture the current (or a named) running tmux session into a `.glaze` profile.
+
+```console
+$ glaze save                        # write ./.glaze from the current session
+$ glaze save --stdout               # print the profile instead of writing
+$ glaze save --session daemon-run --profile-path ./daemon-run.glaze
+```
+
+| Flag | Description |
+|------|-------------|
+| `--session` | session to capture (defaults to the current client's session) |
+| `--profile-path` | output path (defaults to `.glaze`) |
+| `--stdout` | print the profile instead of writing a file |
+| `--socket-path` / `--socket-name` | custom tmux socket |
+
+> [!NOTE]
+> `save` captures the **structure** of a session: session, window and pane names, starting directories, and focus (the active window and pane). Layout is not captured — tmux reports it as a low-level coordinate string rather than a named preset, so it is omitted for you to set. By design `save` also does **not** export pane commands, environment variables, hooks, or tmux options.
+>
+> This is a deliberate safety choice, not a missing feature:
+> - **Commands** (and **hooks**, which are commands bound to events) would re-execute on the next `glaze up` - a destructive command captured from a forgotten pane could nuke your filesystem or peg a database on replay.
+> - **Environment variables** can only be read as the *entire* session environment, which includes secrets (tokens, keys) inherited from your shell - exporting them would write those into a file you might commit.
+> - **Options** read back as effective state, mixing your `tmux.conf` and manual tweaks with anything glaze set, so re-applying them on `up` would be surprising and wrong.
+>
+> Treat a saved profile as a scaffold: it recreates your layout, and you add the commands, envs, and options you actually want by hand.
+
+## Profile resolution
+
+`glaze` locates a profile in this order:
+
+- `--profile-path <path>` if provided
+- `.glaze` in the current working directory
+- `$GLAZE_PATH/.glaze`
+
+> [!NOTE]
+> `~` is expanded to your home directory in path values.
+
 ## Specification
+
+A profile contains exactly one `session` block. Blocks take **no labels**; names are set with a `name` attribute. Strings, maps, and lists use standard HCL syntax.
+
 ### Session
+
+```hcl
+session {
+  name               = "daemon-run"     # defaults to "default"
+  starting_directory = "~/runs/arasaka" # defaults to the current directory
+
+  envs = {
+    EDITOR     = "nvim"
+    ICE_TARGET = "arasaka-mainframe"
+  }
+
+  hooks = {
+    "session-created" = "run-shell 'echo jacked-in'"
+  }
+
+  options = {
+    "base-index" = "1"
+  }
+
+  window {
+    # ...at least one window is required
+  }
+}
+```
+
+| Attribute | Type | Notes |
+|-----------|------|-------|
+| `name` | string | session name; defaults to `default` |
+| `starting_directory` | string | must exist; defaults to CWD |
+| `envs` | map(string) | environment variables (tmux scopes env to the session) |
+| `hooks` | map(string) | tmux hook name > command |
+| `options` | map(string) | tmux option name > value |
+| `window` | block(s) | one or more windows (required) |
+
 ### Window
+
+```hcl
+window {
+  name   = "ice-breaker"
+  layout = "main-vertical"   # even-horizontal | even-vertical | main-horizontal | main-vertical | tiled
+  focus  = true              # make this the active window
+
+  envs    = { DECK = "qiant-sandevistan" }
+  hooks   = { "window-renamed" = "display 'trace detected'" }
+  options = { "automatic-rename" = "off" }
+
+  pane {
+    # ...at least one pane is required
+  }
+}
+```
+
+`layout` defaults to `tiled` when omitted. `envs` on a window resolve to the owning session's environment (tmux has no per-window environment).
+
 ### Pane
-## Variables & String Functions
+
+```hcl
+pane {
+  name     = "breach-protocol"
+  focus    = true
+  commands = ["nvim ./daemons", "echo upload ready"]
+
+  size {                     # absolute resize
+    x = "60%"                # cells (e.g. "80") or percentage (e.g. "60%")
+    y = "100"
+  }
+
+  adjust {                   # directional resize, up to 4 blocks, applied in order
+    direction = "left"       # up | down | left | right
+    amount    = "5"
+  }
+
+  envs    = { OVERCLOCK = "1" }
+  options = { "remain-on-exit" = "on" }
+}
+```
+
+`commands` are sent in order and serialised with `tmux wait-for`, so each command finishes before the next is sent. `size` is applied first, then any `adjust` blocks refine the dimensions.
+
+## Variables & string functions
+
+Variables are referenced by name (e.g. `district`, `path.pwd`) and resolved (last write wins) from:
+
+1. Environment variables prefixed with `GLAZE_ENV_` (e.g. `GLAZE_ENV_district=watson` > `district`).
+2. `--var key=value` flags.
+3. Built-in defaults: `path.pwd` (working directory) and `path.base` (its basename).
+
+```hcl
+session {
+  name               = "gig-${district}"
+  starting_directory = path.pwd
+
+  window {
+    name = upper(path.base)
+
+    pane {
+      commands = ["echo ${trimspace(fixer)} has the next job"]
+    }
+  }
+}
+```
+
+```console
+$ GLAZE_ENV_district=watson glaze up --var fixer="wakako"
+```
+
+Available functions (thin wrappers over `go-cty` stdlib):
+- `replace`
+- `regexreplace`
+- `upper`
+- `lower`
+- `reverse`
+- `len`
+- `substr`
+- `join`
+- `title`
+- `trim`
+- `trimspace`
+- `trimsuffix`
+- `trimprefix`
+- `chomp`
+
 ## Development
+
+```console
+$ go test ./...              # run the test suite (no extra tooling required)
+$ go test -cover ./...       # with coverage
+$ go vet ./...               # static analysis
+$ go build ./...             # compile everything
+
+$ make build                 # build bin/<os>-<arch>/glaze (version-stamped)
+$ make test                  # run tests via gotestsum (pinned, via `go run`)
+$ make cover                 # tests with coverage
+$ make vet                   # go vet
+$ make lint                  # golangci-lint (pinned, via `go run`)
+$ make all                   # deps > build > test > lint
+$ make install               # go install the version-stamped binary
+$ make release               # cross-compile + zip for all platforms
+```
+
+Tooling versions are pinned in the `Makefile` and run with `go run <tool>@<version>`, so no global installs or `curl | sh` bootstrap scripts are needed. Linting is configured in [`.golangci.yml`](./.golangci.yml). Requires Go **1.26+** (the `Makefile` and CI both read the version from `go.mod`).
+
+The test suite includes an end-to-end test (`pkg/tmux/e2e_test.go`) that drives a real `tmux` server on a throwaway socket; it self-skips when `tmux` is not on the `PATH`.
+
+CI runs on [Woodpecker](./.woodpecker/workflow.yaml) (vet, test, lint).

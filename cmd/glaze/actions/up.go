@@ -2,7 +2,6 @@ package actions
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/urfave/cli/v3"
 
@@ -29,8 +28,8 @@ func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 	}
 
 	tmuxClient, err := tmux.NewClient(
-		cmd.String("socket-name"),
 		cmd.String("socket-path"),
+		cmd.String("socket-name"),
 		base.Logger.Logger,
 	)
 	if err != nil {
@@ -51,18 +50,21 @@ func (a *ActionUp) Run() error {
 		return err
 	}
 
-	isAlreadyAttached, err := a.resolveSession(profile)
+	existed, err := a.resolveSession(profile)
 	if err != nil {
 		return err
 	}
 
-	if err := a.provisionSession(profile); err != nil {
-		return fmt.Errorf("failed to provision session: %w", err)
+	// A pre-existing session is left untouched: resolveSession has already
+	// attached to it when not detached. Re-provisioning would duplicate
+	// windows and panes, so rebuilding an existing session is opt-in via
+	// --clear (which kills it first, so it is treated as new here).
+	if existed {
+		return nil
 	}
 
-	// We're attached to a pre-existing session, so there is no need to do anything else here:
-	if isAlreadyAttached {
-		return nil
+	if err := a.provisionSession(profile); err != nil {
+		return fmt.Errorf("failed to provision session: %w", err)
 	}
 
 	return a.attachToSession()
@@ -81,6 +83,10 @@ func (a *ActionUp) attachToSession() error {
 
 // provisionSession creates the windows and panes as defined in the profile.
 func (a *ActionUp) provisionSession(profile *decoders.Session) error {
+	if err := a.applySessionSettings(profile); err != nil {
+		return err
+	}
+
 	if err := a.generateWindows(profile.Windows.Items()); err != nil {
 		return err
 	}
@@ -98,6 +104,67 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		// After creating our own windows, we can remove the default one tmux created.
 		if err := defaultWindow.Kill(); err != nil {
 			return fmt.Errorf("failed to kill default window: %w", err)
+		}
+	}
+
+	// Run any session-level commands in the session's active pane, once all
+	// windows and panes exist. Each is serialised via `tmux wait-for`.
+	for i, cmd := range profile.Commands {
+		a.Logger.Info("setting session command", "cmd", cmd, "session", a.session.Name)
+		channel := fmt.Sprintf("glaze-session-%s-%d", a.session.Name, i)
+		if err := a.session.SendKeysAndWait(cmd, channel); err != nil {
+			return fmt.Errorf(
+				"could not execute command `%s` for session `%s`: %w",
+				cmd,
+				a.session.Name,
+				err,
+			)
+		}
+	}
+
+	return nil
+}
+
+// applySessionSettings applies the environment variables and hooks defined on
+// the session block to the resolved tmux session.
+func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
+	if a.session == nil {
+		return nil
+	}
+
+	for key, value := range profile.Envs {
+		a.Logger.Info("setting session env", "key", key, "session", a.session.Name)
+		if err := a.session.SetEnv(key, value); err != nil {
+			return fmt.Errorf(
+				"could not set env `%s` on session `%s`: %w",
+				key,
+				a.session.Name,
+				err,
+			)
+		}
+	}
+
+	for hook, command := range profile.Hooks {
+		a.Logger.Info("setting session hook", "hook", hook, "session", a.session.Name)
+		if err := a.session.SetHook(hook, command); err != nil {
+			return fmt.Errorf(
+				"could not set hook `%s` on session `%s`: %w",
+				hook,
+				a.session.Name,
+				err,
+			)
+		}
+	}
+
+	for option, value := range profile.Options {
+		a.Logger.Info("setting session option", "option", option, "session", a.session.Name)
+		if err := a.session.SetOption(option, value); err != nil {
+			return fmt.Errorf(
+				"could not set option `%s` on session `%s`: %w",
+				option,
+				a.session.Name,
+				err,
+			)
 		}
 	}
 
@@ -128,7 +195,7 @@ func (a *ActionUp) loadProfile() (*decoders.Session, error) {
 func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 	for _, ws := range windows {
 		a.Logger.Info("creating new window", "name", ws.Name)
-		wtmx, err := a.session.NewWindow(ws.Name)
+		wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
 		if err != nil {
 			return fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
 		}
@@ -138,12 +205,7 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			return err
 		}
 
-		// Panes are originally parsed and created in the reverse order of how they
-		// are defined within the glaze definition file. So, we'll just reverse them
-		// here to set them back to the user-defined order. The reasoning is that a
-		// user will expect these panes to be arranged in the same order as they were
-		// defined within the definition file.
-		if err := a.generatePanes(ws.Panes.Reverse().Items(), defaultPane, wtmx); err != nil {
+		if err := a.generatePanes(ws.Panes.Items(), defaultPane, wtmx); err != nil {
 			return err
 		}
 
@@ -151,6 +213,42 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 		if defaultPane != nil {
 			if err := defaultPane.Kill(); err != nil {
 				return err
+			}
+		}
+
+		for key, value := range ws.Envs {
+			a.Logger.Info("setting window env", "key", key, "window", wtmx.Name)
+			if err := wtmx.SetEnv(key, value); err != nil {
+				return fmt.Errorf(
+					"could not set env `%s` on window `%s`: %w",
+					key,
+					wtmx.Name,
+					err,
+				)
+			}
+		}
+
+		for hook, command := range ws.Hooks {
+			a.Logger.Info("setting window hook", "hook", hook, "window", wtmx.Name)
+			if err := wtmx.SetHook(hook, command); err != nil {
+				return fmt.Errorf(
+					"could not set hook `%s` on window `%s`: %w",
+					hook,
+					wtmx.Name,
+					err,
+				)
+			}
+		}
+
+		for option, value := range ws.Options {
+			a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
+			if err := wtmx.SetOption(option, value); err != nil {
+				return fmt.Errorf(
+					"could not set option `%s` on window `%s`: %w",
+					option,
+					wtmx.Name,
+					err,
+				)
 			}
 		}
 
@@ -165,7 +263,9 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 
 		if ws.Focus {
 			a.Logger.Info("setting window focus", "name", wtmx.Name)
-			wtmx.Select()
+			if err := wtmx.Select(); err != nil {
+				a.Logger.Warn("could not focus window", "name", wtmx.Name, "error", err)
+			}
 		}
 	}
 
@@ -177,9 +277,10 @@ func (a *ActionUp) generatePanes(
 	defaultPane *tmux.Pane,
 	wtmx *tmux.Window,
 ) error {
+	target := defaultPane.Target()
 	for _, ps := range panes {
 		a.Logger.Info("splitting pane", "name", ps.Name, "from", defaultPane.Target())
-		ptmx, err := wtmx.Split(defaultPane.Target(), ps.Name, ps.StartingDirectory)
+		ptmx, err := wtmx.Split(target, ps.Name, ps.StartingDirectory)
 		if err != nil {
 			return fmt.Errorf(
 				"could not split pane `%d` for window `%s`: %w",
@@ -189,12 +290,54 @@ func (a *ActionUp) generatePanes(
 			)
 		}
 
-		// Run any defined commands in order as defined within the current profile. Add a small delay between each command to ensure they are executed in order.
-		for _, cmd := range ps.Commands {
+		// Apply any pane-scoped environment variables and hooks before running
+		// commands so they are in effect for the pane's shell.
+		for key, value := range ps.Envs {
+			a.Logger.Info("setting pane env", "key", key, "pane", ptmx.Name)
+			if err := ptmx.SetEnv(key, value); err != nil {
+				return fmt.Errorf(
+					"could not set env `%s` on pane `%s` in window `%s`: %w",
+					key,
+					ptmx.Name,
+					wtmx.Name,
+					err,
+				)
+			}
+		}
+
+		for hook, command := range ps.Hooks {
+			a.Logger.Info("setting pane hook", "hook", hook, "pane", ptmx.Name)
+			if err := ptmx.SetHook(hook, command); err != nil {
+				return fmt.Errorf(
+					"could not set hook `%s` on pane `%s` in window `%s`: %w",
+					hook,
+					ptmx.Name,
+					wtmx.Name,
+					err,
+				)
+			}
+		}
+
+		for option, value := range ps.Options {
+			a.Logger.Info("setting pane option", "option", option, "pane", ptmx.Name)
+			if err := ptmx.SetOption(option, value); err != nil {
+				return fmt.Errorf(
+					"could not set option `%s` on pane `%s` in window `%s`: %w",
+					option,
+					ptmx.Name,
+					wtmx.Name,
+					err,
+				)
+			}
+		}
+
+		// Run any defined commands in order as defined within the current
+		// profile. Each command is serialised using `tmux wait-for` so the
+		// next command is only sent once the previous one has completed.
+		for i, cmd := range ps.Commands {
 			a.Logger.Info("setting pane command", "cmd", cmd, "name", ptmx.Name)
-			// TODO: Replace this entire bit of functionality with support for `tmux wait-for ...`
-			time.Sleep(time.Millisecond * time.Duration(100))
-			if err := ptmx.SendKeys(cmd); err != nil {
+			channel := fmt.Sprintf("glaze-%d-%d", int(ptmx.Id), i)
+			if err := ptmx.SendKeysAndWait(cmd, channel); err != nil {
 				return fmt.Errorf(
 					"could not execute command `%s` for pane `%s` in window `%s`: %w",
 					cmd,
@@ -207,13 +350,38 @@ func (a *ActionUp) generatePanes(
 
 		if ps.Size.Valid() {
 			a.Logger.Info("setting size", "x", ps.Size.X, "y", ps.Size.Y, "name", ptmx.Name)
-			ptmx.Resize(ps.Size.X, ps.Size.Y)
+			if err := ptmx.Resize(ps.Size.X, ps.Size.Y); err != nil {
+				a.Logger.Warn("could not resize pane", "name", ptmx.Name, "error", err)
+			}
+		}
+
+		// Apply any directional resize adjustments in the order they were
+		// defined, after the absolute size so they refine the final dimensions.
+		for _, adjustment := range ps.Adjustments {
+			a.Logger.Info(
+				"adjusting pane",
+				"direction", adjustment.Direction,
+				"amount", adjustment.Amount,
+				"name", ptmx.Name,
+			)
+			if err := ptmx.Adjust(adjustment.Direction, adjustment.Amount); err != nil {
+				return fmt.Errorf(
+					"could not adjust pane `%s` in window `%s`: %w",
+					ptmx.Name,
+					wtmx.Name,
+					err,
+				)
+			}
 		}
 
 		if ps.Focus {
 			a.Logger.Info("setting pane focus", "name", ptmx.Name)
-			ptmx.Select()
+			if err := ptmx.Select(); err != nil {
+				a.Logger.Warn("could not focus pane", "name", ptmx.Name, "error", err)
+			}
 		}
+
+		target = ptmx.Target()
 	}
 
 	return nil
@@ -255,10 +423,11 @@ func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error)
 	return defaultWindow, nil
 }
 
-// resolveSession is responsible for resolving the tmux session, either by attaching to an existing one or creating a new one.
+// resolveSession resolves the tmux session for this run. It returns true when
+// the session already existed (in which case it has also attached to it, unless
+// detached) and false when a brand new session was created and still needs to be
+// provisioned by the caller.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
-	attached := false
-
 	if a.Command.Bool("clear") {
 		a.Logger.Info("clearing previous session", "name", profile.Name)
 		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
@@ -269,32 +438,32 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	if a.tmux.HasSession(profile.Name) {
 		session, err := a.tmux.FindSessionByName(profile.Name)
 		if err != nil {
-			return attached, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
+			return true, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
 		}
+
+		a.session = session
 
 		if !a.Command.Bool("detached") {
 			a.Logger.Info("attaching to existing session", "name", profile.Name)
 			if err := a.tmux.Attach(session); err != nil {
-				return attached, fmt.Errorf(
+				return true, fmt.Errorf(
 					"could not attach to session `%s`: %w",
 					session.Name,
 					err,
 				)
 			}
-
-			attached = true
 		}
 
-		return attached, nil
+		return true, nil
 	}
 
 	a.Logger.Info("creating new session", "name", profile.Name)
 	session, err := a.tmux.NewSession(profile.Name, profile.StartingDirectory)
 	if err != nil {
-		return attached, fmt.Errorf("could not create new session `%s`: %w", session.Name, err)
+		return false, fmt.Errorf("could not create new session `%s`: %w", profile.Name, err)
 	}
 
 	a.session = session
 
-	return attached, nil
+	return false, nil
 }

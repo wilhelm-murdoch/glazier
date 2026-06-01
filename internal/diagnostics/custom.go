@@ -109,7 +109,7 @@ func WrongSizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 				Detail: fmt.Sprintf(
 					`The %s value "%s" should be a positive integer.`,
 					field,
-					value.AsString(),
+					f.String(),
 				),
 			})
 		}

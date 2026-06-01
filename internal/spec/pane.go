@@ -17,6 +17,7 @@ var Pane = &hcldec.BlockListSpec{
 		"starting_directory": StartingDirectory,
 		"envs":               Envs,
 		"hooks":              Hooks,
+		"options":            Options,
 		"focus": &hcldec.AttrSpec{
 			Name: "focus",
 			Type: cty.Bool,
@@ -53,7 +54,13 @@ var Pane = &hcldec.BlockListSpec{
 			},
 			Func: func(value cty.Value) hcl.Diagnostics {
 				var out hcl.Diagnostics
-				if !value.IsNull() {
+				if value.IsNull() {
+					return out
+				}
+
+				x := value.GetAttr("x")
+				y := value.GetAttr("y")
+				if x.IsNull() && y.IsNull() {
 					return hcl.Diagnostics{{
 						Severity: hcl.DiagError,
 						Summary:  "Invalid size specified",

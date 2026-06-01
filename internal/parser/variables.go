@@ -29,10 +29,11 @@ func CollectVariables(flaggedVariables []string) (map[string]cty.Value, error) {
 	maps.Copy(out, vars)
 
 	// Finally, we add some default variables that might be useful:
-	out, err := addDefaultVariables()
+	defaults, err := addDefaultVariables()
 	if err != nil {
 		return nil, err
 	}
+	maps.Copy(out, defaults)
 
 	return out, nil
 }
@@ -64,6 +65,10 @@ func collectFlagVariables(vars []string) map[string]cty.Value {
 	out := make(map[string]cty.Value)
 
 	for _, flag := range vars {
+		if !strings.Contains(flag, "=") {
+			continue
+		}
+
 		parts := strings.SplitN(flag, "=", 2)
 		out[strings.TrimSpace(parts[0])] = cty.StringVal(parts[1])
 	}

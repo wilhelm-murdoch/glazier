@@ -17,6 +17,7 @@ var Window = &hcldec.BlockListSpec{
 		"starting_directory": StartingDirectory,
 		"envs":               Envs,
 		"hooks":              Hooks,
+		"options":            Options,
 		"panes":              Pane,
 		"focus": &hcldec.AttrSpec{
 			Name: "focus",

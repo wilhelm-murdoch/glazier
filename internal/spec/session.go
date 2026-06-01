@@ -13,6 +13,7 @@ var Session = &hcldec.BlockSpec{
 		"starting_directory": StartingDirectory,
 		"envs":               Envs,
 		"hooks":              Hooks,
+		"options":            Options,
 		"windows":            Window,
 		"commands": &hcldec.AttrSpec{
 			Name: "commands",

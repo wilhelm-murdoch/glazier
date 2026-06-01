@@ -28,6 +28,19 @@ var (
 	}
 )
 
+// OverrideCommandFactory replaces the factory used to construct tmux commands
+// and returns a function that restores the previous factory. It exists so that
+// packages which drive a Client (such as the CLI actions) can substitute a fake
+// Commander in tests without spawning a real tmux process. Production code must
+// not call this.
+func OverrideCommandFactory(factory func(client Client, args ...string) Commander) func() {
+	previous := newCommand
+	newCommand = factory
+	return func() {
+		newCommand = previous
+	}
+}
+
 // Command represents a command to run within a tmux session.
 type Command struct {
 	cmd  *exec.Cmd

@@ -46,14 +46,13 @@ func NewBase(spec cty.Value) *Base {
 		}
 	}
 
-	// TODO: Implement support for modifying session, window and pane options
-	// options := spec.GetAttr("options")
-	// if !options.IsNull() {
-	// 	base.Options = make(map[string]string, len(options.AsValueMap()))
-	// 	for name, value := range options.AsValueMap() {
-	// 		base.Options[name] = value.AsString()
-	// 	}
-	// }
+	options := spec.GetAttr("options")
+	if !options.IsNull() {
+		base.Options = make(map[string]string, len(options.AsValueMap()))
+		for name, value := range options.AsValueMap() {
+			base.Options[name] = value.AsString()
+		}
+	}
 
 	hooks := spec.GetAttr("hooks")
 	if !hooks.IsNull() {
