@@ -19,6 +19,34 @@ func TestLayoutUnknown(t *testing.T) {
 	}
 }
 
+func TestIsLayoutString(t *testing.T) {
+	valid := []string{
+		"bb62,80x24,0,0",
+		"e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}",
+		"a1b2,200x50,0,0[200x25,0,0,1,200x24,0,26,2]",
+	}
+	for _, s := range valid {
+		if !IsLayoutString(s) {
+			t.Errorf("expected %q to be a valid layout string", s)
+		}
+	}
+
+	invalid := []string{
+		"",
+		"tiled",
+		"main-vertical",
+		"zzzz,80x24,0,0", // checksum not hex
+		"bb62,80x24",     // missing coordinates
+		"bb62;80x24;0;0", // wrong delimiter
+		"rm -rf /",       // arbitrary string
+	}
+	for _, s := range invalid {
+		if IsLayoutString(s) {
+			t.Errorf("expected %q to be rejected as a layout string", s)
+		}
+	}
+}
+
 func TestHookRoundTrip(t *testing.T) {
 	for _, s := range HookList {
 		if got := HookFromString(s).String(); got != s {

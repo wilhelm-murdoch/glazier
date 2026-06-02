@@ -146,13 +146,15 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 		sw := savedWindow{
 			Name: window.Name,
 
-			// Layout is intentionally left empty. tmux reports a window's
-			// layout as a coordinate string (e.g. "bb62,80x24,0,0"), not one
-			// of glaze's named presets, so it cannot be faithfully recovered.
-			// Emitting a guessed preset would be confidently wrong (and an
-			// earlier "unknown" placeholder failed `format --validate`).
-			// Omitting it instead validates cleanly and replays as the decoder
-			// default, leaving the user to set the layout they actually want.
+			// tmux reports a window's layout as a coordinate string (e.g.
+			// "bb62,80x24,0,0"), not one of glaze's named presets, so a preset
+			// cannot be faithfully recovered. We capture the raw coordinate
+			// string verbatim as a fallback: `up` replays it via select-layout
+			// (which accepts a raw string), and glaze's layout validation
+			// accepts a well-formed coordinate string in addition to the named
+			// presets. This is a structural snapshot of geometry, not a preset
+			// guess - see the "raw layout" note in AGENTS.md.
+			Layout: window.RawLayout,
 
 			// The active window is the one tmux would focus on attach.
 			Focus: window.IsActive,

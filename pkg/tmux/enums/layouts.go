@@ -1,6 +1,21 @@
 package enums
 
+import "regexp"
+
 type Layout int
+
+// layoutStringPattern matches a tmux window layout coordinate string, e.g.
+// "bb62,80x24,0,0" or a nested "e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}".
+// It is a structural guard only: the leading four-hex checksum is computed by
+// tmux over the remainder of the string, so we cannot verify it is correct
+// here - a well-formed but stale checksum is rejected by tmux itself at `up`.
+var layoutStringPattern = regexp.MustCompile(`^[0-9a-f]{4},[0-9]+x[0-9]+,[0-9]+,[0-9]+[0-9x,{}\[\]]*$`)
+
+// IsLayoutString reports whether s is a structurally valid tmux layout
+// coordinate string (as opposed to one of the named layout presets).
+func IsLayoutString(s string) bool {
+	return layoutStringPattern.MatchString(s)
+}
 
 const (
 	LayoutEvenHorizontal Layout = iota + 1

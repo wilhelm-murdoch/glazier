@@ -252,10 +252,10 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			}
 		}
 
-		if err := wtmx.SelectLayout(ws.Layout); err != nil {
+		if err := wtmx.SelectLayout(ws.LayoutValue()); err != nil {
 			return fmt.Errorf(
 				"could not select layout `%s` for window `%s`: %w",
-				ws.Layout,
+				ws.LayoutValue(),
 				wtmx.Name,
 				err,
 			)

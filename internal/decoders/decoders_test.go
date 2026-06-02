@@ -242,7 +242,20 @@ func TestWindowDecode(t *testing.T) {
 
 		assert.False(t, diags.HasErrors())
 		assert.Equal(t, enums.LayoutTiled, window.Layout)
+		assert.Equal(t, "tiled", window.LayoutValue())
 		assert.False(t, window.Focus)
+	})
+
+	t.Run("preserves a raw layout coordinate string", func(t *testing.T) {
+		spec := windowSpec(cty.StringVal("bb62,80x24,0,0"), cty.NullVal(cty.Bool), onePane)
+
+		window := NewWindow(spec)
+		diags := window.Decode()
+
+		assert.False(t, diags.HasErrors())
+		assert.Equal(t, enums.LayoutUnknown, window.Layout)
+		assert.Equal(t, "bb62,80x24,0,0", window.LayoutRaw)
+		assert.Equal(t, "bb62,80x24,0,0", window.LayoutValue())
 	})
 }
 

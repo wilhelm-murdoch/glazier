@@ -71,7 +71,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{Status: 0})
 		rec.On("display-message", tmuxtest.Result{Output: "demo"})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
 
 		assert.NoError(t, save.Run())
@@ -84,9 +84,10 @@ func TestActionSaveRun(t *testing.T) {
 		// The active window and pane (trailing `1`) are captured as focused.
 		assert.Contains(t, string(contents), "focus")
 		assert.Contains(t, string(contents), "= true")
-		// Layout cannot be faithfully recovered from tmux, so it is omitted
-		// rather than guessed; the saved profile must still validate.
-		assert.NotContains(t, string(contents), "layout")
+		// A named preset can't be recovered from tmux's coordinate string, so
+		// the raw layout string is captured verbatim as a fallback and must
+		// still validate on replay.
+		assert.Contains(t, string(contents), `layout = "bb62,80x24,0,0"`)
 	})
 
 	t.Run("does not mark inactive windows or panes as focused", func(t *testing.T) {

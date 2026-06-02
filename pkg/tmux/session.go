@@ -90,13 +90,14 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 	}
 
 	return &Window{
-		Id:       id,
-		Index:    index,
-		Name:     parts[2],
-		Layout:   enums.LayoutFromString(parts[3]),
-		IsActive: parts[4] == "1",
-		IsFirst:  parts[1] == baseIndexCmdParts[1],
-		Session:  s,
+		Id:        id,
+		Index:     index,
+		Name:      parts[2],
+		Layout:    enums.LayoutFromString(parts[3]),
+		RawLayout: parts[3],
+		IsActive:  parts[4] == "1",
+		IsFirst:   parts[1] == baseIndexCmdParts[1],
+		Session:   s,
 	}, nil
 }
 

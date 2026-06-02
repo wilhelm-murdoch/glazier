@@ -161,14 +161,14 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 | `--socket-path` / `--socket-name` | custom tmux socket |
 
 > [!NOTE]
-> `save` captures the **structure** of a session: session, window and pane names, starting directories, and focus (the active window and pane). Layout is not captured — tmux reports it as a low-level coordinate string rather than a named preset, so it is omitted for you to set. By design `save` also does **not** export pane commands, environment variables, hooks, or tmux options.
+> `save` captures the **structure** of a session: session, window and pane names, starting directories, focus (the active window and pane), and layout. Because tmux only reports a window's layout as a low-level coordinate string (e.g. `bb62,80x24,0,0`) rather than one of the named presets, `save` writes that raw string verbatim as a fallback. `glaze up` replays it exactly, so your pane geometry is restored even when it doesn't match a named preset. By design `save` does **not** export pane commands, environment variables, hooks, or tmux options.
 >
 > This is a deliberate safety choice, not a missing feature:
 > - **Commands** (and **hooks**, which are commands bound to events) would re-execute on the next `glaze up` - a destructive command captured from a forgotten pane could nuke your filesystem or peg a database on replay.
 > - **Environment variables** can only be read as the *entire* session environment, which includes secrets (tokens, keys) inherited from your shell - exporting them would write those into a file you might commit.
 > - **Options** read back as effective state, mixing your `tmux.conf` and manual tweaks with anything glaze set, so re-applying them on `up` would be surprising and wrong.
 >
-> Treat a saved profile as a scaffold: it recreates your layout, and you add the commands, envs, and options you actually want by hand.
+> Treat a saved profile as a scaffold: it recreates your layout, and you add the commands, envs, and options you actually want by hand. Tip: a saved raw layout string is exact but not human-friendly - feel free to replace it with a named preset (`tiled`, `main-vertical`, etc...) for a profile you intend to hand-edit.
 
 ## Profile resolution
 
@@ -225,7 +225,7 @@ session {
 ```hcl
 window {
   name   = "ice-breaker"
-  layout = "main-vertical"   # even-horizontal | even-vertical | main-horizontal | main-vertical | tiled
+  layout = "main-vertical"   # even-horizontal | even-vertical | main-horizontal | main-vertical | tiled | a raw tmux layout string
   focus  = true              # make this the active window
 
   envs    = { DECK = "qiant-sandevistan" }
@@ -238,7 +238,7 @@ window {
 }
 ```
 
-`layout` defaults to `tiled` when omitted. `envs` on a window resolve to the owning session's environment (tmux has no per-window environment).
+`layout` defaults to `tiled` when omitted. In addition to the five named presets it also accepts a **raw tmux layout coordinate string** (e.g. `"bb62,80x24,0,0"`) - this is what `glaze save` captures from a live window when no named preset applies, and `glaze up` replays it verbatim. The value is validated for structure when the profile is parsed; a malformed string fails fast. (tmux recomputes the leading checksum, so if you hand-edit the geometry and break it, tmux rejects the layout when `up` runs.) For hand-authored profiles, prefer a named preset - the raw string is exact but not human-readable. `envs` on a window resolve to the owning session's environment (tmux has no per-window environment).
 
 ### Pane
 

@@ -191,13 +191,14 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	}
 
 	return &Window{
-		Id:       id,
-		Index:    index,
-		Name:     parts[2],
-		Layout:   enums.LayoutFromString(parts[3]),
-		IsActive: parts[4] == "1",
-		IsFirst:  parts[1] == "1",
-		Session:  session,
+		Id:        id,
+		Index:     index,
+		Name:      parts[2],
+		Layout:    enums.LayoutFromString(parts[3]),
+		RawLayout: parts[3],
+		IsActive:  parts[4] == "1",
+		IsFirst:   parts[1] == "1",
+		Session:   session,
 	}, nil
 }
 

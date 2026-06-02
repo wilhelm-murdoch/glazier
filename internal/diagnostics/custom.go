@@ -14,6 +14,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 // ContainsDiagnostic is responsible for checking if a value is present in a given list and returning a diagnostic if not.
@@ -34,6 +35,35 @@ func ContainsDiagnostic(field string, value cty.Value, list []string) hcl.Diagno
 	}
 
 	return out
+}
+
+// LayoutDiagnostic validates a window layout. A layout is valid when it is
+// either one of the named presets in list OR a structurally valid tmux layout
+// coordinate string (e.g. "bb62,80x24,0,0"), which `save` captures verbatim
+// from a live window as a fallback when no named preset applies. Anything else
+// fails hard so a malformed value is caught before it reaches tmux.
+func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnostics {
+	var out hcl.Diagnostics
+
+	if value.IsNull() {
+		return out
+	}
+
+	s := value.AsString()
+	if slices.Contains(list, s) || enums.IsLayoutString(s) {
+		return out
+	}
+
+	return hcl.Diagnostics{{
+		Severity: hcl.DiagError,
+		Summary:  fmt.Sprintf(`Invalid %s specified`, field),
+		Detail: fmt.Sprintf(
+			`The %s value of "%s" is not a supported preset (%s) nor a valid tmux layout string.`,
+			field,
+			s,
+			strings.Join(list, ", "),
+		),
+	}}
 }
 
 // DirectoryDiagnostic is responsible for checking if a given value is a valid directory and returning a diagnostic if not.

@@ -167,6 +167,27 @@ session {
 	assert.True(t, hasErr)
 }
 
+func TestDecodeRawLayoutString(t *testing.T) {
+	content := `
+session {
+  name = "demo"
+  window {
+    name   = "w"
+    layout = "bb62,80x24,0,0"
+    pane {
+      name     = "p"
+      commands = ["echo"]
+    }
+  }
+}`
+
+	session, hasErr := decode(t, content)
+	assert.False(t, hasErr)
+	window := session.Windows.Items()[0]
+	assert.Equal(t, enums.LayoutUnknown, window.Layout)
+	assert.Equal(t, "bb62,80x24,0,0", window.LayoutValue())
+}
+
 func TestDecodeMissingWindow(t *testing.T) {
 	// window has MinItems: 1, so a session with no window is invalid.
 	_, hasErr := decode(t, `session { name = "demo" }`)

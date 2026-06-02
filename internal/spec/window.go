@@ -29,7 +29,7 @@ var Window = &hcldec.BlockListSpec{
 				Type: cty.String,
 			},
 			Func: func(value cty.Value) hcl.Diagnostics {
-				return diagnostics.ContainsDiagnostic("layout", value, enums.LayoutList)
+				return diagnostics.LayoutDiagnostic("layout", value, enums.LayoutList)
 			},
 		},
 	},

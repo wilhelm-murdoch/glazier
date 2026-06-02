@@ -12,13 +12,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   recorded as `focus = true`, so a saved profile restores which window/pane was
   in focus on the next `up`. Focus is inert and replay-safe (it only selects a
   pane), unlike commands/envs/hooks/options, which remain excluded.
-
-### Fixed
-- `glaze save` no longer records a guessed window `layout`. tmux reports layout
-  as a low-level coordinate string, not a named preset, so it cannot be
-  faithfully recovered; the attribute is now omitted (validates cleanly and
-  replays as the default) instead of being hardcoded to `tiled`, which was
-  wrong for any non-tiled window.
+- `glaze save` now captures **window layout**. tmux reports layout as a
+  low-level coordinate string (e.g. `bb62,80x24,0,0`) rather than a named
+  preset, so `save` records that raw string verbatim and `up` replays it
+  exactly - restoring pane geometry even when it matches no named preset.
+- The window `layout` attribute now accepts a **raw tmux layout coordinate
+  string** in addition to the named presets (`even-horizontal`, `even-vertical`,
+  `main-horizontal`, `main-vertical`, `tiled`). The value is structurally
+  validated at parse time and fails fast when malformed.
 
 ## [0.1.0] - 2026-05-31
 
@@ -27,9 +28,9 @@ an HCL `.glaze` profile, reformat and validate profiles, and capture a live
 session back into a profile.
 
 ### Added
-- `glaze up` — provision a tmux session, windows, and panes from a `.glaze` profile, attaching to it (or `--detached` to leave it in the background).
-- `glaze format` — rewrite a profile to canonical HCL, with optional `--validate` to surface schema diagnostics.
-- `glaze save` — capture a running session's structural layout (session, windows, panes, layout, and starting directories) back into a profile, to a file or `--stdout`.
+- `glaze up` - provision a tmux session, windows, and panes from a `.glaze` profile, attaching to it (or `--detached` to leave it in the background).
+- `glaze format` - rewrite a profile to canonical HCL, with optional `--validate` to surface schema diagnostics.
+- `glaze save` - capture a running session's structural layout (session, windows, panes, layout, and starting directories) back into a profile, to a file or `--stdout`.
 - HCL-based profile syntax with Terraform-style diagnostics.
 - Profile resolution from `--profile-path`, the current directory, or `$GLAZE_PATH`, with `~` expansion.
 - Variable injection from `--var` flags and `GLAZE_ENV_*` environment variables, plus built-in `path.pwd` / `path.base` defaults.

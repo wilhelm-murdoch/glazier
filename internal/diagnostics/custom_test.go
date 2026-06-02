@@ -69,6 +69,28 @@ func TestContainsDiagnostic(t *testing.T) {
 	})
 }
 
+func TestLayoutDiagnostic(t *testing.T) {
+	list := []string{"tiled", "even-horizontal"}
+
+	t.Run("no diagnostic for a named preset", func(t *testing.T) {
+		assert.Empty(t, LayoutDiagnostic("layout", cty.StringVal("tiled"), list))
+	})
+
+	t.Run("no diagnostic for a raw coordinate string", func(t *testing.T) {
+		assert.Empty(t, LayoutDiagnostic("layout", cty.StringVal("bb62,80x24,0,0"), list))
+	})
+
+	t.Run("no diagnostic for a null value", func(t *testing.T) {
+		assert.Empty(t, LayoutDiagnostic("layout", cty.NullVal(cty.String), list))
+	})
+
+	t.Run("diagnostic for a value that is neither preset nor layout string", func(t *testing.T) {
+		diags := LayoutDiagnostic("layout", cty.StringVal("not-a-layout"), list)
+		assert.True(t, diags.HasErrors())
+		assert.Contains(t, diags[0].Detail, "not a supported preset")
+	})
+}
+
 func TestDirectoryDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")

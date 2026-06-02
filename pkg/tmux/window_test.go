@@ -142,8 +142,18 @@ func TestWindowSelectLayout(t *testing.T) {
 
 	client := testClient()
 	window := testWindow(testSession(client))
-	assert.NoError(t, window.SelectLayout(enums.LayoutTiled))
+	assert.NoError(t, window.SelectLayout(enums.LayoutTiled.String()))
 	assert.Contains(t, rec.ArgsFor("selectl"), "tiled")
+}
+
+func TestWindowSelectLayoutRawString(t *testing.T) {
+	rec := setupRecorder(t)
+	rec.On("selectl", fakeResult{})
+
+	client := testClient()
+	window := testWindow(testSession(client))
+	assert.NoError(t, window.SelectLayout("bb62,80x24,0,0"))
+	assert.Contains(t, rec.ArgsFor("selectl"), "bb62,80x24,0,0")
 }
 
 func TestWindowSetEnv(t *testing.T) {

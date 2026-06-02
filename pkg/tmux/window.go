@@ -27,6 +27,10 @@ type Window struct {
 	Id       int
 	Index    int
 	Layout   enums.Layout
+	// RawLayout is the verbatim tmux window layout coordinate string (the
+	// #{window_layout} value). It is preserved so `save` can capture a layout
+	// that does not map to a named preset.
+	RawLayout string
 }
 
 // Target returns the target window by its composite id of session name
@@ -124,8 +128,11 @@ func (w Window) Select() error {
 }
 
 // SelectLayout is responsible for selecting the layout for the current window.
-func (w Window) SelectLayout(layout enums.Layout) error {
-	cmd := newCommand(w.Session.Client, "selectl", "-t", w.Target(), fmt.Sprint(layout))
+// The layout is either a named preset (e.g. "tiled") or a raw tmux layout
+// coordinate string; tmux's select-layout accepts both. An invalid or
+// checksum-stale coordinate string is rejected by tmux here, failing the `up`.
+func (w Window) SelectLayout(layout string) error {
+	cmd := newCommand(w.Session.Client, "selectl", "-t", w.Target(), layout)
 
 	w.Session.logger.Debug(cmd.String())
 
