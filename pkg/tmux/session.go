@@ -139,6 +139,18 @@ func (s Session) SetOption(option, value string) error {
 	return cmd.Exec()
 }
 
+// SendKeys sends the given keystrokes to the session's active pane without
+// waiting for the command to complete. It is used for the final command in a
+// sequence, which has no successor to gate and may be long-running or
+// interactive (e.g. nvim, tail -f, a dev server).
+func (s Session) SendKeys(keys string) error {
+	cmd := newCommand(s.Client, "send", "-t", s.Target(), fmt.Sprint(keys), "Enter")
+
+	s.logger.Debug(cmd.String())
+
+	return cmd.Exec()
+}
+
 // SendKeysAndWait sends the given keystrokes to the session's active pane and
 // blocks until the command completes, using the same `tmux wait-for`
 // synchronisation as Pane.SendKeysAndWait. Session-level commands target the

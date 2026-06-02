@@ -1,4 +1,5 @@
 *.glaze
+.glaze
 .envrc
 cover*.out
 cover*.html

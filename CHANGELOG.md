@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `glaze up` no longer hangs forever when a pane or session `commands` entry is
+  long-running or interactive (`nvim`, `tail -f`, a dev server). The final
+  command in each list is now sent fire-and-forget instead of waiting on a
+  `tmux wait-for` signal that never fires; earlier commands are still serialised.
+
 ### Added
 - `glaze save` now captures **focus**: the active window and active pane are
   recorded as `focus = true`, so a saved profile restores which window/pane was

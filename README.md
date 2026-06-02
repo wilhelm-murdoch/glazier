@@ -263,7 +263,7 @@ pane {
 }
 ```
 
-`commands` are sent in order and serialised with `tmux wait-for`, so each command finishes before the next is sent. `size` is applied first, then any `adjust` blocks refine the dimensions.
+`commands` are sent in order and serialised with `tmux wait-for`, so each command finishes before the next is sent. The **final** command is sent fire-and-forget (no wait), so a long-running or interactive command (`nvim`, `tail -f`, a dev server) does not block session creation. `size` is applied first, then any `adjust` blocks refine the dimensions.
 
 ## Variables & string functions
 
