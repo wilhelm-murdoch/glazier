@@ -103,15 +103,15 @@ session {
 	assert.Equal(t, "vim", session.Envs["EDITOR"])
 	assert.Equal(t, "echo hi", session.Hooks["session-created"])
 
-	assert.Equal(t, 1, session.Windows.Length())
-	window := session.Windows.Items()[0]
+	assert.Equal(t, 1, len(session.Windows))
+	window := session.Windows[0]
 	assert.Equal(t, "editor", window.Name)
 	assert.Equal(t, enums.LayoutMainVertical, window.Layout)
 	assert.True(t, window.Focus)
 
-	assert.Equal(t, 2, window.Panes.Length())
+	assert.Equal(t, 2, len(window.Panes))
 
-	shell := window.Panes.Items()[0]
+	shell := window.Panes[0]
 	assert.Equal(t, "shell", shell.Name)
 	assert.True(t, shell.Focus)
 	assert.Equal(t, []string{"vim", "ls"}, shell.Commands)
@@ -119,7 +119,7 @@ session {
 	assert.Equal(t, "50%", shell.Size.X)
 	assert.Equal(t, "100", shell.Size.Y)
 
-	logs := window.Panes.Items()[1]
+	logs := window.Panes[1]
 	assert.Equal(t, "logs", logs.Name)
 	assert.Equal(t, []string{"tail -f log"}, logs.Commands)
 }
@@ -143,7 +143,7 @@ session {
 	// starting_directory falls back to the working directory.
 	assert.NotEmpty(t, session.StartingDirectory)
 
-	window := session.Windows.Items()[0]
+	window := session.Windows[0]
 	// layout defaults to tiled when omitted.
 	assert.Equal(t, enums.LayoutTiled, window.Layout)
 	assert.False(t, window.Focus)
@@ -183,7 +183,7 @@ session {
 
 	session, hasErr := decode(t, content)
 	assert.False(t, hasErr)
-	window := session.Windows.Items()[0]
+	window := session.Windows[0]
 	assert.Equal(t, enums.LayoutUnknown, window.Layout)
 	assert.Equal(t, "bb62,80x24,0,0", window.LayoutValue())
 }
@@ -216,7 +216,7 @@ session {
 }`
 		session, hasErr := decode(t, content)
 		assert.False(t, hasErr)
-		pane := session.Windows.Items()[0].Panes.Items()[0]
+		pane := session.Windows[0].Panes[0]
 		assert.True(t, pane.Size.Valid())
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "50%", pane.Size.Y)
@@ -236,7 +236,7 @@ session {
 }`
 		session, hasErr := decode(t, content)
 		assert.False(t, hasErr)
-		pane := session.Windows.Items()[0].Panes.Items()[0]
+		pane := session.Windows[0].Panes[0]
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "", pane.Size.Y)
 	})
@@ -284,7 +284,7 @@ session {
 }`
 	session, hasErr := decode(t, content)
 	assert.False(t, hasErr)
-	assert.Empty(t, session.Windows.Items()[0].Panes.Items()[0].Commands)
+	assert.Empty(t, session.Windows[0].Panes[0].Commands)
 }
 
 func TestDecodeSessionCommands(t *testing.T) {
@@ -328,9 +328,9 @@ session {
 	assert.False(t, hasErr)
 	assert.Equal(t, "1", session.Options["base-index"])
 
-	window := session.Windows.Items()[0]
+	window := session.Windows[0]
 	assert.Equal(t, "off", window.Options["automatic-rename"])
-	assert.Equal(t, "on", window.Panes.Items()[0].Options["remain-on-exit"])
+	assert.Equal(t, "on", window.Panes[0].Options["remain-on-exit"])
 }
 
 func TestDecodeAdjust(t *testing.T) {
@@ -354,7 +354,7 @@ session {
 		session, hasErr := decode(t, content)
 		assert.False(t, hasErr)
 
-		pane := session.Windows.Items()[0].Panes.Items()[0]
+		pane := session.Windows[0].Panes[0]
 		assert.Len(t, pane.Adjustments, 2)
 		assert.Equal(t, enums.AdjustmentUp, pane.Adjustments[0].Direction)
 		assert.Equal(t, "5", pane.Adjustments[0].Amount)

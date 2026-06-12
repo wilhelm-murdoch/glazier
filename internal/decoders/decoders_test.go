@@ -230,8 +230,8 @@ func TestWindowDecode(t *testing.T) {
 		assert.False(t, diags.HasErrors())
 		assert.Equal(t, enums.LayoutMainVertical, window.Layout)
 		assert.True(t, window.Focus)
-		assert.Equal(t, 1, window.Panes.Length())
-		assert.Equal(t, []string{"htop"}, window.Panes.Items()[0].Commands)
+		assert.Equal(t, 1, len(window.Panes))
+		assert.Equal(t, []string{"htop"}, window.Panes[0].Commands)
 	})
 
 	t.Run("defaults layout to tiled when omitted", func(t *testing.T) {
@@ -283,6 +283,6 @@ func TestSessionDecode(t *testing.T) {
 	assert.False(t, diags.HasErrors())
 	assert.Equal(t, "demo", session.Name)
 	assert.Equal(t, []string{"echo booting"}, session.Commands)
-	assert.Equal(t, 1, session.Windows.Length())
-	assert.Equal(t, 1, session.Windows.Items()[0].Panes.Length())
+	assert.Equal(t, 1, len(session.Windows))
+	assert.Equal(t, 1, len(session.Windows[0].Panes))
 }

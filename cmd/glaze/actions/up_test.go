@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wilhelm-murdoch/go-collection"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
@@ -47,7 +46,7 @@ func windowWithPane(name string, layout enums.Layout, pane *decoders.Pane) *deco
 		Base:   &decoders.Base{Name: name},
 		Layout: layout,
 	}
-	window.Panes = *collection.New(pane)
+	window.Panes = []*decoders.Pane{pane}
 	return window
 }
 
@@ -156,7 +155,7 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 		Base:     &decoders.Base{Name: "demo"},
 		Commands: []string{"echo session"},
 	}
-	profile.Windows = *collection.New(window)
+	profile.Windows = []*decoders.Window{window}
 
 	assert.NoError(t, up.provisionSession(profile))
 
@@ -184,7 +183,7 @@ func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T
 		Base:     &decoders.Base{Name: "demo"},
 		Commands: []string{"nvm use 18", "tail -f log"},
 	}
-	profile.Windows = *collection.New(window)
+	profile.Windows = []*decoders.Window{window}
 
 	assert.NoError(t, up.provisionSession(profile))
 

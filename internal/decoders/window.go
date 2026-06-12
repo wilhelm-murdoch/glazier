@@ -2,7 +2,6 @@ package decoders
 
 import (
 	"github.com/hashicorp/hcl/v2"
-	"github.com/wilhelm-murdoch/go-collection"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/gocty"
 
@@ -12,7 +11,7 @@ import (
 // Window represents the configuration for a single tmux window.
 type Window struct {
 	*Base
-	Panes collection.Collection[*Pane]
+	Panes []*Pane
 	// Layout is the named preset. When it resolves to enums.LayoutUnknown the
 	// declared value was a raw tmux layout coordinate string, preserved in
 	// LayoutRaw (use LayoutValue to get the value to hand to tmux).
@@ -78,7 +77,7 @@ func (w *Window) Decode() hcl.Diagnostics {
 				continue
 			}
 
-			w.Panes.Push(pane)
+			w.Panes = append(w.Panes, pane)
 		}
 	}
 

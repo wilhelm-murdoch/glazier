@@ -72,7 +72,7 @@ func (a *ActionLs) Run() error {
 	table := tabwriter.NewWriter(a.out, 0, 4, 2, ' ', 0)
 	_, _ = fmt.Fprintln(table, "NAME\tWINDOWS\tPATH")
 
-	for _, session := range sessions.Items() {
+	for _, session := range sessions {
 		windows, err := a.tmux.Windows(session)
 		if err != nil {
 			return fmt.Errorf(
@@ -92,7 +92,7 @@ func (a *ActionLs) Run() error {
 			"%s%s\t%d\t%s\n",
 			session.Name,
 			marker,
-			len(windows.Items()),
+			len(windows),
 			session.StartingDirectory,
 		)
 	}

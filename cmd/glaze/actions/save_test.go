@@ -79,14 +79,14 @@ func TestGenerateProfileRoundTrips(t *testing.T) {
 	assert.NotNil(t, session)
 
 	assert.Equal(t, "demo", session.Name)
-	assert.Equal(t, 1, session.Windows.Length())
+	assert.Equal(t, 1, len(session.Windows))
 
-	window := session.Windows.Items()[0]
+	window := session.Windows[0]
 	assert.Equal(t, "editor", window.Name)
 	assert.True(t, window.Focus)
-	assert.Equal(t, 1, window.Panes.Length())
-	assert.Equal(t, "shell", window.Panes.Items()[0].Name)
-	assert.True(t, window.Panes.Items()[0].Focus)
+	assert.Equal(t, 1, len(window.Panes))
+	assert.Equal(t, "shell", window.Panes[0].Name)
+	assert.True(t, window.Panes[0].Focus)
 }
 
 func TestGenerateProfileOmitsEmptyOptionals(t *testing.T) {

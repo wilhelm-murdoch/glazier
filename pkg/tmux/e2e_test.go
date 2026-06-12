@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -59,7 +60,7 @@ func TestEndToEndProvisioning(t *testing.T) {
 
 	windows, err := client.Windows(session)
 	assert.NoError(t, err)
-	assert.NotNil(t, windows.Find(func(i int, w *Window) bool {
+	assert.True(t, slices.ContainsFunc(windows, func(w *Window) bool {
 		return w.Name == "editor"
 	}))
 
@@ -78,7 +79,7 @@ func TestEndToEndProvisioning(t *testing.T) {
 
 	panes, err := client.Panes(window)
 	assert.NoError(t, err)
-	assert.Equal(t, 2, panes.Length())
+	assert.Equal(t, 2, len(panes))
 
 	// SendKeysAndWait must block until the command completes. Prove it by
 	// touching a marker file and asserting it exists immediately afterwards.
@@ -100,14 +101,14 @@ func firstPaneOf(client *Client, window *Window) (*Pane, error) {
 		return nil, err
 	}
 
-	pane := panes.Find(func(i int, p *Pane) bool {
+	index := slices.IndexFunc(panes, func(p *Pane) bool {
 		return p.IsFirst
 	})
-	if pane == nil {
+	if index == -1 {
 		return nil, fmt.Errorf("no first pane found for window %q", window.Name)
 	}
 
-	return pane, nil
+	return panes[index], nil
 }
 
 // runWithTimeout fails the test if fn does not return within d, preventing a

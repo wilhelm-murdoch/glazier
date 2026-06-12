@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -93,10 +94,10 @@ func TestClientSessions(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
-			assert.Equal(t, sessions.Length(), testCase.sessionCount)
+			assert.Equal(t, len(sessions), testCase.sessionCount)
 
 			for _, value := range testCase.expectedValues {
-				assert.NotNil(t, sessions.Find(func(i int, item *Session) bool {
+				assert.True(t, slices.ContainsFunc(sessions, func(item *Session) bool {
 					return item.Name == value[0] && item.StartingDirectory == value[1]
 				}))
 			}
@@ -327,8 +328,8 @@ func TestClientWindows(t *testing.T) {
 		windows, err := client.Windows(testSession(client))
 
 		assert.NoError(t, err)
-		assert.Equal(t, 2, windows.Length())
-		assert.NotNil(t, windows.Find(func(i int, w *Window) bool {
+		assert.Equal(t, 2, len(windows))
+		assert.True(t, slices.ContainsFunc(windows, func(w *Window) bool {
 			return w.Name == "win-a" && w.Layout == enums.LayoutTiled && w.IsActive
 		}))
 	})
@@ -341,7 +342,7 @@ func TestClientWindows(t *testing.T) {
 		windows, err := client.Windows(testSession(client))
 
 		assert.Error(t, err)
-		assert.Equal(t, 0, windows.Length())
+		assert.Equal(t, 0, len(windows))
 	})
 
 	t.Run("errors on a malformed window line", func(t *testing.T) {
@@ -365,8 +366,8 @@ func TestClientPanes(t *testing.T) {
 		panes, err := client.Panes(window)
 
 		assert.NoError(t, err)
-		assert.Equal(t, 2, panes.Length())
-		assert.NotNil(t, panes.Find(func(i int, p *Pane) bool {
+		assert.Equal(t, 2, len(panes))
+		assert.True(t, slices.ContainsFunc(panes, func(p *Pane) bool {
 			return p.Name == "pane-a" && p.IsActive && p.IsFirst
 		}))
 	})
@@ -379,7 +380,7 @@ func TestClientPanes(t *testing.T) {
 		panes, err := client.Panes(testWindow(testSession(client)))
 
 		assert.Error(t, err)
-		assert.Equal(t, 0, panes.Length())
+		assert.Equal(t, 0, len(panes))
 	})
 
 	t.Run("errors when base index cannot be determined", func(t *testing.T) {
@@ -392,7 +393,7 @@ func TestClientPanes(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Equal(t, "could not determine pane base index", err.Error())
-		assert.Equal(t, 0, panes.Length())
+		assert.Equal(t, 0, len(panes))
 	})
 
 	t.Run("errors on a malformed pane line", func(t *testing.T) {

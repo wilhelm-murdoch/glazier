@@ -141,7 +141,7 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 		return captured, err
 	}
 
-	for _, window := range windows.Items() {
+	for _, window := range windows {
 		a.Logger.Info("capturing window", "name", window.Name)
 
 		sw := savedWindow{
@@ -166,7 +166,7 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 			return captured, err
 		}
 
-		for _, pane := range panes.Items() {
+		for _, pane := range panes {
 			a.Logger.Info("capturing pane", "name", pane.Name)
 			sw.Panes = append(sw.Panes, savedPane{
 				Name:              pane.Name,
