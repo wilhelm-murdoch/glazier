@@ -1,27 +1,85 @@
+# Homelab pre-flight: runs the same Makefile targets as GitHub Actions
+# (.github/workflows/) so a green build here means a green build there —
+# minus the macOS legs and CodeQL, which only exist on GitHub. Change the
+# Makefile, not this file.
+#
+# The cron event is for the weekly govulncheck sweep: add a cron in the
+# Woodpecker repo settings and the whole pipeline (vuln included) reruns
+# against the live vulnerability database.
+#
+# `pull: true` on the golang steps matters: the floating tags (1.26, latest)
+# move on every Go patch release, and patch releases are where stdlib CVE
+# fixes land. Without it the agent keeps building against its cached image
+# and silently misses them.
+#
+# tmux is installed in the test/race/cover steps so the end-to-end test
+# (pkg/tmux/e2e_test.go) actually runs instead of self-skipping.
 when:
-  - event: [cron, manual, push, pull_request]
+  - event: [manual, push, pull_request, cron]
 
 steps:
   - name: vet
     image: golang:1.26
-    environment:
-      CGO_ENABLED: "0"
+    pull: true
     commands:
-      - go vet ./...
+      - make vet
 
+  # The declared minimum from go.mod...
   - name: test
     image: golang:1.26
-    environment:
-      CGO_ENABLED: "0"
+    pull: true
     commands:
-      - apt-get update && apt-get install -y --no-install-recommends tmux
-      - go test -count=1 ./...
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux
+      - make test
+
+  # ...and the newest Go release, mirroring the GitHub matrix.
+  - name: test-latest
+    image: golang:latest
+    pull: true
+    commands:
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux
+      - make test
+
+  # The race target sets CGO_ENABLED=1 itself; the golang image carries the
+  # C toolchain the race detector needs.
+  - name: race
+    image: golang:1.26
+    pull: true
+    commands:
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux
+      - make race
 
   - name: lint
-    image: golangci/golangci-lint:v2.12.2
+    image: golang:1.26
+    pull: true
     commands:
-      - golangci-lint run ./...
+      - make lint
 
+  - name: cover
+    image: golang:1.26
+    pull: true
+    commands:
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux
+      - make cover
+
+  - name: vuln
+    image: golang:1.26
+    pull: true
+    commands:
+      - make vuln
+
+  # Real fuzzing (beyond the seed corpus, which `make test` already covers)
+  # only on the weekly cron, where the extra minutes don't slow down pushes.
+  - name: fuzz
+    image: golang:1.26
+    pull: true
+    when:
+      - event: cron
+    commands:
+      - make fuzz FUZZTIME=2m
+
+  # CI_REPO_NAME is provided by Woodpecker at runtime, so these steps need no
+  # per-project editing.
   - name: notify-success
     image: curlimages/curl
     when:
@@ -30,7 +88,7 @@ steps:
       #!/usr/bin/env bash
       curl -s -X POST https://notify.nightcity.network/notify/apprise \
         -H "Content-Type: application/json" \
-        -d '{"type":"success","tag":"automations","title":"Woodpecker CI: Glazier Workflow","body":"The project was tested and released successfully."}'
+        -d "{\"type\":\"success\",\"tag\":\"automations\",\"title\":\"Woodpecker CI: $CI_REPO_NAME Workflow\",\"body\":\"The project was tested and released successfully.\"}"
 
   - name: notify-failure
     image: curlimages/curl
@@ -40,4 +98,4 @@ steps:
       #!/usr/bin/env bash
       curl -s -X POST https://notify.nightcity.network/notify/apprise \
         -H "Content-Type: application/json" \
-        -d '{"type":"failure","tag":"automations","title":"Woodpecker CI: Glazier Workflow","body":"The project failed its test suite."}'
+        -d "{\"type\":\"failure\",\"tag\":\"automations\",\"title\":\"Woodpecker CI: $CI_REPO_NAME Workflow\",\"body\":\"The project failed its test suite.\"}"

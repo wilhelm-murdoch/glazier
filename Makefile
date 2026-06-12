@@ -5,8 +5,10 @@ SHELL      := $(shell which bash)
 BINARIES   := glaze
 BINARY     = $(word 1, $@)
 
-PLATFORMS  := windows linux darwin
+# tmux has no native Windows build, so neither does glaze.
+PLATFORMS  := linux darwin
 PLATFORM   = $(word 1, $@)
+GOARCHES   := amd64 arm64
 
 ROOT_DIR   := $(shell git rev-parse --show-toplevel)
 BIN_DIR    := $(ROOT_DIR)/bin
@@ -34,6 +36,9 @@ GOOS       ?= $(shell go env GOOS)
 # pinned without network-piped install scripts.
 LINTER       := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 TESTRUNNER   := go run gotest.tools/gotestsum@v1.13.0
+VULNCHECKER  := go run golang.org/x/vuln/cmd/govulncheck@v1.3.0
+COVER_FLOOR  := 80
+FUZZTIME     ?= 10s
 
 NO_COLOR   :=\033[0m
 ATTN_COLOR :=\033[33;01m
@@ -41,7 +46,7 @@ ATTN_COLOR :=\033[33;01m
 ## EOF define block
 
 .PHONY: all
-all: deps build test lint
+all: deps build test race lint cover vuln
 
 .PHONY: deps
 deps:
@@ -104,7 +109,10 @@ release: $(REL_DIR)
 	do \
 		for p in ${PLATFORMS}; \
 		do \
-			$(MAKE) dorelease B=$${b} P=$${p} T=${REL_DIR}; \
+			for a in ${GOARCHES}; \
+			do \
+				$(MAKE) dorelease B=$${b} P=$${p} GOARCH=$${a} T=${REL_DIR}; \
+			done; \
 		done; \
 	done
 
@@ -113,10 +121,17 @@ test:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@CGO_ENABLED=0 $(TESTRUNNER) --format short-verbose -- -count=1 ./...
 
+.PHONY: race
+race:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@CGO_ENABLED=1 go test -race -count=1 ./...
+
 .PHONY: cover
 cover:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@CGO_ENABLED=0 go test -count=1 -cover ./...
+	@CGO_ENABLED=0 go test -count=1 -coverprofile=coverage.out ./...
+	@go tool cover -func=coverage.out | awk -v floor=$(COVER_FLOOR) \
+		'/^total:/ { sub(/%/, "", $$3); printf "total coverage: %s%% (floor: %s%%)\n", $$3, floor; exit ($$3 + 0 < floor) ? 1 : 0 }'
 
 .PHONY: vet
 vet:
@@ -128,11 +143,31 @@ lint:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@CGO_ENABLED=0 $(LINTER) run ./...
 
+# The vulnerability database is fetched live on every run; the pin above only
+# fixes the scanner binary itself.
+.PHONY: vuln
+vuln:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@$(VULNCHECKER) ./...
+
+# Go only fuzzes one target per invocation, so discover every Fuzz* target
+# and run them one at a time. Packages without fuzz targets are skipped. The
+# seed corpora also run as plain tests under `make test`.
+.PHONY: fuzz
+fuzz:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@set -e; for pkg in $$(go list ./...); do \
+		for target in $$(CGO_ENABLED=0 go test -list '^Fuzz' $$pkg | grep '^Fuzz' || true); do \
+			CGO_ENABLED=0 go test -run='^$$' -fuzz="^$$target\$$" -fuzztime=$(FUZZTIME) $$pkg; \
+		done; \
+	done
+
 .PHONY: clean
 clean:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(REL_DIR)
+	@rm -f coverage.*
 	@go clean
 
 $(REL_DIR):
