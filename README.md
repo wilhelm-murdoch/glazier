@@ -3,7 +3,7 @@ _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com
 > a person whose trade is fitting glass into windows and doors.
 ---
 
-![CI Status](https://woodpecker.nightcity.network/api/badges/4/status.svg)
+[![CI](https://github.com/wilhelm-murdoch/glazier/actions/workflows/ci.yaml/badge.svg)](https://github.com/wilhelm-murdoch/glazier/actions/workflows/ci.yaml)
 [![GoDoc](https://godoc.org/github.com/wilhelm-murdoch/glazier?status.svg)](https://pkg.go.dev/github.com/wilhelm-murdoch/glazier)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wilhelm-murdoch/glazier)](https://goreportcard.com/report/github.com/wilhelm-murdoch/glazier)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wilhelm-murdoch/glazier/badge)](https://scorecard.dev/viewer/?uri=github.com/wilhelm-murdoch/glazier)
