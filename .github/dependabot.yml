@@ -1,0 +1,22 @@
+# Weekly, grouped updates: one PR per ecosystem instead of one per bump.
+# The github-actions ecosystem also keeps the SHA-pinned actions in
+# .github/workflows/ current (it rewrites the SHA and the version comment).
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      go-dependencies:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
