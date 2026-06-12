@@ -5,7 +5,7 @@ name: Scorecard
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   schedule:
     - cron: "15 11 * * 6" # Saturdays 11:15 UTC
   workflow_dispatch:
