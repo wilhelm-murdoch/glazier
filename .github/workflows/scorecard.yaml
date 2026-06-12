@@ -5,7 +5,10 @@ name: Scorecard
 
 on:
   push:
-    branches: [main, develop]
+    # Default branch only: the action's publish step is rejected by the
+    # OpenSSF API for any other ref, and Scorecard audits repo-level posture
+    # rather than branch code anyway.
+    branches: [main]
   schedule:
     - cron: "15 11 * * 6" # Saturdays 11:15 UTC
   workflow_dispatch:
