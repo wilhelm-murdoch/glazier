@@ -115,6 +115,19 @@ release: $(REL_DIR)
 			done; \
 		done; \
 	done
+	@$(MAKE) checksums
+
+# One SHA256SUMS over every zip, keyed by bare filename so a user who
+# downloads a single asset can verify it with `shasum -a 256 -c SHA256SUMS
+# --ignore-missing`. shasum (perl) rather than sha256sum: it exists on both
+# the linux runners and macOS.
+.PHONY: checksums
+checksums:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@cd $(REL_DIR) && rm -f SHA256SUMS && for f in */*.zip; do \
+		(cd $$(dirname $$f) && shasum -a 256 $$(basename $$f)); \
+	done > SHA256SUMS
+	@cat $(REL_DIR)/SHA256SUMS
 
 .PHONY: test
 test:

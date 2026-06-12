@@ -6,6 +6,7 @@ _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com
 ![CI Status](https://woodpecker.nightcity.network/api/badges/4/status.svg)
 [![GoDoc](https://godoc.org/github.com/wilhelm-murdoch/glazier?status.svg)](https://pkg.go.dev/github.com/wilhelm-murdoch/glazier)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wilhelm-murdoch/glazier)](https://goreportcard.com/report/github.com/wilhelm-murdoch/glazier)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wilhelm-murdoch/glazier/badge)](https://scorecard.dev/viewer/?uri=github.com/wilhelm-murdoch/glazier)
 [![Stability: Experimental](https://masterminds.github.io/stability/experimental.svg)](https://masterminds.github.io/stability/experimental.html)
 
 > [!IMPORTANT]
@@ -47,12 +48,27 @@ $ glaze up
 - Reliable command sequencing via `tmux wait-for` (no fixed sleeps).
 - Built-in formatting and validation (`glaze format`).
 - Capture a live session back into a profile (`glaze save`).
+- Tear down a profile's session (`glaze down`) and list what's running (`glaze ls`).
 
 ## Requirements
 - Go **1.26+** (to build from source)
 - `tmux` available on your `PATH`
 
 ## Installation
+
+### From a GitHub release
+
+Prebuilt, version-stamped binaries for linux/darwin on amd64/arm64 are
+attached to every [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases)
+as zips, alongside a `SHA256SUMS` file and a signed
+[build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations).
+
+```console
+$ unzip glaze-darwin-arm64.zip
+$ shasum -a 256 -c SHA256SUMS --ignore-missing      # verify the checksum
+$ gh attestation verify glaze-darwin-arm64.zip \
+    --repo wilhelm-murdoch/glazier                  # verify it was built by this repo's release workflow
+```
 
 ### From source
 The following will build and install the `glaze` binary via `go install`.
@@ -95,12 +111,14 @@ AUTHOR:
 
 COMMANDS:
    up       apply the specified glaze profile
+   down     kill the session described by the specified glaze profile
+   ls       list the sessions running on the target tmux server
    format   rewrites the target glaze profile file to a canonical format
    save     running this within a tmux session will save its current state to the specified glaze profile
    help, h  Shows a list of commands or help for one command
 
 GLOBAL OPTIONS:
-   --log-level string  specify a log level (default: "TRC")
+   --log-level string  specify a log level (default: "info")
    --help, -h          show help
    --version, -v       print only the version
 
@@ -111,7 +129,7 @@ COPYRIGHT:
 Global flags:
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--log-level` | `trace` | one of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical` |
+| `--log-level` | `info` | one of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical` |
 
 ### `glaze up`
 Apply a profile, creating the session, windows, and panes.
@@ -132,6 +150,44 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--socket-name` | name of a custom tmux socket |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
+
+### `glaze down`
+
+Tear down the session a profile describes. The profile is resolved and decoded
+exactly as it is for `up`, so an interpolated session name (e.g.
+`name = "gig-${district}"`) resolves through the same `--var`/`GLAZE_ENV_*`
+machinery. Bringing down a session that is not running is a no-op rather than
+an error, so `down` stays idempotent for scripts.
+
+```console
+$ glaze down                        # kill the session described by ./.glaze
+$ glaze down --var district=watson  # resolve an interpolated session name
+$ glaze down --session daemon-run   # kill by name; no profile required
+```
+
+| Flag | Description |
+|------|-------------|
+| `--session` | session to kill (skips profile resolution entirely) |
+| `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
+| `--var key=value` | set a variable; repeatable |
+| `--socket-path` / `--socket-name` | custom tmux socket |
+
+### `glaze ls`
+
+List the sessions running on the target tmux server, with window counts and
+starting directories. When run from inside tmux, the session the current
+client is attached to is marked with an asterisk.
+
+```console
+$ glaze ls
+NAME         WINDOWS  PATH
+daemon-run*  3        /home/v/runs/arasaka
+scratch      1        /tmp
+```
+
+| Flag | Description |
+|------|-------------|
+| `--socket-path` / `--socket-name` | custom tmux socket |
 
 ### `glaze format`
 
@@ -318,16 +374,21 @@ $ go build ./...             # compile everything
 
 $ make build                 # build bin/<os>-<arch>/glaze (version-stamped)
 $ make test                  # run tests via gotestsum (pinned, via `go run`)
-$ make cover                 # tests with coverage
+$ make race                  # tests under the race detector (needs CGO)
+$ make cover                 # tests with coverage; enforces the 80% floor
 $ make vet                   # go vet
-$ make lint                  # golangci-lint (pinned, via `go run`)
-$ make all                   # deps > build > test > lint
+$ make lint                  # golangci-lint incl. gosec (pinned, via `go run`)
+$ make vuln                  # govulncheck vulnerability scan
+$ make fuzz                  # native Go fuzzing, auto-discovers Fuzz* targets
+$ make all                   # deps > build > test > race > lint > cover > vuln
 $ make install               # go install the version-stamped binary
-$ make release               # cross-compile + zip for all platforms
+$ make release               # cross-compile + zip (linux/darwin, amd64/arm64)
 ```
 
 Tooling versions are pinned in the `Makefile` and run with `go run <tool>@<version>`, so no global installs or `curl | sh` bootstrap scripts are needed. Linting is configured in [`.golangci.yml`](./.golangci.yml). Requires Go **1.26+** (the `Makefile` and CI both read the version from `go.mod`).
 
-The test suite includes an end-to-end test (`pkg/tmux/e2e_test.go`) that drives a real `tmux` server on a throwaway socket; it self-skips when `tmux` is not on the `PATH`.
+The test suite includes an end-to-end test (`pkg/tmux/e2e_test.go`) that drives a real `tmux` server on a throwaway socket; it self-skips when `tmux` is not on the `PATH`. The attacker-controllable surfaces (HCL profile decoding, variable collection) carry native Go fuzz targets whose seed corpora replay as plain tests in every build; `make fuzz` runs real input generation.
 
-CI runs on [Woodpecker](./.woodpecker/workflow.yaml) (vet, test, lint).
+CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/) — both call the same Makefile targets, so a green local `make all` is a green build. GitHub additionally runs CodeQL, govulncheck, OpenSSF Scorecard, and weekly scheduled fuzzing.
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SECURITY.md) for the security policy and reporting channel.
