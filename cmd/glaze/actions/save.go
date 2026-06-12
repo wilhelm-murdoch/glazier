@@ -98,7 +98,8 @@ func (a *ActionSave) Run() error {
 		return nil
 	}
 
-	if err := os.WriteFile(path, output, 0o644); err != nil {
+	// Profiles are sharable config meant to be committed; 0644 is intended.
+	if err := os.WriteFile(path, output, 0o644); err != nil { //nolint:gosec // G306
 		return fmt.Errorf("could not write profile `%s`: %w", path, err)
 	}
 

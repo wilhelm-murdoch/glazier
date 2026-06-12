@@ -6,8 +6,6 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
-	"github.com/wilhelm-murdoch/glazier/internal/parser"
-	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -182,25 +180,6 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	}
 
 	return nil
-}
-
-// loadProfile handles parsing variables and decoding the HCL definition.
-func (a *ActionUp) loadProfile() (*decoders.Session, error) {
-	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse specified variables: %w", err)
-	}
-
-	profile, decodeDiags := a.Parser.Decode(
-		spec.Session,
-		parser.BuildEvalContext(variables),
-	)
-	if decodeDiags.HasErrors() {
-		a.DiagnosticsManager.Extend(decodeDiags)
-		return nil, a.DiagnosticsManager.Write()
-	}
-
-	return profile, nil
 }
 
 // generateWindows iterates through the windows and panes defined within the
