@@ -392,3 +392,11 @@ The test suite includes an end-to-end test (`pkg/tmux/e2e_test.go`) that drives 
 CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/) — both call the same Makefile targets, so a green local `make all` is a green build. GitHub additionally runs CodeQL, govulncheck, OpenSSF Scorecard, and weekly scheduled fuzzing.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SECURITY.md) for the security policy and reporting channel.
+
+## AI Disclosure
+
+The architecture, fucntionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the package easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
+
+## License
+
+[MIT](LICENSE) © Wilhelm Murdoch
