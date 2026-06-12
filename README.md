@@ -395,7 +395,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SEC
 
 ## AI Disclosure
 
-The architecture, fucntionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the package easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
+The architecture, functionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the package easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
 
 ## License
 
