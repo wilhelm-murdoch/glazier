@@ -2,13 +2,12 @@ package decoders
 
 import (
 	"github.com/hashicorp/hcl/v2"
-	"github.com/wilhelm-murdoch/go-collection"
 	"github.com/zclconf/go-cty/cty"
 )
 
 type Session struct {
 	*Base
-	Windows  collection.Collection[*Window]
+	Windows  []*Window
 	Commands []string
 }
 
@@ -49,7 +48,7 @@ func (s *Session) Decode() hcl.Diagnostics {
 				allDiags = allDiags.Extend(windowDiags)
 			}
 
-			s.Windows.Push(window)
+			s.Windows = append(s.Windows, window)
 		}
 	}
 

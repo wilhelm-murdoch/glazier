@@ -2,6 +2,7 @@ package actions
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/urfave/cli/v3"
 
@@ -85,7 +86,7 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		return err
 	}
 
-	if err := a.generateWindows(profile.Windows.Items()); err != nil {
+	if err := a.generateWindows(profile.Windows); err != nil {
 		return err
 	}
 
@@ -197,7 +198,7 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			return err
 		}
 
-		if err := a.generatePanes(ws.Panes.Items(), defaultPane, wtmx); err != nil {
+		if err := a.generatePanes(ws.Panes, defaultPane, wtmx); err != nil {
 			return err
 		}
 
@@ -402,15 +403,15 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 		return nil, fmt.Errorf("could not read panes for window `%s`: %w", window.Name, err)
 	}
 
-	defaultPane := panes.Find(func(i int, item *tmux.Pane) bool {
-		return item.IsFirst
+	index := slices.IndexFunc(panes, func(pane *tmux.Pane) bool {
+		return pane.IsFirst
 	})
 
-	if defaultPane == nil {
+	if index == -1 {
 		return nil, fmt.Errorf("could not locate default pane for window `%s`", window.Name)
 	}
 
-	return defaultPane, nil
+	return panes[index], nil
 }
 
 // getDefaultWindow is responsible for retrieving the default window for a given tmux session.
@@ -420,15 +421,15 @@ func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error)
 		return nil, fmt.Errorf("could not read windows for session `%s`: %w", session.Name, err)
 	}
 
-	defaultWindow := windows.Find(func(i int, window *tmux.Window) bool {
+	index := slices.IndexFunc(windows, func(window *tmux.Window) bool {
 		return window.IsFirst
 	})
 
-	if defaultWindow == nil {
+	if index == -1 {
 		return nil, fmt.Errorf("could not locate default window for session `%s`", session.Name)
 	}
 
-	return defaultWindow, nil
+	return windows[index], nil
 }
 
 // resolveSession resolves the tmux session for this run. It returns true when

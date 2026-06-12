@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Dropped the `go-collection` dependency in favour of native slices and the
+  stdlib `slices` package. `Client.Sessions`/`Windows`/`Panes` and the decoder
+  `Session.Windows`/`Window.Panes` fields now return/hold plain `[]*T`, which
+  also leaves `pkg/tmux` with no dependencies beyond the standard library.
+
 ## [0.1.0] - 2026-06-12
 
 First public release. `glaze` can declaratively provision tmux workspaces from

@@ -6,10 +6,9 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/wilhelm-murdoch/go-collection"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
@@ -102,9 +101,22 @@ func (c *Client) Attach(session *Session) error {
 	return nil
 }
 
-// Sessions returns a collection of active sessions.
-func (c Client) Sessions() (collection.Collection[*Session], error) {
-	var sessions collection.Collection[*Session]
+// findSessionByName returns the first session with the given name, or nil.
+func findSessionByName(sessions []*Session, sessionName string) *Session {
+	index := slices.IndexFunc(sessions, func(s *Session) bool {
+		return s.Name == sessionName
+	})
+
+	if index == -1 {
+		return nil
+	}
+
+	return sessions[index]
+}
+
+// Sessions returns the active sessions.
+func (c Client) Sessions() ([]*Session, error) {
+	var sessions []*Session
 
 	args := []string{
 		"ls",
@@ -127,7 +139,7 @@ func (c Client) Sessions() (collection.Collection[*Session], error) {
 			return sessions, err
 		}
 
-		sessions.Push(session)
+		sessions = append(sessions, session)
 	}
 
 	return sessions, err
@@ -148,9 +160,9 @@ func (c Client) NewSessionFromLine(line string) (*Session, error) {
 	}, nil
 }
 
-// Windows returns a collection of windows for the given session.
-func (c Client) Windows(session *Session) (collection.Collection[*Window], error) {
-	var windows collection.Collection[*Window]
+// Windows returns the windows of the given session.
+func (c Client) Windows(session *Session) ([]*Window, error) {
+	var windows []*Window
 
 	args := []string{
 		"lsw",
@@ -173,7 +185,7 @@ func (c Client) Windows(session *Session) (collection.Collection[*Window], error
 			return windows, err
 		}
 
-		windows.Push(window)
+		windows = append(windows, window)
 	}
 
 	return windows, nil
@@ -202,9 +214,9 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	}, nil
 }
 
-// Panes returns a collection of panes for the given window.
-func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
-	var panes collection.Collection[*Pane]
+// Panes returns the panes of the given window.
+func (c Client) Panes(window *Window) ([]*Pane, error) {
+	var panes []*Pane
 
 	args := []string{
 		"lsp",
@@ -236,7 +248,7 @@ func (c Client) Panes(window *Window) (collection.Collection[*Pane], error) {
 			return panes, err
 		}
 
-		panes.Push(pane)
+		panes = append(panes, pane)
 	}
 
 	return panes, nil
@@ -290,9 +302,7 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		return session, err
 	}
 
-	session = sessions.Find(func(i int, s *Session) bool {
-		return s.Name == fmt.Sprint(sessionName)
-	})
+	session = findSessionByName(sessions, sessionName)
 
 	if session == nil {
 		return nil, fmt.Errorf(
@@ -308,9 +318,7 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 // directory if it does not already exist.
 func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*Session, error) {
 	sessions, _ := c.Sessions()
-	exists := sessions.Find(func(i int, s *Session) bool {
-		return s.Name == fmt.Sprint(sessionName)
-	})
+	exists := findSessionByName(sessions, sessionName)
 
 	if exists == nil {
 		return c.NewSession(sessionName, startingDirectory)
@@ -336,9 +344,7 @@ func (c Client) KillSessionByName(sessionName string) error {
 func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	sessions, _ := c.Sessions()
 
-	found := sessions.Find(func(i int, s *Session) bool {
-		return s.Name == fmt.Sprint(sessionName)
-	})
+	found := findSessionByName(sessions, sessionName)
 
 	if found != nil {
 		return found, nil
