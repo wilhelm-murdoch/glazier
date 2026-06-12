@@ -1,0 +1,36 @@
+# Scheduled fuzzing, mirroring the cron-only fuzz step in the Woodpecker
+# pipeline. The seed corpora already run as plain tests in every CI build;
+# real input generation is only worth the minutes on a schedule. FUZZTIME is
+# more generous than the homelab's 2m because these runners are free and the
+# job is weekly.
+#
+# When a run fails, Go writes the crashing input to testdata/fuzz/<Target>/ —
+# the artifact upload preserves it so it can be reproduced locally and
+# committed as a permanent regression test.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "20 9 * * 2" # Tuesdays 09:20 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make fuzz FUZZTIME=10m
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fuzz-failures
+          path: "**/testdata/fuzz/"
+          if-no-files-found: ignore

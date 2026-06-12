@@ -59,7 +59,9 @@ func NewCommand(client Client, args ...string) *Command {
 
 	return &Command{
 		args: args,
-		cmd:  exec.Command(args[0], args[1:]...),
+		// Spawning tmux with caller-supplied arguments is this package's
+		// entire purpose; args[0] is the resolved tmux binary path.
+		cmd: exec.Command(args[0], args[1:]...), //nolint:gosec // G204
 	}
 }
 

@@ -3,12 +3,15 @@ package actions
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics" // ge = "Glaze Errors"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
+	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
@@ -58,4 +61,23 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 // and returns an error.
 func (ba *ActionBase) Run() error {
 	return errors.New("this feature is not yet implemented")
+}
+
+// loadProfile handles parsing variables and decoding the HCL definition.
+func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
+	variables, err := parser.CollectVariables(ba.Command.StringSlice("var"))
+	if err != nil {
+		return nil, fmt.Errorf("could not parse specified variables: %w", err)
+	}
+
+	profile, decodeDiags := ba.Parser.Decode(
+		spec.Session,
+		parser.BuildEvalContext(variables),
+	)
+	if decodeDiags.HasErrors() {
+		ba.DiagnosticsManager.Extend(decodeDiags)
+		return nil, ba.DiagnosticsManager.Write()
+	}
+
+	return profile, nil
 }

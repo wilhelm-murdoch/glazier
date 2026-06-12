@@ -6,8 +6,6 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
-	"github.com/wilhelm-murdoch/glazier/internal/parser"
-	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -108,9 +106,22 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 	}
 
 	// Run any session-level commands in the session's active pane, once all
-	// windows and panes exist. Each is serialised via `tmux wait-for`.
+	// windows and panes exist. Each is serialised via `tmux wait-for`, except
+	// the final command which is sent fire-and-forget so a long-running or
+	// interactive command does not block on a wait-for signal that never fires.
 	for i, cmd := range profile.Commands {
 		a.Logger.Info("setting session command", "cmd", cmd, "session", a.session.Name)
+		if i == len(profile.Commands)-1 {
+			if err := a.session.SendKeys(cmd); err != nil {
+				return fmt.Errorf(
+					"could not execute command `%s` for session `%s`: %w",
+					cmd,
+					a.session.Name,
+					err,
+				)
+			}
+			continue
+		}
 		channel := fmt.Sprintf("glaze-session-%s-%d", a.session.Name, i)
 		if err := a.session.SendKeysAndWait(cmd, channel); err != nil {
 			return fmt.Errorf(
@@ -169,25 +180,6 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	}
 
 	return nil
-}
-
-// loadProfile handles parsing variables and decoding the HCL definition.
-func (a *ActionUp) loadProfile() (*decoders.Session, error) {
-	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse specified variables: %w", err)
-	}
-
-	profile, decodeDiags := a.Parser.Decode(
-		spec.Session,
-		parser.BuildEvalContext(variables),
-	)
-	if decodeDiags.HasErrors() {
-		a.DiagnosticsManager.Extend(decodeDiags)
-		return nil, a.DiagnosticsManager.Write()
-	}
-
-	return profile, nil
 }
 
 // generateWindows iterates through the windows and panes defined within the
@@ -333,9 +325,25 @@ func (a *ActionUp) generatePanes(
 
 		// Run any defined commands in order as defined within the current
 		// profile. Each command is serialised using `tmux wait-for` so the
-		// next command is only sent once the previous one has completed.
+		// next command is only sent once the previous one has completed. The
+		// final command has no successor to gate, so it is sent
+		// fire-and-forget: waiting on it would hang forever for long-running
+		// or interactive commands (nvim, tail -f, a dev server) whose
+		// wait-for signal never fires.
 		for i, cmd := range ps.Commands {
 			a.Logger.Info("setting pane command", "cmd", cmd, "name", ptmx.Name)
+			if i == len(ps.Commands)-1 {
+				if err := ptmx.SendKeys(cmd); err != nil {
+					return fmt.Errorf(
+						"could not execute command `%s` for pane `%s` in window `%s`: %w",
+						cmd,
+						ptmx.Name,
+						wtmx.Name,
+						err,
+					)
+				}
+				continue
+			}
 			channel := fmt.Sprintf("glaze-%d-%d", int(ptmx.Id), i)
 			if err := ptmx.SendKeysAndWait(cmd, channel); err != nil {
 				return fmt.Errorf(

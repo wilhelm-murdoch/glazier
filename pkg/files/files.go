@@ -11,7 +11,9 @@ import (
 
 // FileExists is a utility function that simply checks if the given path is not only a file, but that it exists and is readable.
 func FileExists(path string) bool {
-	fileInfo, err := os.Stat(path)
+	// The path is the user's own --profile-path/GLAZE_PATH input to a local
+	// CLI; there is no privilege boundary to traverse.
+	fileInfo, err := os.Stat(path) //nolint:gosec // G703
 	if err != nil || errors.Is(err, fs.ErrNotExist) || fileInfo.IsDir() {
 		return false
 	}

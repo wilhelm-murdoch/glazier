@@ -69,7 +69,7 @@ func TestGenerateProfileRoundTrips(t *testing.T) {
 	output := generateProfile(captured)
 
 	path := filepath.Join(t.TempDir(), "saved.glaze")
-	assert.NoError(t, os.WriteFile(path, output, 0o644))
+	assert.NoError(t, os.WriteFile(path, output, 0o600))
 
 	p, diags := parser.New(path)
 	assert.False(t, diags.HasErrors())
@@ -150,7 +150,7 @@ func TestGenerateProfileWithoutLayoutValidates(t *testing.T) {
 	assert.NotContains(t, string(output), "layout")
 
 	path := filepath.Join(t.TempDir(), "saved.glaze")
-	assert.NoError(t, os.WriteFile(path, output, 0o644))
+	assert.NoError(t, os.WriteFile(path, output, 0o600))
 
 	p, diags := parser.New(path)
 	assert.False(t, diags.HasErrors())

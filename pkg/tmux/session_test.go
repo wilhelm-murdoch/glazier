@@ -203,6 +203,30 @@ func TestSessionSetOption(t *testing.T) {
 	})
 }
 
+func TestSessionSendKeys(t *testing.T) {
+	t.Run("sends keys without a wait-for signal", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("send", fakeResult{})
+
+		client := testClient()
+		assert.NoError(t, testSession(client).SendKeys("nvim"))
+
+		sendArgs := rec.ArgsFor("send")
+		assert.Contains(t, sendArgs, "demo")
+		assert.Contains(t, sendArgs, "nvim")
+		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
+		assert.False(t, rec.Called("wait-for"))
+	})
+
+	t.Run("propagates send errors", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("send", fakeResult{Err: errors.New("send failed")})
+
+		client := testClient()
+		assert.Error(t, testSession(client).SendKeys("nvim"))
+	})
+}
+
 func TestSessionSendKeysAndWait(t *testing.T) {
 	t.Run("sends keys with a wait-for signal and blocks", func(t *testing.T) {
 		rec := setupRecorder(t)

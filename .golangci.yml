@@ -3,6 +3,9 @@ version: "2"
 run:
   timeout: 5m
 
+# gosec rides on top of the linter set so both CIs (and `make lint`) get the
+# same security findings that CodeQL approximates on GitHub. Suppressions are
+# inline `//nolint:gosec` with a justification, never blanket excludes here.
 linters:
   enable:
     - errcheck
@@ -13,6 +16,7 @@ linters:
     - misspell
     - unconvert
     - bodyclose
+    - gosec
 
 formatters:
   enable:

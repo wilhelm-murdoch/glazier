@@ -28,6 +28,30 @@ var (
 	Stage = "unknown"
 )
 
+// validateVarFlags rejects --var values that do not follow the `key=value`
+// format; it is shared by every command that accepts variables.
+func validateVarFlags(value []string) error {
+	for _, variable := range value {
+		if !strings.Contains(variable, "=") {
+			return fmt.Errorf(
+				"the --var `%s` does not match the required format of `key=value`",
+				variable,
+			)
+		}
+
+		parts := strings.SplitN(variable, "=", 2)
+
+		if strings.HasSuffix(parts[0], " ") {
+			return fmt.Errorf(
+				"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
+				parts[0],
+			)
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	var logLevel string
 
@@ -54,7 +78,7 @@ func main() {
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",
-				Value:       logger.LevelTraceLabel,
+				Value:       "info",
 				Usage:       "specify a log level",
 				Destination: &logLevel,
 				Validator: func(value string) error {
@@ -99,33 +123,76 @@ func main() {
 						Usage: "specify a path to a target glaze definition file",
 					},
 					&cli.StringSliceFlag{
-						Name:  "var",
-						Usage: "set multiple variables in the form of \"key=value\"",
-						Validator: func(value []string) error {
-							for _, variable := range value {
-								if !strings.Contains(variable, "=") {
-									return fmt.Errorf(
-										"the --var `%s` does not match the required format of `key=value`",
-										variable,
-									)
-								}
-
-								parts := strings.SplitN(variable, "=", 2)
-
-								if strings.HasSuffix(parts[0], " ") {
-									return fmt.Errorf(
-										"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
-										parts[0],
-									)
-								}
-							}
-
-							return nil
-						},
+						Name:      "var",
+						Usage:     "set multiple variables in the form of \"key=value\"",
+						Validator: validateVarFlags,
 					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					action, err := actions.NewUp(cmd, logLevel)
+					if err != nil {
+						return err
+					}
+
+					return action.Run()
+				},
+			},
+			{
+				Name:  "down",
+				Usage: "kill the session described by the specified glaze profile",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "session",
+						Value: "",
+						Usage: "name of the session to kill (defaults to the resolved profile's session)",
+					},
+					&cli.StringFlag{
+						Name:  "socket-path",
+						Value: "",
+						Usage: "optional path to the tmux socket",
+					},
+					&cli.StringFlag{
+						Name:  "socket-name",
+						Value: "",
+						Usage: "optional name for the tmux socket",
+					},
+					&cli.StringFlag{
+						Name:  "profile-path",
+						Value: "",
+						Usage: "specify a path to a target glaze definition file",
+					},
+					&cli.StringSliceFlag{
+						Name:      "var",
+						Usage:     "set multiple variables in the form of \"key=value\"",
+						Validator: validateVarFlags,
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					action, err := actions.NewDown(cmd, logLevel)
+					if err != nil {
+						return err
+					}
+
+					return action.Run()
+				},
+			},
+			{
+				Name:  "ls",
+				Usage: "list the sessions running on the target tmux server",
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "socket-path",
+						Value: "",
+						Usage: "optional path to the tmux socket",
+					},
+					&cli.StringFlag{
+						Name:  "socket-name",
+						Value: "",
+						Usage: "optional name for the tmux socket",
+					},
+				},
+				Action: func(ctx context.Context, cmd *cli.Command) error {
+					action, err := actions.NewLs(cmd, logLevel)
 					if err != nil {
 						return err
 					}

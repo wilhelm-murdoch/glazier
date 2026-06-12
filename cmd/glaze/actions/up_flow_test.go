@@ -39,7 +39,7 @@ func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, 
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".glaze")
-	assert.NoError(t, os.WriteFile(path, []byte(profile), 0o644))
+	assert.NoError(t, os.WriteFile(path, []byte(profile), 0o600))
 
 	var (
 		action *ActionUp

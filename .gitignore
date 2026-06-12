@@ -1,7 +1,10 @@
 *.glaze
+.glaze
 .envrc
+.env
 cover*.out
 cover*.html
+coverage.*
 .vscode
 
 bin/

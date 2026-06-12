@@ -94,7 +94,7 @@ func TestLayoutDiagnostic(t *testing.T) {
 func TestDirectoryDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
-	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o644))
+	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
 
 	t.Run("no diagnostic for an existing directory", func(t *testing.T) {
 		assert.Empty(t, DirectoryDiagnostic("starting_directory", cty.StringVal(dir)))
@@ -118,7 +118,7 @@ func TestDirectoryDiagnostic(t *testing.T) {
 func TestFileDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
-	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o644))
+	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
 
 	t.Run("no diagnostic for an existing file", func(t *testing.T) {
 		assert.Empty(t, FileDiagnostic("path", cty.StringVal(file)))

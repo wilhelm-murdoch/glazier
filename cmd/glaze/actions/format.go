@@ -47,7 +47,8 @@ func (a *ActionFormat) Run() error {
 		return nil
 	}
 
-	if err := os.WriteFile(a.ProfilePath, []byte(formatted), 0o644); err != nil {
+	// Profiles are sharable config meant to be committed; 0644 is intended.
+	if err := os.WriteFile(a.ProfilePath, []byte(formatted), 0o644); err != nil { //nolint:gosec // G306
 		a.DiagnosticsManager.Append(&hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Failed to write file",

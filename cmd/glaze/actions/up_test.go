@@ -113,7 +113,7 @@ func TestActionUpGenerateWindows(t *testing.T) {
 
 	pane := &decoders.Pane{
 		Base:     &decoders.Base{Name: "breach", StartingDirectory: "/tmp"},
-		Commands: []string{"htop"},
+		Commands: []string{"cd /tmp", "htop"},
 	}
 	window := windowWithPane("ice-breaker", enums.LayoutTiled, pane)
 
@@ -125,10 +125,20 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	assert.True(t, rec.Called("killp"))
 	assert.True(t, rec.Called("selectl"))
 
-	// The pane command was sent and serialised with wait-for.
-	assert.True(t, rec.Called("send"))
-	assert.True(t, rec.Called("wait-for"))
-	assert.Contains(t, rec.ArgsFor("send")[len(rec.ArgsFor("send"))-2], "htop ; tmux wait-for -S")
+	// Two commands: the first is serialised with wait-for, the final command
+	// is sent fire-and-forget so a long-running command cannot hang.
+	assert.Equal(t, 2, rec.CountOf("send"))
+	assert.Equal(t, 1, rec.CountOf("wait-for"))
+
+	var sends [][]string
+	for _, c := range rec.Calls {
+		if len(c) > 0 && c[0] == "send" {
+			sends = append(sends, c)
+		}
+	}
+	assert.Contains(t, sends[0][len(sends[0])-2], "cd /tmp ; tmux wait-for -S")
+	assert.Contains(t, sends[1][len(sends[1])-2], "htop")
+	assert.NotContains(t, sends[1][len(sends[1])-2], "wait-for")
 }
 
 func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
@@ -153,7 +163,32 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	// The default window tmux created was removed.
 	assert.True(t, rec.Called("killw"))
 
-	// Two send/wait-for pairs: one for the pane command, one for the session command.
+	// Each command list has a single, final command, so both are sent
+	// fire-and-forget with no wait-for synchronisation.
 	assert.Equal(t, 2, rec.CountOf("send"))
-	assert.Equal(t, 2, rec.CountOf("wait-for"))
+	assert.Equal(t, 0, rec.CountOf("wait-for"))
+}
+
+func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+
+	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}}
+	window := windowWithPane("w", enums.LayoutTiled, pane)
+
+	profile := &decoders.Session{
+		Base:     &decoders.Base{Name: "demo"},
+		Commands: []string{"nvm use 18", "tail -f log"},
+	}
+	profile.Windows = *collection.New(window)
+
+	assert.NoError(t, up.provisionSession(profile))
+
+	// First session command waits, the final long-running command does not.
+	assert.Equal(t, 2, rec.CountOf("send"))
+	assert.Equal(t, 1, rec.CountOf("wait-for"))
 }

@@ -28,6 +28,23 @@ func New(path string) (*Parser, hcl.Diagnostics) {
 	}, nil
 }
 
+// NewFromBytes parses an in-memory HCL profile. The filename only labels
+// diagnostics; nothing is read from disk. This is the entry point the fuzz
+// tests use, which would otherwise have to write a file per generated input.
+func NewFromBytes(src []byte, filename string) (*Parser, hcl.Diagnostics) {
+	parser := hclparse.NewParser()
+	file, diags := parser.ParseHCL(src, filename)
+
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	return &Parser{
+		File:   file,
+		parser: parser,
+	}, nil
+}
+
 // Decode is responsible for decoding the HCL file into a session.Session struct.
 func (p *Parser) Decode(
 	spec hcldec.Spec,

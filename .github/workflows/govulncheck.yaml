@@ -1,0 +1,27 @@
+# Scans dependencies and the call graph with Go's official vulnerability
+# scanner. The weekly cron matters: new CVEs land against unchanged code,
+# so PR-only scanning would miss them. The scanner version is pinned in the
+# Makefile; the vulnerability database is always fetched live.
+name: govulncheck
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  schedule:
+    - cron: "30 9 * * 1" # Mondays 09:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make vuln
