@@ -11,7 +11,7 @@ import (
 func TestFileExists(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "profile.glaze")
-	assert.NoError(t, os.WriteFile(file, []byte("session {}"), 0o644))
+	assert.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
 
 	t.Run("returns true for an existing file", func(t *testing.T) {
 		assert.True(t, FileExists(file))
@@ -51,7 +51,7 @@ func TestResolveProfilePath(t *testing.T) {
 	t.Run("returns the explicit profile path when it exists", func(t *testing.T) {
 		dir := t.TempDir()
 		file := filepath.Join(dir, "explicit.glaze")
-		assert.NoError(t, os.WriteFile(file, []byte("session {}"), 0o644))
+		assert.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
 
 		resolved, err := ResolveProfilePath(file)
 		assert.NoError(t, err)
@@ -67,7 +67,7 @@ func TestResolveProfilePath(t *testing.T) {
 
 	t.Run("finds .glaze in the current working directory", func(t *testing.T) {
 		dir := t.TempDir()
-		assert.NoError(t, os.WriteFile(filepath.Join(dir, ".glaze"), []byte("session {}"), 0o644))
+		assert.NoError(t, os.WriteFile(filepath.Join(dir, ".glaze"), []byte("session {}"), 0o600))
 
 		chdir(t, dir)
 		t.Setenv("GLAZE_PATH", "")
@@ -83,7 +83,7 @@ func TestResolveProfilePath(t *testing.T) {
 	t.Run("falls back to GLAZE_PATH when no local profile exists", func(t *testing.T) {
 		cwd := t.TempDir()
 		glazeDir := t.TempDir()
-		assert.NoError(t, os.WriteFile(filepath.Join(glazeDir, ".glaze"), []byte("session {}"), 0o644))
+		assert.NoError(t, os.WriteFile(filepath.Join(glazeDir, ".glaze"), []byte("session {}"), 0o600))
 
 		chdir(t, cwd)
 		t.Setenv("GLAZE_PATH", glazeDir)

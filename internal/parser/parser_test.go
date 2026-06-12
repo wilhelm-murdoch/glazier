@@ -17,7 +17,7 @@ import (
 func writeGlaze(t *testing.T, content string) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "test.glaze")
-	assert.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+	assert.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 	return path
 }
 

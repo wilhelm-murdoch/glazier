@@ -18,7 +18,7 @@ func runWithProfile(t *testing.T, contents string) (*ActionBase, error) {
 
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".glaze")
-	assert.NoError(t, os.WriteFile(path, []byte(contents), 0o644))
+	assert.NoError(t, os.WriteFile(path, []byte(contents), 0o600))
 
 	var (
 		base    *ActionBase

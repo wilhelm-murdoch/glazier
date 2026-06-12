@@ -76,7 +76,8 @@ func TestActionSaveRun(t *testing.T) {
 
 		assert.NoError(t, save.Run())
 
-		contents, err := os.ReadFile(path)
+		// The path points at this test's own temp directory.
+		contents, err := os.ReadFile(path) //nolint:gosec // G304
 		assert.NoError(t, err)
 		assert.Contains(t, string(contents), `"demo"`)
 		assert.Contains(t, string(contents), `"main"`)
