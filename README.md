@@ -7,11 +7,7 @@ _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com
 [![GoDoc](https://godoc.org/github.com/wilhelm-murdoch/glazier?status.svg)](https://pkg.go.dev/github.com/wilhelm-murdoch/glazier)
 [![Go Report Card](https://goreportcard.com/badge/github.com/wilhelm-murdoch/glazier)](https://goreportcard.com/report/github.com/wilhelm-murdoch/glazier)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wilhelm-murdoch/glazier/badge)](https://scorecard.dev/viewer/?uri=github.com/wilhelm-murdoch/glazier)
-[![Stability: Experimental](https://masterminds.github.io/stability/experimental.svg)](https://masterminds.github.io/stability/experimental.html)
-
-> [!IMPORTANT]
-> This project works, but it is still experimental. Expect rough edges and breaking
-> changes while session-customisation features, docs, and tests fill out.
+[![Stability: Active](https://masterminds.github.io/stability/active.svg)](https://masterminds.github.io/stability/active.html)
 
 `glaze` (Glazier) is a command-line tool for declaratively managing your tmux workspaces. Describe your sessions, windows, and panes once in an HCL `.glaze` file, then recreate them on demand. No more rebuilding layouts by hand after every reboot.
 
@@ -395,7 +391,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SEC
 
 ## AI Disclosure
 
-The architecture, functionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the package easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
+The architecture, functionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the project easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
 
 ## License
 
