@@ -5,8 +5,12 @@ name: CodeQL
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - "**/*.md"
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - "**/*.md"
   schedule:
     - cron: "45 10 * * 3" # Wednesdays 10:45 UTC
 
