@@ -7,10 +7,12 @@ on:
     branches: [main, develop]
     paths-ignore:
       - "**/*.md"
+  # No paths-ignore on pull_request: with "Require code scanning results" branch
+  # protection on, a PR touching only ignored paths skips CodeQL entirely, so it
+  # never uploads results and the required gate waits forever. Code-only PRs are
+  # unaffected; this guarantees every PR produces a result that satisfies it.
   pull_request:
     branches: [main, develop]
-    paths-ignore:
-      - "**/*.md"
   schedule:
     - cron: "45 10 * * 3" # Wednesdays 10:45 UTC
 

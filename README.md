@@ -35,6 +35,14 @@ Simply type the following alongside a `.glaze` file.
 $ glaze up
 ```
 
+### Why should I use this?
+
+Honestly, only you can answer that. I originally built this for myself because I was interested in learning how Terraform parses and validates their HCL specs. I'm also a heavy tmux user, so these two things lined up perfectly. This has been a slow-burning labour of love for the past couple years and it's finally in a state where I feel comfortable sharing it with others.
+
+There are plenty of other options out there - `teamocil`, `tmuxinator`, `smug`, etc... - that effectively do the same thing and have been around far longer. If you already use and trust any of these, there really isn't a strong value proposition for moving over to `glaze`; keep using them.
+
+Personally, I like the declarative self-validating HCL spec, variable + string function support for templates, and being able to _mostly_ save a session. It's been an incredibly fun journey in over-engineering a solution to an already solved problem.
+
 ## Features
 - HCL-based syntax with Terraform-style diagnostics.
 - Multiple `*.glaze` definition files, resolved from flag, CWD, or `$GLAZE_PATH`.
