@@ -16,7 +16,7 @@
 # (pkg/tmux/e2e_test.go) actually runs instead of self-skipping.
 when:
   - event: [manual, push, pull_request, cron]
-  - path:
+    path:
       exclude: ["**/*.md"]
 steps:
   - name: vet
