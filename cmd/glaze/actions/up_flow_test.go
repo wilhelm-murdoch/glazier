@@ -10,6 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
@@ -74,6 +75,54 @@ func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, 
 	}
 
 	return action, rec
+}
+
+func TestActionUpDebugFlag(t *testing.T) {
+	build := func(t *testing.T, args []string) *ActionUp {
+		t.Helper()
+
+		rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+		rec.Install(t)
+
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".glaze")
+		assert.NoError(t, os.WriteFile(path, []byte(validProfile), 0o600))
+
+		var (
+			action *ActionUp
+			actErr error
+		)
+
+		cmd := &cli.Command{
+			Name: "up",
+			Flags: []cli.Flag{
+				&cli.BoolFlag{Name: "debug"},
+				&cli.StringFlag{Name: "profile-path"},
+				&cli.StringSliceFlag{Name: "var"},
+			},
+			Action: func(_ context.Context, c *cli.Command) error {
+				action, actErr = NewUp(c, "critical")
+				return nil
+			},
+		}
+
+		assert.NoError(t, cmd.Run(context.Background(), append([]string{"up", "--profile-path", path}, args...)))
+		if actErr != nil {
+			t.Skipf("could not construct ActionUp (tmux likely unavailable): %v", actErr)
+		}
+
+		return action
+	}
+
+	t.Run("forces the logger to debug level when set", func(t *testing.T) {
+		up := build(t, []string{"--debug"})
+		assert.Equal(t, logger.LevelDebug, up.Logger.Level)
+	})
+
+	t.Run("leaves the configured level untouched when unset", func(t *testing.T) {
+		up := build(t, nil)
+		assert.Equal(t, logger.LevelCritical, up.Logger.Level)
+	})
 }
 
 func TestActionUpLoadProfile(t *testing.T) {

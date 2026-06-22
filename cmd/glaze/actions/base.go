@@ -46,7 +46,13 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 		return nil, diagsManager.Write()
 	}
 
-	log := logger.New(logger.FriendlyToInternal[logLevel])
+	level := logger.FriendlyToInternal[logLevel]
+
+	if cmd.Bool("debug") && level > logger.LevelDebug {
+		level = logger.LevelDebug
+	}
+
+	log := logger.New(level)
 
 	return &ActionBase{
 		Command:            cmd,
