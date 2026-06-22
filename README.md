@@ -48,7 +48,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 - Multiple `*.glaze` definition files, resolved from flag, CWD, or `$GLAZE_PATH`.
 - Arbitrary variable injection from `--var` flags and `GLAZE_ENV_*` env vars.
 - Template functions for string manipulation.
-- Per session/window/pane environment variables, hooks, and tmux options.
+- Environment variables, hooks, and tmux options.
 - Reliable command sequencing via `tmux wait-for` (no fixed sleeps).
 - Built-in formatting and validation (`glaze format`).
 - Capture a live session back into a profile (`glaze save`).
@@ -275,7 +275,6 @@ session {
 |-----------|------|-------|
 | `name` | string | session name; defaults to `default` |
 | `starting_directory` | string | must exist; defaults to CWD |
-| `envs` | map(string) | environment variables (tmux scopes env to the session) |
 | `hooks` | map(string) | tmux hook name > command |
 | `options` | map(string) | tmux option name > value |
 | `window` | block(s) | one or more windows (required) |
@@ -288,7 +287,6 @@ window {
   layout = "main-vertical"   # even-horizontal | even-vertical | main-horizontal | main-vertical | tiled | a raw tmux layout string
   focus  = true              # make this the active window
 
-  envs    = { DECK = "qiant-sandevistan" }
   hooks   = { "window-renamed" = "display 'trace detected'" }
   options = { "automatic-rename" = "off" }
 
@@ -298,7 +296,7 @@ window {
 }
 ```
 
-`layout` defaults to `tiled` when omitted. In addition to the five named presets it also accepts a **raw tmux layout coordinate string** (e.g. `"bb62,80x24,0,0"`) - this is what `glaze save` captures from a live window when no named preset applies, and `glaze up` replays it verbatim. The value is validated for structure when the profile is parsed; a malformed string fails fast. (tmux recomputes the leading checksum, so if you hand-edit the geometry and break it, tmux rejects the layout when `up` runs.) For hand-authored profiles, prefer a named preset - the raw string is exact but not human-readable. `envs` on a window resolve to the owning session's environment (tmux has no per-window environment).
+`layout` defaults to `tiled` when omitted. In addition to the five named presets it also accepts a **raw tmux layout coordinate string** (e.g. `"bb62,80x24,0,0"`) - this is what `glaze save` captures from a live window when no named preset applies, and `glaze up` replays it verbatim. The value is validated for structure when the profile is parsed; a malformed string fails fast. (tmux recomputes the leading checksum, so if you hand-edit the geometry and break it, tmux rejects the layout when `up` runs.) For hand-authored profiles, prefer a named preset - the raw string is exact but not human-readable.
 
 ### Pane
 
@@ -318,7 +316,6 @@ pane {
     amount    = "5"
   }
 
-  envs    = { OVERCLOCK = "1" }
   options = { "remain-on-exit" = "on" }
 }
 ```
