@@ -205,6 +205,31 @@ func TestClientNewSession(t *testing.T) {
 		assert.Nil(t, session)
 		assert.Contains(t, err.Error(), "could not be found")
 	})
+
+	t.Run("sanitizes names tmux would rewrite so the session is findable", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("new", fakeResult{})
+		rec.On("ls", fakeResult{Output: "$1;my-app-1;/foo/bar"})
+
+		session, err := testClient().NewSession("my.app:1", "/foo/bar")
+
+		assert.NoError(t, err)
+		assert.NotNil(t, session)
+		assert.Equal(t, "my-app-1", session.Name)
+		assert.Contains(t, rec.ArgsFor("new"), "my-app-1")
+	})
+}
+
+func TestSanitizeSessionName(t *testing.T) {
+	for name, expected := range map[string]string{
+		"plain":     "plain",
+		"my.app":    "my-app",
+		"my:app":    "my-app",
+		"a.b:c.d":   "a-b-c-d",
+		"no_change": "no_change",
+	} {
+		assert.Equal(t, expected, SanitizeSessionName(name))
+	}
 }
 
 func TestClientNewSessionIfNotExists(t *testing.T) {

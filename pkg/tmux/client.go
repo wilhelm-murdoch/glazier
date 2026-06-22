@@ -101,6 +101,19 @@ func (c *Client) Attach(session *Session) error {
 	return nil
 }
 
+// sessionNameReplacer normalises characters that tmux silently rewrites in
+// session names (`.` and `:`) into hyphens. tmux swaps these for underscores
+// itself, so a session created with one of them would immediately be unfindable
+// under the name we asked for. Replacing them up front keeps the name we use to
+// create, look up, and kill a session consistent with what tmux stores.
+var sessionNameReplacer = strings.NewReplacer(".", "-", ":", "-")
+
+// SanitizeSessionName returns a session name safe to use with tmux, replacing
+// the characters tmux would otherwise rewrite (`.` and `:`) with hyphens.
+func SanitizeSessionName(sessionName string) string {
+	return sessionNameReplacer.Replace(sessionName)
+}
+
 // findSessionByName returns the first session with the given name, or nil.
 func findSessionByName(sessions []*Session, sessionName string) *Session {
 	index := slices.IndexFunc(sessions, func(s *Session) bool {
@@ -280,6 +293,8 @@ func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, 
 func (c Client) NewSession(sessionName, startingDirectory string) (*Session, error) {
 	var session *Session
 
+	sessionName = SanitizeSessionName(sessionName)
+
 	args := []string{
 		"new",
 		"-d",
@@ -317,6 +332,8 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 // NewSessionIfNotExists creates a new session with the given name and starting
 // directory if it does not already exist.
 func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*Session, error) {
+	sessionName = SanitizeSessionName(sessionName)
+
 	sessions, _ := c.Sessions()
 	exists := findSessionByName(sessions, sessionName)
 
@@ -329,6 +346,8 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 
 // KillSession kills the given session.
 func (c Client) KillSessionByName(sessionName string) error {
+	sessionName = SanitizeSessionName(sessionName)
+
 	cmd := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
 
 	c.logger.Debug(cmd.String())
@@ -342,6 +361,8 @@ func (c Client) KillSessionByName(sessionName string) error {
 
 // FindSessionByName returns the session with the given name if it exists.
 func (c Client) FindSessionByName(sessionName string) (*Session, error) {
+	sessionName = SanitizeSessionName(sessionName)
+
 	sessions, _ := c.Sessions()
 
 	found := findSessionByName(sessions, sessionName)
@@ -355,7 +376,7 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 
 // HasSession returns true if a session with the given name exists.
 func (c Client) HasSession(sessionName string) bool {
-	cmd := newCommand(c, "has-session", "-t", fmt.Sprint(sessionName))
+	cmd := newCommand(c, "has-session", "-t", fmt.Sprint(SanitizeSessionName(sessionName)))
 
 	c.logger.Debug(cmd.String())
 
