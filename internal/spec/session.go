@@ -11,13 +11,16 @@ var Session = &hcldec.BlockSpec{
 	Nested: &hcldec.ObjectSpec{
 		"name":               Name,
 		"starting_directory": StartingDirectory,
-		"envs":               Envs,
 		"hooks":              Hooks,
 		"options":            Options,
 		"windows":            Window,
 		"commands": &hcldec.AttrSpec{
 			Name: "commands",
 			Type: cty.List(cty.String),
+		},
+		"envs": &hcldec.AttrSpec{
+			Name: "envs",
+			Type: cty.Map(cty.String),
 		},
 	},
 }

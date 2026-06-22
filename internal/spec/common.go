@@ -14,11 +14,6 @@ var (
 		Type: cty.Map(cty.String),
 	}
 
-	Envs = &hcldec.AttrSpec{
-		Name: "envs",
-		Type: cty.Map(cty.String),
-	}
-
 	Options = &hcldec.AttrSpec{
 		Name: "options",
 		Type: cty.Map(cty.String),

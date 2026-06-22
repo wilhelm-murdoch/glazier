@@ -45,7 +45,6 @@ func TestNewBaseDefaults(t *testing.T) {
 
 	pwd, _ := os.Getwd()
 	assert.Equal(t, pwd, base.StartingDirectory)
-	assert.Nil(t, base.Envs)
 	assert.Nil(t, base.Hooks)
 	assert.Nil(t, base.Options)
 }
@@ -69,7 +68,6 @@ func TestNewBasePopulated(t *testing.T) {
 
 	assert.Equal(t, "session-a", base.Name)
 	assert.Equal(t, "/tmp", base.StartingDirectory)
-	assert.Equal(t, "vim", base.Envs["EDITOR"])
 	assert.Equal(t, "echo hi", base.Hooks["session-created"])
 	assert.Equal(t, "on", base.Options["mouse"])
 }

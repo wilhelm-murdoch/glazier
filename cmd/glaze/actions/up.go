@@ -209,18 +209,6 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			}
 		}
 
-		for key, value := range ws.Envs {
-			a.Logger.Info("setting window env", "key", key, "window", wtmx.Name)
-			if err := wtmx.SetEnv(key, value); err != nil {
-				return fmt.Errorf(
-					"could not set env `%s` on window `%s`: %w",
-					key,
-					wtmx.Name,
-					err,
-				)
-			}
-		}
-
 		for hook, command := range ws.Hooks {
 			a.Logger.Info("setting window hook", "hook", hook, "window", wtmx.Name)
 			if err := wtmx.SetHook(hook, command); err != nil {
@@ -281,21 +269,6 @@ func (a *ActionUp) generatePanes(
 				wtmx.Name,
 				err,
 			)
-		}
-
-		// Apply any pane-scoped environment variables and hooks before running
-		// commands so they are in effect for the pane's shell.
-		for key, value := range ps.Envs {
-			a.Logger.Info("setting pane env", "key", key, "pane", ptmx.Name)
-			if err := ptmx.SetEnv(key, value); err != nil {
-				return fmt.Errorf(
-					"could not set env `%s` on pane `%s` in window `%s`: %w",
-					key,
-					ptmx.Name,
-					wtmx.Name,
-					err,
-				)
-			}
 		}
 
 		for hook, command := range ps.Hooks {
