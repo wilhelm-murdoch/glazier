@@ -7,6 +7,7 @@ import (
 
 type Session struct {
 	*Base
+	Envs     map[string]string
 	Windows  []*Window
 	Commands []string
 }
@@ -14,9 +15,19 @@ type Session struct {
 func NewSession(spec cty.Value) *Session {
 	base := NewBase(spec)
 
-	return &Session{
+	session := &Session{
 		Base: base,
 	}
+
+	envs := spec.GetAttr("envs")
+	if !envs.IsNull() {
+		session.Envs = make(map[string]string, len(envs.AsValueMap()))
+		for name, value := range envs.AsValueMap() {
+			session.Envs[name] = value.AsString()
+		}
+	}
+
+	return session
 }
 
 // Decode is responsible for decoding a cty.Value into a Session struct.

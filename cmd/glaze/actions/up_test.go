@@ -57,10 +57,10 @@ func TestActionUpApplySessionSettings(t *testing.T) {
 		profile := &decoders.Session{
 			Base: &decoders.Base{
 				Name:    "demo",
-				Envs:    map[string]string{"EDITOR": "vim"},
 				Hooks:   map[string]string{"session-created": "echo hi"},
 				Options: map[string]string{"base-index": "1"},
 			},
+			Envs: map[string]string{"EDITOR": "vim"},
 		}
 
 		assert.NoError(t, up.applySessionSettings(profile))
@@ -79,7 +79,7 @@ func TestActionUpApplySessionSettings(t *testing.T) {
 		up.session = nil
 
 		profile := &decoders.Session{
-			Base: &decoders.Base{Envs: map[string]string{"EDITOR": "vim"}},
+			Envs: map[string]string{"EDITOR": "vim"},
 		}
 
 		assert.NoError(t, up.applySessionSettings(profile))
@@ -93,8 +93,8 @@ func TestActionUpApplySessionSettings(t *testing.T) {
 		profile := &decoders.Session{
 			Base: &decoders.Base{
 				Name: "demo",
-				Envs: map[string]string{"EDITOR": "vim"},
 			},
+			Envs: map[string]string{"EDITOR": "vim"},
 		}
 
 		err := up.applySessionSettings(profile)

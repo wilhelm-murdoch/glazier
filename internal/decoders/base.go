@@ -10,7 +10,6 @@ const DefaultGlazeElementName = "default"
 
 type Base struct {
 	Name              string
-	Envs              map[string]string
 	Hooks             map[string]string
 	Options           map[string]string
 	StartingDirectory string
@@ -35,14 +34,6 @@ func NewBase(spec cty.Value) *Base {
 	} else {
 		if pwd, err := os.Getwd(); err == nil {
 			base.StartingDirectory = pwd
-		}
-	}
-
-	envs := spec.GetAttr("envs")
-	if !envs.IsNull() {
-		base.Envs = make(map[string]string, len(envs.AsValueMap()))
-		for name, value := range envs.AsValueMap() {
-			base.Envs[name] = value.AsString()
 		}
 	}
 

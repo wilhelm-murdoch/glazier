@@ -15,7 +15,6 @@ var Window = &hcldec.BlockListSpec{
 	Nested: &hcldec.ObjectSpec{
 		"name":               Name,
 		"starting_directory": StartingDirectory,
-		"envs":               Envs,
 		"hooks":              Hooks,
 		"options":            Options,
 		"panes":              Pane,
