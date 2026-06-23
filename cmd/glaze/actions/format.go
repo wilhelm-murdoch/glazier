@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
 
-	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
@@ -63,24 +62,17 @@ func (a *ActionFormat) Run() error {
 	return nil
 }
 
-// isGlazeDefintionValid checks if the given glaze definition file and any variable
-// flags yield a valid result when run through the schema.Parser.
+// isGlazeDefintionValid checks if the given glaze definition file and any
+// variable flags yield a valid result when run through the parser. Validation
+// is strict (requireAll): a declared variable with no default and no --var
+// value is reported, the same as it would be on `up`.
 func (a *ActionFormat) isGlazeDefintionValid() hcl.Diagnostics {
-	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
-	if err != nil {
-		return hcl.Diagnostics{{
-			Severity: hcl.DiagError,
-			Summary:  fmt.Sprintf("could not parse specified variables: %s", err),
-			Detail:   err.Error(),
-		}}
+	ctx, ctxDiags := a.Parser.VariableContext(a.Command.StringSlice("var"), true)
+	if ctxDiags.HasErrors() {
+		return ctxDiags
 	}
 
-	_, decodeDiags := a.Parser.Decode(
-		spec.Session,
-		parser.BuildEvalContext(variables),
-	)
-
-	if decodeDiags.HasErrors() {
+	if _, decodeDiags := a.Parser.Decode(spec.Session, ctx); decodeDiags.HasErrors() {
 		return decodeDiags
 	}
 

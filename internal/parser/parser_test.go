@@ -200,6 +200,47 @@ func TestDecodeRejectsBlockLabels(t *testing.T) {
 	assert.True(t, hasErr)
 }
 
+func TestDecodeRejectsDuplicateSession(t *testing.T) {
+	// Exactly one session block is allowed per profile. The duplicate is caught
+	// before the body is decoded, so empty blocks isolate the check.
+	_, hasErr := decode(t, "session {}\nsession {}")
+	assert.True(t, hasErr)
+}
+
+func TestDecodeRejectsStrayTopLevel(t *testing.T) {
+	// Only session and variable blocks live at the root; anything else is a
+	// typo and must be rejected rather than silently ignored.
+	t.Run("stray attribute", func(t *testing.T) {
+		_, hasErr := decode(t, "oops = \"typo\"\nsession {}")
+		assert.True(t, hasErr)
+	})
+
+	t.Run("unknown block", func(t *testing.T) {
+		_, hasErr := decode(t, "windo {}\nsession {}")
+		assert.True(t, hasErr)
+	})
+}
+
+func TestDecodeWithVariableBlockTolerated(t *testing.T) {
+	// A variable block sitting alongside the session must not be mistaken for
+	// an unexpected top-level block.
+	content := `
+variable "x" {
+  type    = string
+  default = "y"
+}
+
+session {
+  name = "demo"
+  window {
+    pane {}
+  }
+}`
+	session, hasErr := decode(t, content)
+	assert.False(t, hasErr)
+	assert.Equal(t, "demo", session.Name)
+}
+
 func TestDecodeSizeBlock(t *testing.T) {
 	t.Run("accepts a valid size block", func(t *testing.T) {
 		content := `

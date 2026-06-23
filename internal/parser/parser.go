@@ -89,26 +89,86 @@ func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostic
 	})
 }
 
-// Decode is responsible for decoding the HCL file into a session.Session struct.
+// topLevelSchema describes everything allowed at the root of a profile: the
+// single session block and any number of variable declarations. Decoding the
+// root against this exact schema keeps the parser strict (a stray top-level
+// attribute or misspelled block is still an error) while letting `variable`
+// blocks sit alongside the session.
+var topLevelSchema = &hcl.BodySchema{
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: "session"},
+		{Type: "variable", LabelNames: []string{"name"}},
+	},
+}
+
+// sessionBlock extracts the single required session block from the profile
+// root. Pulling it out by hand (rather than letting hcldec decode the whole
+// file) is what lets sibling `variable` blocks coexist with the session: they
+// are declared in the schema and simply ignored here.
+func (p *Parser) sessionBlock() (*hcl.Block, hcl.Diagnostics) {
+	content, diags := p.File.Body.Content(topLevelSchema)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	var session *hcl.Block
+	for _, block := range content.Blocks {
+		if block.Type != "session" {
+			continue
+		}
+
+		if session != nil {
+			return nil, hcl.Diagnostics{{
+				Severity: hcl.DiagError,
+				Summary:  "Duplicate session block",
+				Detail:   "A profile may define only one session block.",
+				Subject:  block.DefRange.Ptr(),
+			}}
+		}
+
+		session = block
+	}
+
+	if session == nil {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Missing session block",
+			Detail:   "A block of type \"session\" is required here.",
+			Subject:  p.File.Body.MissingItemRange().Ptr(),
+		}}
+	}
+
+	return session, nil
+}
+
+// Decode is responsible for decoding the HCL file into a session.Session
+// struct. The bodySpec describes the session block's body (see spec.Session);
+// the session block itself is located here so that any top-level `variable`
+// declarations are tolerated rather than rejected as unexpected blocks.
 func (p *Parser) Decode(
-	spec hcldec.Spec,
+	bodySpec hcldec.Spec,
 	ctx *hcl.EvalContext,
 ) (*decoders.Session, hcl.Diagnostics) {
-	decodedSpec, diags := hcldec.Decode(p.File.Body, spec, ctx)
+	block, diags := p.sessionBlock()
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	decodedSpec, decodeDiags := hcldec.Decode(block.Body, bodySpec, ctx)
+	diags = diags.Extend(decodeDiags)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
 	if decodedSpec.IsNull() {
-		// We should never get to this point as the HCL specification for a glaze
-		// definition file would return a validation error if no session block is
-		// defined.
+		// We should never get to this point: sessionBlock guarantees a session
+		// block exists, and decoding its body yields a non-null object.
 		panic("glaze definition invalid")
 	}
 
 	session := decoders.NewSession(decodedSpec)
-	if diags := session.Decode(); diags.HasErrors() {
-		return nil, diags
+	if sessionDiags := session.Decode(); sessionDiags.HasErrors() {
+		return nil, sessionDiags
 	}
 
 	return session, nil

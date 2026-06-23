@@ -15,20 +15,17 @@ import (
 
 const glazeEnvPrefix = "GLAZE_ENV_"
 
-// CollectVariables returns a key value map of all relevant environment variables, user-
-// defined variables picked up from the CLI and some useful default variables.
-func CollectVariables(flaggedVariables []string) (map[string]cty.Value, error) {
+// collectBaseVariables returns the always-available top-level variables: the
+// `env` object holding any GLAZE_ENV_* entries (with the prefix stripped) and
+// the built-in `path` object. Each lives in its own namespace, mirroring how
+// declared variables are exposed under `var`; nothing sits bare at the root.
+// Declared variables are deliberately not collected here: they are resolved
+// against their `variable` blocks and merged under `var` by VariableContext.
+func collectBaseVariables() (map[string]cty.Value, error) {
 	out := make(map[string]cty.Value)
 
-	// We import environmental variables first:
-	envs := collectEnvVariables(os.Environ(), glazeEnvPrefix)
-	maps.Copy(out, envs)
+	out["env"] = cty.ObjectVal(collectEnvVariables(os.Environ(), glazeEnvPrefix))
 
-	// Next, import all variables passed by the --var flag:
-	vars := collectFlagVariables(flaggedVariables)
-	maps.Copy(out, vars)
-
-	// Finally, we add some default variables that might be useful:
 	defaults, err := addDefaultVariables()
 	if err != nil {
 		return nil, err

@@ -212,6 +212,11 @@ func main() {
 						Name:  "validate",
 						Usage: "validates the given glaze definition file and returns any diagnostics",
 					},
+					&cli.StringSliceFlag{
+						Name:      "var",
+						Usage:     "set multiple variables in the form of \"key=value\"",
+						Validator: validateVarFlags,
+					},
 				},
 				Action: func(ctx context.Context, cmd *cli.Command) error {
 					action, err := actions.NewFormat(cmd, logLevel)

@@ -3,7 +3,6 @@ package actions
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/urfave/cli/v3"
 
@@ -69,17 +68,17 @@ func (ba *ActionBase) Run() error {
 	return errors.New("this feature is not yet implemented")
 }
 
-// loadProfile handles parsing variables and decoding the HCL definition.
+// loadProfile resolves the profile's variables and decodes its HCL definition.
+// Every declared variable must resolve (requireAll), since `up` provisions the
+// whole session tree and any unresolved interpolation would surface mid-build.
 func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
-	variables, err := parser.CollectVariables(ba.Command.StringSlice("var"))
-	if err != nil {
-		return nil, fmt.Errorf("could not parse specified variables: %w", err)
+	ctx, ctxDiags := ba.Parser.VariableContext(ba.Command.StringSlice("var"), true)
+	if ctxDiags.HasErrors() {
+		ba.DiagnosticsManager.Extend(ctxDiags)
+		return nil, ba.DiagnosticsManager.Write()
 	}
 
-	profile, decodeDiags := ba.Parser.Decode(
-		spec.Session,
-		parser.BuildEvalContext(variables),
-	)
+	profile, decodeDiags := ba.Parser.Decode(spec.Session, ctx)
 	if decodeDiags.HasErrors() {
 		ba.DiagnosticsManager.Extend(decodeDiags)
 		return nil, ba.DiagnosticsManager.Write()

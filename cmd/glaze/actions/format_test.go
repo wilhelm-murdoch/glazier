@@ -82,4 +82,40 @@ func TestActionFormatRun(t *testing.T) {
 		action := buildFormat(t, validProfile, map[string]string{"validate": "true", "stdout": "true"})
 		assert.NoError(t, action.Run())
 	})
+
+	t.Run("validation enforces a required variable", func(t *testing.T) {
+		profile := `variable "region" {
+  type = string
+}
+
+session {
+  name = "svc-${var.region}"
+
+  window {
+    pane {}
+  }
+}
+`
+		action := buildFormat(t, profile, map[string]string{"validate": "true", "stdout": "true"})
+		assert.ErrorIs(t, action.Run(), diagnostics.ErrHasDiagnostics)
+	})
+
+	t.Run("validation passes when the required variable is supplied", func(t *testing.T) {
+		profile := `variable "region" {
+  type = string
+}
+
+session {
+  name = "svc-${var.region}"
+
+  window {
+    pane {}
+  }
+}
+`
+		action := buildFormat(t, profile, map[string]string{
+			"validate": "true", "stdout": "true", "var": "region=us-east-1",
+		})
+		assert.NoError(t, action.Run())
+	})
 }
