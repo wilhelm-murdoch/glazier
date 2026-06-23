@@ -45,6 +45,50 @@ func NewFromBytes(src []byte, filename string) (*Parser, hcl.Diagnostics) {
 	}, nil
 }
 
+// DecodeSessionName evaluates only the session block's `name` attribute. Unlike
+// Decode it never touches the window/pane tree, so a profile that interpolates
+// variables deeper down (e.g. inside a pane command) can still be torn down by
+// `glaze down` without supplying every one of those variables. Only the
+// variables referenced by `name` itself must resolve. This keeps interpolated
+// session names working while sparing `down` the full evaluation that `up` needs.
+func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostics) {
+	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{{Type: "session"}},
+	})
+	if diags.HasErrors() {
+		return "", diags
+	}
+
+	for _, block := range content.Blocks {
+		if block.Type != "session" {
+			continue
+		}
+
+		attrs, _, attrDiags := block.Body.PartialContent(&hcl.BodySchema{
+			Attributes: []hcl.AttributeSchema{{Name: "name", Required: true}},
+		})
+		diags = append(diags, attrDiags...)
+		if diags.HasErrors() {
+			return "", diags
+		}
+
+		value, valueDiags := attrs.Attributes["name"].Expr.Value(ctx)
+		diags = append(diags, valueDiags...)
+		if diags.HasErrors() {
+			return "", diags
+		}
+
+		return value.AsString(), diags
+	}
+
+	return "", append(diags, &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Missing session block",
+		Detail:   "A block of type \"session\" is required here.",
+		Subject:  p.File.Body.MissingItemRange().Ptr(),
+	})
+}
+
 // Decode is responsible for decoding the HCL file into a session.Session struct.
 func (p *Parser) Decode(
 	spec hcldec.Spec,
