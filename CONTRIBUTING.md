@@ -71,6 +71,9 @@ reasoning behind deliberate omissions (notably what `save` refuses to export).
 
 ## Pull requests
 
+- Branch off `develop` and name it `<type>/<description>` (e.g.
+  `fix/15-glaze-down-decode`). See [RELEASE.md](RELEASE.md) for the
+  branching model, naming convention, and how releases are cut.
 - Keep changes focused; separate unrelated work into separate PRs.
 - Write clear, imperative commit messages explaining the *why*.
 - Make sure `make test`, `make race`, `make lint`, and `make vet` pass.
