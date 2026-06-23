@@ -6,6 +6,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -78,17 +79,26 @@ func (a *ActionDown) Run() error {
 }
 
 // sessionName resolves the name of the session to tear down: the --session
-// flag wins, otherwise the profile is decoded so interpolated names (e.g.
-// `name = "gig-${district}"`) resolve exactly as they did for `up`.
+// flag wins, otherwise only the profile's `name` attribute is evaluated so
+// interpolated names (e.g. `name = "gig-${district}"`) resolve exactly as they
+// did for `up`. The rest of the profile (windows, panes, their commands) is
+// never evaluated, so variables used only deeper in the tree are not required
+// to bring a session down.
 func (a *ActionDown) sessionName() (string, error) {
 	if name := a.Command.String("session"); name != "" {
 		return name, nil
 	}
 
-	profile, err := a.base.loadProfile()
+	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not parse specified variables: %w", err)
 	}
 
-	return profile.Name, nil
+	name, diags := a.base.Parser.DecodeSessionName(parser.BuildEvalContext(variables))
+	if diags.HasErrors() {
+		a.base.DiagnosticsManager.Extend(diags)
+		return "", a.base.DiagnosticsManager.Write()
+	}
+
+	return name, nil
 }

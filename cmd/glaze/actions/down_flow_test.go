@@ -121,6 +121,26 @@ func TestActionDownRun(t *testing.T) {
 		assert.Contains(t, rec.ArgsFor("kill-session"), "gig-watson")
 	})
 
+	t.Run("ignores variables used only deeper in the profile", func(t *testing.T) {
+		profile := `session {
+  name = "demo"
+
+  window {
+    pane {
+      commands = ["echo ${greeting}"]
+    }
+  }
+}
+`
+		down, rec := buildDown(t, profile, nil)
+		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("kill-session", tmuxtest.Result{})
+
+		assert.NoError(t, down.Run())
+
+		assert.Contains(t, rec.ArgsFor("kill-session"), "demo")
+	})
+
 	t.Run("propagates kill failures", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Result{Status: 0})
