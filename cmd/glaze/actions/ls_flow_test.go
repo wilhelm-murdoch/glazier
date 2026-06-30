@@ -55,6 +55,9 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;gig-watson;/home/v"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1\n@2;2;logs;tiled;0"})
 		rec.On("lsw", tmuxtest.Result{Output: "@3;1;main;tiled;1"})
+		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
+		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
+		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 
 		assert.NoError(t, ls.Run())
 
@@ -75,6 +78,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("display-message", tmuxtest.Result{Output: "demo"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 
 		assert.NoError(t, ls.Run())
 
