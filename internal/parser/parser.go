@@ -98,6 +98,7 @@ var topLevelSchema = &hcl.BodySchema{
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: "session"},
 		{Type: "variable", LabelNames: []string{"name"}},
+		{Type: "locals"},
 	},
 }
 

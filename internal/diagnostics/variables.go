@@ -6,116 +6,133 @@ import (
 	"github.com/hashicorp/hcl/v2"
 )
 
-// This file collects the diagnostics raised while resolving `variable` blocks
-// and the --var flags that feed them. They are grouped here, separate from the
-// schema validators in custom.go, because they concern the variable contract
-// (declaration, typing, required-ness) rather than a single attribute's value.
+// This file collects the diagnostics raised while resolving `variable` and
+// `locals` blocks, the --var flags, and the --var-file that feed them. They
+// are grouped here, apart from the schema validators in custom.go, because
+// they concern the variable contract (declaration, typing, required-ness)
+// rather than a single attribute's value.
 
-// UndefinedVariableDiagnostic reports a --var flag that names a variable the
-// profile never declares. The flag has no position in the source, so the
-// diagnostic carries no subject range; the message names the offending key and
-// points the author at the fix.
-func UndefinedVariableDiagnostic(name string) *hcl.Diagnostic {
+// DuplicateVariable flags two variable blocks sharing a name.
+func DuplicateVariable(name string, previous, subject hcl.Range) *hcl.Diagnostic {
 	return &hcl.Diagnostic{
 		Severity: hcl.DiagError,
-		Summary:  "Undefined variable",
-		Detail: fmt.Sprintf(
-			`A value for %q was passed with --var, but the profile declares no variable %q. Add a variable %q {} block, or remove the flag.`,
-			name, name, name,
-		),
+		Summary:  "Duplicate variable declaration",
+		Detail:   fmt.Sprintf("A variable named %q was already declared at %s.", name, previous.String()),
+		Subject:  &subject,
 	}
 }
 
-// RequiredVariableDiagnostic reports a declared variable that has no default
-// and was not supplied via --var. A variable is required precisely when it
-// omits a default, mirroring Terraform.
-func RequiredVariableDiagnostic(name string, subject hcl.Range) *hcl.Diagnostic {
-	return &hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "Missing required variable",
-		Detail: fmt.Sprintf(
-			`The variable %q has no default, so a value must be supplied with --var %s=<value>.`,
-			name, name,
-		),
-		Subject: subject.Ptr(),
-	}
-}
-
-// InvalidVariableTypeDiagnostic reports a variable whose `type` is not one of
-// the supported primitive keywords. keyword is the offending text, or empty
-// when the type was not a bare keyword at all (e.g. a quoted string).
-func InvalidVariableTypeDiagnostic(name, keyword string, subject hcl.Range) *hcl.Diagnostic {
-	detail := fmt.Sprintf(
-		`The variable %q must declare its type as one of the bare keywords string, number or bool.`,
-		name,
-	)
+// InvalidVariableType flags a variable block with an unsupported type. The
+// keyword is the offending text, or empty when `type` was not a bare keyword
+// at all (e.g. a quoted string).
+func InvalidVariableType(name, keyword string, subject hcl.Range) *hcl.Diagnostic {
+	detail := fmt.Sprintf("Variable %q must declare its type as one of the bare keywords string, number or bool.", name)
 	if keyword != "" {
-		detail = fmt.Sprintf(
-			`The variable %q declares an unsupported type %q; use one of the bare keywords string, number or bool.`,
-			name, keyword,
-		)
+		detail = fmt.Sprintf("Variable %q declares unsupported type %q. Supported types are: string, number, bool.", name, keyword)
 	}
 
 	return &hcl.Diagnostic{
 		Severity: hcl.DiagError,
 		Summary:  "Invalid variable type",
 		Detail:   detail,
-		Subject:  subject.Ptr(),
+		Subject:  &subject,
 	}
 }
 
-// InvalidVariableDescriptionDiagnostic reports a description that is not a
-// literal string. Descriptions are static labels and cannot reference other
-// variables or call functions.
-func InvalidVariableDescriptionDiagnostic(name string, subject hcl.Range) *hcl.Diagnostic {
+// InvalidVariableDescription flags a variable description that is not a
+// literal string.
+func InvalidVariableDescription(name string, subject hcl.Range) *hcl.Diagnostic {
 	return &hcl.Diagnostic{
 		Severity: hcl.DiagError,
 		Summary:  "Invalid variable description",
-		Detail:   fmt.Sprintf(`The description for variable %q must be a literal string.`, name),
-		Subject:  subject.Ptr(),
+		Detail:   fmt.Sprintf("The description of variable %q must be a literal string.", name),
+		Subject:  &subject,
 	}
 }
 
-// InvalidVariableDefaultDiagnostic reports a default value that cannot be
-// converted to the variable's declared type.
-func InvalidVariableDefaultDiagnostic(name, typeName string, err error, subject hcl.Range) *hcl.Diagnostic {
+// InvalidVariableDefault flags a default that cannot convert to the declared
+// type.
+func InvalidVariableDefault(name, keyword string, err error, subject hcl.Range) *hcl.Diagnostic {
 	return &hcl.Diagnostic{
 		Severity: hcl.DiagError,
 		Summary:  "Invalid variable default",
-		Detail: fmt.Sprintf(
-			`The default for variable %q does not match its declared type %s: %s.`,
-			name, typeName, err,
-		),
-		Subject: subject.Ptr(),
+		Detail:   fmt.Sprintf("The default for variable %q is not a valid %s: %s.", name, keyword, err),
+		Subject:  &subject,
 	}
 }
 
-// InvalidVariableValueDiagnostic reports a --var value that cannot be coerced
-// to the variable's declared type (e.g. --var count=abc for a number). The
-// subject is the variable's declaration, since the flag itself has no source
-// position.
-func InvalidVariableValueDiagnostic(name, typeName string, err error, subject hcl.Range) *hcl.Diagnostic {
+// UndefinedVariable flags a --var flag naming a variable no block declares.
+func UndefinedVariable(name string) *hcl.Diagnostic {
 	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Undefined variable",
+		Detail:   fmt.Sprintf("A value was supplied for variable %q, but the profile declares no such variable block.", name),
+	}
+}
+
+// InvalidVariableValue flags a supplied value that cannot convert to the
+// declared type.
+func InvalidVariableValue(name, friendlyType string, err error, subject hcl.Range) *hcl.Diagnostic {
+	diag := &hcl.Diagnostic{
 		Severity: hcl.DiagError,
 		Summary:  "Invalid variable value",
-		Detail: fmt.Sprintf(
-			`The value passed for variable %q with --var cannot be used as %s: %s.`,
-			name, typeName, err,
-		),
-		Subject: subject.Ptr(),
+		Detail:   fmt.Sprintf("The value supplied for variable %q is not a valid %s: %s.", name, friendlyType, err),
+	}
+	if subject.Filename != "" {
+		diag.Subject = &subject
+	}
+	return diag
+}
+
+// RequiredVariable flags a declared variable with neither a supplied value
+// nor a default.
+func RequiredVariable(name string, subject hcl.Range) *hcl.Diagnostic {
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Required variable not set",
+		Detail:   fmt.Sprintf("Variable %q declares no default, so a value must be supplied with --var %s=... or via --var-file.", name, name),
+		Subject:  &subject,
 	}
 }
 
-// DuplicateVariableDiagnostic reports a variable name declared by more than one
-// block, pointing at the later declaration and naming where it first appeared.
-func DuplicateVariableDiagnostic(name string, previous, subject hcl.Range) *hcl.Diagnostic {
+// DuplicateLocal flags two locals entries sharing a name.
+func DuplicateLocal(name string, previous, subject hcl.Range) *hcl.Diagnostic {
 	return &hcl.Diagnostic{
 		Severity: hcl.DiagError,
-		Summary:  "Duplicate variable",
-		Detail: fmt.Sprintf(
-			`The variable %q is declared more than once; it was first declared at %s.`,
-			name, previous,
-		),
-		Subject: subject.Ptr(),
+		Summary:  "Duplicate local value",
+		Detail:   fmt.Sprintf("A local named %q was already declared at %s.", name, previous.String()),
+		Subject:  &subject,
 	}
+}
+
+// VarFileUnreadable flags a --var-file that could not be read from disk.
+func VarFileUnreadable(path string, err error) *hcl.Diagnostic {
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Unable to read var file",
+		Detail:   fmt.Sprintf("The var file at %q could not be read: %s.", path, err),
+	}
+}
+
+// VarFileInvalid flags a --var-file whose contents failed to parse.
+func VarFileInvalid(path, detail string) *hcl.Diagnostic {
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Invalid var file",
+		Detail:   fmt.Sprintf("The var file at %q could not be parsed: %s.", path, detail),
+	}
+}
+
+// UndeclaredVarFileVariable flags a --var-file that sets a variable no block
+// declares.
+func UndeclaredVarFileVariable(name, path string, subject hcl.Range) *hcl.Diagnostic {
+	diag := &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Undefined variable",
+		Detail:   fmt.Sprintf("The var file %q sets %q, but the profile declares no such variable block.", path, name),
+	}
+	if subject.Filename != "" {
+		diag.Subject = &subject
+	}
+	return diag
 }
