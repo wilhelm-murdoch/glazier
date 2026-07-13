@@ -16,7 +16,7 @@ func TestCollectEnvVariables(t *testing.T) {
 		"GLAZE_ENV_MULTI=a=b=c", // only split on first "="
 	}
 
-	out := collectEnvVariables(envs, glazeEnvPrefix)
+	out := collectEnvVariables(envs, EnvVariablePrefix)
 
 	assert.Equal(t, cty.StringVal("bar"), out["FOO"])
 	assert.Equal(t, cty.StringVal(""), out["EMPTY"])
@@ -77,11 +77,16 @@ func TestBuildEvalContext(t *testing.T) {
 
 	assert.Equal(t, cty.StringVal("bar"), ctx.Variables["foo"])
 
-	for _, name := range []string{
-		"replace", "regexreplace", "upper", "lower", "reverse", "len",
-		"substr", "join", "title", "trim", "trimspace", "trimsuffix",
-		"trimprefix", "chomp",
-	} {
+	// The full library, as documented in SPEC.md and README.md; a drift in
+	// either direction fails here.
+	expected := []string{
+		"chomp", "coalesce", "concat", "csvdecode", "format", "join",
+		"jsondecode", "len", "lower", "random", "regexreplace", "replace",
+		"reverse", "split", "strlen", "substr", "title", "trim",
+		"trimprefix", "trimspace", "trimsuffix", "upper",
+	}
+	assert.Len(t, ctx.Functions, len(expected))
+	for _, name := range expected {
 		_, ok := ctx.Functions[name]
 		assert.True(t, ok, "expected function %q to be registered", name)
 	}

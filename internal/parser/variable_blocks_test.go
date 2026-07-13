@@ -108,9 +108,12 @@ variable "b" { type = number }`)
 		assert.Contains(t, diags.Error(), "Invalid variable type")
 	})
 
-	t.Run("rejects a missing type", func(t *testing.T) {
-		_, diags := declaredFrom(t, `variable "x" { default = "y" }`)
-		assert.True(t, diags.HasErrors())
+	t.Run("defaults a missing type to string", func(t *testing.T) {
+		vars, diags := declaredFrom(t, `variable "x" { default = "y" }`)
+		assert.False(t, diags.HasErrors())
+		assert.Len(t, vars, 1)
+		assert.Equal(t, cty.String, vars[0].Type)
+		assert.True(t, vars[0].Default.RawEquals(cty.StringVal("y")))
 	})
 
 	t.Run("rejects an unknown attribute", func(t *testing.T) {
@@ -181,6 +184,7 @@ func TestResolveVariables(t *testing.T) {
 		out, diags := ResolveVariables(
 			[]*Variable{stringVar, numberVar, boolVar},
 			[]string{"name=watson", "count=3", "on=true"},
+			"",
 			true,
 		)
 		assert.False(t, diags.HasErrors())
@@ -194,7 +198,7 @@ func TestResolveVariables(t *testing.T) {
 			Name: "name", Type: cty.String,
 			Default: cty.StringVal("default"), HasDefault: true,
 		}
-		out, diags := ResolveVariables([]*Variable{withDefault}, nil, true)
+		out, diags := ResolveVariables([]*Variable{withDefault}, nil, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("default")))
 	})
@@ -204,26 +208,26 @@ func TestResolveVariables(t *testing.T) {
 			Name: "name", Type: cty.String,
 			Default: cty.StringVal("default"), HasDefault: true,
 		}
-		out, diags := ResolveVariables([]*Variable{withDefault}, []string{"name=override"}, true)
+		out, diags := ResolveVariables([]*Variable{withDefault}, []string{"name=override"}, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("override")))
 	})
 
 	t.Run("reports a required variable when requireAll is set", func(t *testing.T) {
-		_, diags := ResolveVariables([]*Variable{stringVar}, nil, true)
+		_, diags := ResolveVariables([]*Variable{stringVar}, nil, "", true)
 		assert.True(t, diags.HasErrors())
-		assert.Contains(t, diags.Error(), "Missing required variable")
+		assert.Contains(t, diags.Error(), "Required variable not set")
 	})
 
 	t.Run("omits a missing required variable when requireAll is false", func(t *testing.T) {
-		out, diags := ResolveVariables([]*Variable{stringVar}, nil, false)
+		out, diags := ResolveVariables([]*Variable{stringVar}, nil, "", false)
 		assert.False(t, diags.HasErrors())
 		_, ok := out["name"]
 		assert.False(t, ok)
 	})
 
 	t.Run("reports a flag with no matching declaration", func(t *testing.T) {
-		out, diags := ResolveVariables(nil, []string{"ghost=boo"}, false)
+		out, diags := ResolveVariables(nil, []string{"ghost=boo"}, "", false)
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags.Error(), "Undefined variable")
 		assert.Empty(t, out)
@@ -233,6 +237,7 @@ func TestResolveVariables(t *testing.T) {
 		out, diags := ResolveVariables(
 			[]*Variable{stringVar},
 			[]string{"name=ok", "ghost=boo"},
+			"",
 			true,
 		)
 		assert.True(t, diags.HasErrors())
@@ -241,7 +246,7 @@ func TestResolveVariables(t *testing.T) {
 	})
 
 	t.Run("reports a flag value that cannot be coerced", func(t *testing.T) {
-		_, diags := ResolveVariables([]*Variable{numberVar}, []string{"count=notanumber"}, true)
+		_, diags := ResolveVariables([]*Variable{numberVar}, []string{"count=notanumber"}, "", true)
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags.Error(), "Invalid variable value")
 	})
@@ -252,7 +257,7 @@ func TestVariableContext(t *testing.T) {
 		p, diags := NewFromBytes([]byte(`variable "district" { type = string }`), "test.glaze")
 		assert.False(t, diags.HasErrors())
 
-		ctx, ctxDiags := p.VariableContext([]string{"district=watson"}, true)
+		ctx, ctxDiags := p.VariableContext([]string{"district=watson"}, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 
 		varObj := ctx.Variables["var"]
@@ -267,7 +272,7 @@ func TestVariableContext(t *testing.T) {
 		p, diags := NewFromBytes([]byte("session {\n  name = \"demo\"\n  window {\n    pane {}\n  }\n}"), "test.glaze")
 		assert.False(t, diags.HasErrors())
 
-		ctx, ctxDiags := p.VariableContext(nil, true)
+		ctx, ctxDiags := p.VariableContext(nil, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 		assert.True(t, ctx.Variables["var"].RawEquals(cty.EmptyObjectVal))
 	})
@@ -276,7 +281,7 @@ func TestVariableContext(t *testing.T) {
 		p, diags := NewFromBytes([]byte(`variable "x" { type = string }`), "test.glaze")
 		assert.False(t, diags.HasErrors())
 
-		_, ctxDiags := p.VariableContext(nil, true)
+		_, ctxDiags := p.VariableContext(nil, "", true)
 		assert.True(t, ctxDiags.HasErrors())
 	})
 }
@@ -302,7 +307,7 @@ session {
 		p, diags := NewFromBytes([]byte(content), "test.glaze")
 		assert.False(t, diags.HasErrors())
 
-		ctx, ctxDiags := p.VariableContext(nil, true)
+		ctx, ctxDiags := p.VariableContext(nil, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 
 		session, decodeDiags := p.Decode(spec.Session, ctx)
@@ -323,7 +328,7 @@ session {
   }
 }`
 		p, _ := NewFromBytes([]byte(content), "test.glaze")
-		ctx, ctxDiags := p.VariableContext([]string{"district=arasaka"}, true)
+		ctx, ctxDiags := p.VariableContext([]string{"district=arasaka"}, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 
 		session, decodeDiags := p.Decode(spec.Session, ctx)
@@ -342,7 +347,7 @@ session {
   }
 }`
 		p, _ := NewFromBytes([]byte(content), "test.glaze")
-		ctx, _ := p.VariableContext(nil, true)
+		ctx, _ := p.VariableContext(nil, "", true)
 
 		_, decodeDiags := p.Decode(spec.Session, ctx)
 		assert.True(t, decodeDiags.HasErrors())
