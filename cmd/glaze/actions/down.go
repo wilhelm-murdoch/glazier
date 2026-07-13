@@ -91,7 +91,7 @@ func (a *ActionDown) sessionName() (string, error) {
 	// requireAll is false: `down` evaluates only the session name, so a
 	// variable that is required deeper in the profile but never referenced by
 	// `name` must not block a teardown (see DecodeSessionName).
-	ctx, ctxDiags := a.base.Parser.VariableContext(a.Command.StringSlice("var"), false)
+	ctx, ctxDiags := a.base.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), false)
 	if ctxDiags.HasErrors() {
 		a.base.DiagnosticsManager.Extend(ctxDiags)
 		return "", a.base.DiagnosticsManager.Write()

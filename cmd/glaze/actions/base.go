@@ -1,13 +1,10 @@
 package actions
 
 import (
-	"context"
-	"errors"
-
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
-	"github.com/wilhelm-murdoch/glazier/internal/diagnostics" // ge = "Glaze Errors"
+	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
@@ -17,7 +14,6 @@ import (
 // ActionBase is a type that will be ultimately embedded within other action types in
 // an effort to deduplicate common fields and methods.
 type ActionBase struct {
-	Context            context.Context
 	Command            *cli.Command
 	DiagnosticsManager *diagnostics.DiagnosticsManager
 	Parser             *parser.Parser
@@ -62,17 +58,11 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 	}, nil
 }
 
-// Run is responsible for executing the base action, which is not yet implemented
-// and returns an error.
-func (ba *ActionBase) Run() error {
-	return errors.New("this feature is not yet implemented")
-}
-
 // loadProfile resolves the profile's variables and decodes its HCL definition.
 // Every declared variable must resolve (requireAll), since `up` provisions the
 // whole session tree and any unresolved interpolation would surface mid-build.
 func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
-	ctx, ctxDiags := ba.Parser.VariableContext(ba.Command.StringSlice("var"), true)
+	ctx, ctxDiags := ba.Parser.VariableContext(ba.Command.StringSlice("var"), ba.Command.String("var-file"), true)
 	if ctxDiags.HasErrors() {
 		ba.DiagnosticsManager.Extend(ctxDiags)
 		return nil, ba.DiagnosticsManager.Write()

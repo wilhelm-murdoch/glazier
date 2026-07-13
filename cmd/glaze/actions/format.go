@@ -35,7 +35,7 @@ func (a *ActionFormat) Run() error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
 	if a.Command.Bool("validate") {
-		if validationDiags := a.isGlazeDefintionValid(); validationDiags != nil {
+		if validationDiags := a.isGlazeDefinitionValid(); validationDiags != nil {
 			a.DiagnosticsManager.Extend(validationDiags)
 			return a.DiagnosticsManager.Write()
 		}
@@ -62,12 +62,12 @@ func (a *ActionFormat) Run() error {
 	return nil
 }
 
-// isGlazeDefintionValid checks if the given glaze definition file and any
+// isGlazeDefinitionValid checks if the given glaze definition file and any
 // variable flags yield a valid result when run through the parser. Validation
 // is strict (requireAll): a declared variable with no default and no --var
 // value is reported, the same as it would be on `up`.
-func (a *ActionFormat) isGlazeDefintionValid() hcl.Diagnostics {
-	ctx, ctxDiags := a.Parser.VariableContext(a.Command.StringSlice("var"), true)
+func (a *ActionFormat) isGlazeDefinitionValid() hcl.Diagnostics {
+	ctx, ctxDiags := a.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), true)
 	if ctxDiags.HasErrors() {
 		return ctxDiags
 	}
