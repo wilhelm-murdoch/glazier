@@ -154,6 +154,7 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--socket-name` | name of a custom tmux socket |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
 
 ### `glaze down`
 
@@ -170,6 +171,7 @@ $ glaze down --session daemon-run   # kill by name; no profile required
 | `--session` | session to kill (skips profile resolution entirely) |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
 | `--socket-path` / `--socket-name` | custom tmux socket |
 
 ### `glaze ls`
@@ -199,6 +201,14 @@ $ glaze format --stdout                          # print formatted output instea
 $ glaze format --validate                        # decode + report diagnostics, then format
 $ glaze format --validate --var region=us-east-1 # supply declared variables
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--stdout` | print the formatted output instead of writing the file |
+| `--validate` | decode the profile and report diagnostics before formatting |
+| `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
+| `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
 
 `--validate` enforces the full variable contract, so a profile with a required variable fails validation unless it is supplied with `--var` (or carries a default).
 
@@ -360,9 +370,11 @@ A `variable` block takes three arguments:
 
 | Argument | Required | Notes |
 |----------|----------|-------|
-| `type` | yes | one of the bare keywords `string`, `number` or `bool`. The supplied `--var` value is coerced to it (a non-numeric value for a `number`, for example, is rejected). |
+| `type` | no | one of the bare keywords `string`, `number` or `bool`, defaulting to `string` when omitted. The supplied value is coerced to it (a non-numeric value for a `number`, for example, is rejected). |
 | `default` | no | a literal of the declared type. A variable **without** a default is required: omit it and `up` reports a missing variable. |
 | `description` | no | a literal string documenting the variable. |
+
+Values are supplied by `--var name=value` (repeatable) or `--var-file <path>` (an HCL or JSON file). Precedence, last write wins: `default` > `--var-file` > `--var`. Alongside `var.*`, expressions may reference `local.*` (from `locals` blocks), `env.*` (`GLAZE_ENV_*` variables), and `path.pwd` / `path.base`, and may use inline `for` comprehensions.
 
 > `glaze down` evaluates only the session `name`, so a variable used solely
 > deeper in the profile is neither required nor resolved when tearing a session
@@ -491,21 +503,34 @@ session {
 
 In short: declare what you accept and glaze guarantees the rest of the profile only ever sees values of the right shape.
 
-Available functions (thin wrappers over `go-cty` stdlib):
-- `replace`
-- `regexreplace`
-- `upper`
-- `lower`
-- `reverse`
-- `len`
-- `substr`
+Available functions (thin wrappers over the `go-cty` stdlib, plus `random`):
+
+- `chomp`
+- `coalesce`
+- `concat`
+- `csvdecode`
+- `format`
 - `join`
+- `jsondecode`
+- `len`
+- `lower`
+- `random`
+- `regexreplace`
+- `replace`
+- `reverse`
+- `split`
+- `strlen`
+- `substr`
 - `title`
 - `trim`
+- `trimprefix`
 - `trimspace`
 - `trimsuffix`
-- `trimprefix`
-- `chomp`
+- `upper`
+
+`len` counts collection elements; `strlen` counts string characters; `random(list)` returns a seeded random element of a list, pairing naturally with a comprehension (`random([for e in local.editors : e])`).
+
+See [SPEC.md](SPEC.md) for the full profile reference; blocks, variables, `locals`, built-in namespaces, and the expression language.
 
 ## Development
 
