@@ -115,7 +115,7 @@ func FuzzCollectVariables(f *testing.F) {
 			}
 		}
 
-		for name, collected := range collectEnvVariables([]string{input}, glazeEnvPrefix) {
+		for name, collected := range collectEnvVariables([]string{input}, EnvVariablePrefix) {
 			if collected.Type() != cty.String {
 				t.Fatalf("env variable %q collected as non-string: %#v", name, collected)
 			}
