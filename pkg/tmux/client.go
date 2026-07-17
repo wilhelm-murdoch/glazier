@@ -214,10 +214,12 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	if err != nil {
 		return nil, err
 	}
+
 	baseIndexCmdParts, err := session.Client.GetBaseIndex(session.Target(), "base-index")
 	if err != nil {
 		return nil, err
 	}
+
 	if len(baseIndexCmdParts) != 2 {
 		return nil, errors.New("could not determine window base index")
 	}
