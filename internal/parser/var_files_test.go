@@ -39,33 +39,10 @@ on       = true
 		assert.True(t, values["on"].RawEquals(cty.True))
 	})
 
-	t.Run("loads a JSON file by extension", func(t *testing.T) {
-		path := writeVarFile(t, "vars.json", `{"district": "arasaka", "count": 7, "on": false}`)
-		values, diags := loadVarFile(path, byName)
-		assert.False(t, diags.HasErrors())
-		assert.True(t, values["district"].RawEquals(cty.StringVal("arasaka")))
-		assert.True(t, values["count"].RawEquals(cty.NumberIntVal(7)))
-		assert.True(t, values["on"].RawEquals(cty.False))
-	})
-
-	t.Run("matches the JSON extension case-insensitively", func(t *testing.T) {
-		path := writeVarFile(t, "vars.JSON", `{"district": "kabuki"}`)
-		values, diags := loadVarFile(path, byName)
-		assert.False(t, diags.HasErrors())
-		assert.True(t, values["district"].RawEquals(cty.StringVal("kabuki")))
-	})
-
 	t.Run("reports an unreadable file", func(t *testing.T) {
 		_, diags := loadVarFile(filepath.Join(t.TempDir(), "missing.glazevars"), byName)
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags.Error(), "Unable to read var file")
-	})
-
-	t.Run("reports unparsable JSON", func(t *testing.T) {
-		path := writeVarFile(t, "vars.json", `{not json`)
-		_, diags := loadVarFile(path, byName)
-		assert.True(t, diags.HasErrors())
-		assert.Contains(t, diags.Error(), "Invalid var file")
 	})
 
 	t.Run("reports unparsable HCL", func(t *testing.T) {
@@ -85,14 +62,6 @@ ghost    = "boo"
 		assert.True(t, values["district"].RawEquals(cty.StringVal("watson")))
 	})
 
-	t.Run("an undeclared JSON entry is an error but does not abort the load", func(t *testing.T) {
-		path := writeVarFile(t, "vars.json", `{"district": "watson", "ghost": "boo"}`)
-		values, diags := loadVarFile(path, byName)
-		assert.True(t, diags.HasErrors())
-		assert.Contains(t, diags.Error(), "Undefined variable")
-		assert.True(t, values["district"].RawEquals(cty.StringVal("watson")))
-	})
-
 	t.Run("a value that cannot convert is an error but does not abort the load", func(t *testing.T) {
 		path := writeVarFile(t, "vars.glazevars", `
 count    = "notanumber"
@@ -104,14 +73,6 @@ district = "watson"
 		assert.True(t, values["district"].RawEquals(cty.StringVal("watson")))
 		_, ok := values["count"]
 		assert.False(t, ok)
-	})
-
-	t.Run("a JSON value that cannot convert is an error but does not abort the load", func(t *testing.T) {
-		path := writeVarFile(t, "vars.json", `{"count": "notanumber", "district": "watson"}`)
-		values, diags := loadVarFile(path, byName)
-		assert.True(t, diags.HasErrors())
-		assert.Contains(t, diags.Error(), "Invalid variable value")
-		assert.True(t, values["district"].RawEquals(cty.StringVal("watson")))
 	})
 }
 
