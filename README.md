@@ -382,10 +382,11 @@ Values are supplied by `--var name=value` (repeatable) or `--var-file <path>` (a
 
 ### Built-in variables
 
-Two built-in namespaces sit alongside `var.` and need no declaration:
+Multiple built-in namespaces sit alongside `var.` and need no declaration:
 
 - `env.*` exposes `GLAZE_ENV_*` environment variables with the prefix stripped (`GLAZE_ENV_token=…` is read as `env.token`).
 - `path.pwd` (working directory) and `path.base` (its basename).
+- `local.*` any locally-scoped variable definitions.
 
 ```hcl
 session {
@@ -406,7 +407,7 @@ session {
 $ GLAZE_ENV_token=abc123 glaze up --var district=watson
 ```
 
-### A worked example: one profile for multiple every gigs
+### A working example: one profile for multiple every gigs
 
 Variables turn a single `.glaze` file into a template you point at any project. Here is a workspace that boots an editor, a dev server and a log tail, all parameterised:
 
