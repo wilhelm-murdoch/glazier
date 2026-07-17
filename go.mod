@@ -1,6 +1,6 @@
 module github.com/wilhelm-murdoch/glazier
 
-go 1.26.5
+go 1.26.4
 
 require (
 	github.com/fatih/color v1.19.0
