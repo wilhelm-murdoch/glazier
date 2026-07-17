@@ -104,8 +104,12 @@ func TestActionDownRun(t *testing.T) {
 	})
 
 	t.Run("resolves an interpolated session name from --var", func(t *testing.T) {
-		profile := `session {
-  name = "gig-${district}"
+		profile := `variable "district" {
+  type = string
+}
+
+session {
+  name = "gig-${var.district}"
 
   window {
     pane {}
@@ -122,12 +126,19 @@ func TestActionDownRun(t *testing.T) {
 	})
 
 	t.Run("ignores variables used only deeper in the profile", func(t *testing.T) {
-		profile := `session {
+		// greeting is required (no default) and never supplied, yet `down` must
+		// still resolve the static name: it evaluates only `name`, so a variable
+		// used solely in a pane command is neither required nor evaluated.
+		profile := `variable "greeting" {
+  type = string
+}
+
+session {
   name = "demo"
 
   window {
     pane {
-      commands = ["echo ${greeting}"]
+      commands = ["echo ${var.greeting}"]
     }
   }
 }

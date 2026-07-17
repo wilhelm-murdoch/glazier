@@ -64,16 +64,6 @@ func NewTestSuite(testCases []TestCase) *TestSuite {
 	}
 }
 
-func (ts *TestSuite) Append(testCase TestCase) *TestSuite {
-	ts.Cases = append(ts.Cases, testCase)
-	return ts
-}
-
-func (ts *TestSuite) Extend(testCases []TestCase) *TestSuite {
-	ts.Cases = append(ts.Cases, testCases...)
-	return ts
-}
-
 type TestDepsBase struct {
 	capturedArgs []string
 	mockExec     *MockCommander
@@ -123,11 +113,9 @@ func (f *fakeCommand) ExecWithStatus() int             { return f.result.Status 
 // "splitw"). This lets a single test exercise methods that chain several
 // different tmux commands, which the shared MockCommander cannot do.
 type CommandRecorder struct {
-	mu          sync.Mutex
-	Calls       [][]string
-	queues      map[string][]fakeResult
-	fallback    fakeResult
-	hasFallback bool
+	mu     sync.Mutex
+	Calls  [][]string
+	queues map[string][]fakeResult
 }
 
 func NewCommandRecorder() *CommandRecorder {
@@ -141,13 +129,8 @@ func (r *CommandRecorder) On(subcommand string, result fakeResult) *CommandRecor
 	return r
 }
 
-// Default sets the result returned when no queued result matches a subcommand.
-func (r *CommandRecorder) Default(result fakeResult) *CommandRecorder {
-	r.fallback = result
-	r.hasFallback = true
-	return r
-}
-
+// resultFor returns the next queued result for the subcommand of args, or a
+// zero fakeResult (success, no output) when nothing was queued.
 func (r *CommandRecorder) resultFor(args []string) fakeResult {
 	sub := subcommandOf(args)
 	if q := r.queues[sub]; len(q) > 0 {
@@ -155,7 +138,7 @@ func (r *CommandRecorder) resultFor(args []string) fakeResult {
 		r.queues[sub] = q[1:]
 		return res
 	}
-	return r.fallback
+	return fakeResult{}
 }
 
 // Called reports whether the given tmux subcommand was ever invoked.

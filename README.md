@@ -9,7 +9,7 @@ _noun_ &middot; _/ˈɡleɪ.zi.ər/_ <sup>[pronounciation](https://www.google.com
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/wilhelm-murdoch/glazier/badge)](https://scorecard.dev/viewer/?uri=github.com/wilhelm-murdoch/glazier)
 [![Stability: Active](https://masterminds.github.io/stability/active.svg)](https://masterminds.github.io/stability/active.html)
 
-`glaze` (Glazier) is a command-line tool for declaratively managing your tmux workspaces. Describe your sessions, windows, and panes once in an HCL `.glaze` file, then recreate them on demand. No more rebuilding layouts by hand after every reboot.
+`glaze` (Glazier) is a command-line tool for declaratively managing your tmux workspaces. Describe your sessions, windows and panes once in an HCL `.glaze` file, then recreate them on demand. No more rebuilding layouts by hand after every reboot.
 
 ```hcl
 session {
@@ -41,14 +41,14 @@ Honestly, only you can answer that. I originally built this for myself because I
 
 There are plenty of other options out there - `teamocil`, `tmuxinator`, `smug`, etc... - that effectively do the same thing and have been around far longer. If you already use and trust any of these, there really isn't a strong value proposition for moving over to `glaze`; keep using them.
 
-Personally, I like the declarative self-validating HCL spec, variable + string function support for templates, and being able to _mostly_ save a session. It's been an incredibly fun journey in over-engineering a solution to an already solved problem.
+Personally, I like the declarative self-validating HCL spec, variable + string function support for templates and being able to _mostly_ save a session. It's been an incredibly fun journey in over-engineering a solution to an already solved problem.
 
 ## Features
 - HCL-based syntax with Terraform-style diagnostics.
 - Multiple `*.glaze` definition files, resolved from flag, CWD, or `$GLAZE_PATH`.
-- Arbitrary variable injection from `--var` flags and `GLAZE_ENV_*` env vars.
+- Typed, declared `variable` blocks (Terraform-style) read through `var.`, plus `GLAZE_ENV_*` built-ins.
 - Template functions for string manipulation.
-- Environment variables, hooks, and tmux options.
+- Environment variables, hooks and tmux options.
 - Reliable command sequencing via `tmux wait-for` (no fixed sleeps).
 - Built-in formatting and validation (`glaze format`).
 - Capture a live session back into a profile (`glaze save`).
@@ -136,7 +136,7 @@ Global flags:
 | `--log-level` | `info` | one of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical` |
 
 ### `glaze up`
-Apply a profile, creating the session, windows, and panes.
+Apply a profile, creating the session, windows and panes.
 ```console
 $ glaze up                          # apply ./.glaze and jack in
 $ glaze up --detached               # spin it up without jacking in
@@ -154,14 +154,11 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--socket-name` | name of a custom tmux socket |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
 
 ### `glaze down`
 
-Tear down the session a profile describes. The profile is resolved and decoded
-exactly as it is for `up`, so an interpolated session name (e.g.
-`name = "gig-${district}"`) resolves through the same `--var`/`GLAZE_ENV_*`
-machinery. Bringing down a session that is not running is a no-op rather than
-an error, so `down` stays idempotent for scripts.
+Tear down the session a profile describes. Only the session `name` is evaluated, so an interpolated name (e.g. `name = "gig-${var.district}"`) resolves through the same `--var` machinery as `up`, while variables used only deeper in the profile are not required. Bringing down a session that is not running is a no-op rather than an error, so `down` stays idempotent for scripts.
 
 ```console
 $ glaze down                        # kill the session described by ./.glaze
@@ -174,6 +171,7 @@ $ glaze down --session daemon-run   # kill by name; no profile required
 | `--session` | session to kill (skips profile resolution entirely) |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
 | `--socket-path` / `--socket-name` | custom tmux socket |
 
 ### `glaze ls`
@@ -198,10 +196,21 @@ scratch      1        /tmp
 Rewrite a profile into canonical HCL, optionally validating it first.
 
 ```console
-$ glaze format                      # format ./.glaze in place
-$ glaze format --stdout             # print formatted output instead of writing
-$ glaze format --validate           # decode + report diagnostics, then format
+$ glaze format                                   # format ./.glaze in place
+$ glaze format --stdout                          # print formatted output instead of writing
+$ glaze format --validate                        # decode + report diagnostics, then format
+$ glaze format --validate --var region=us-east-1 # supply declared variables
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--stdout` | print the formatted output instead of writing the file |
+| `--validate` | decode the profile and report diagnostics before formatting |
+| `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
+| `--var key=value` | set a variable; repeatable |
+| `--var-file <path>` | HCL or JSON file of variable values |
+
+`--validate` enforces the full variable contract, so a profile with a required variable fails validation unless it is supplied with `--var` (or carries a default).
 
 ### `glaze save`
 
@@ -221,14 +230,14 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 | `--socket-path` / `--socket-name` | custom tmux socket |
 
 > [!NOTE]
-> `save` captures the **structure** of a session: session, window and pane names, starting directories, focus (the active window and pane), and layout. Because tmux only reports a window's layout as a low-level coordinate string (e.g. `bb62,80x24,0,0`) rather than one of the named presets, `save` writes that raw string verbatim as a fallback. `glaze up` replays it exactly, so your pane geometry is restored even when it doesn't match a named preset. By design `save` does **not** export pane commands, environment variables, hooks, or tmux options.
+> `save` captures the **structure** of a session: session, window and pane names, starting directories, focus (the active window and pane) and layout. Because tmux only reports a window's layout as a low-level coordinate string (e.g. `bb62,80x24,0,0`) rather than one of the named presets, `save` writes that raw string verbatim as a fallback. `glaze up` replays it exactly, so your pane geometry is restored even when it doesn't match a named preset. By design `save` does **not** export pane commands, environment variables, hooks, or tmux options.
 >
 > This is a deliberate safety choice, not a missing feature:
 > - **Commands** (and **hooks**, which are commands bound to events) would re-execute on the next `glaze up` - a destructive command captured from a forgotten pane could nuke your filesystem or peg a database on replay.
 > - **Environment variables** can only be read as the *entire* session environment, which includes secrets (tokens, keys) inherited from your shell - exporting them would write those into a file you might commit.
 > - **Options** read back as effective state, mixing your `tmux.conf` and manual tweaks with anything glaze set, so re-applying them on `up` would be surprising and wrong.
 >
-> Treat a saved profile as a scaffold: it recreates your layout, and you add the commands, envs, and options you actually want by hand. Tip: a saved raw layout string is exact but not human-friendly - feel free to replace it with a named preset (`tiled`, `main-vertical`, etc...) for a profile you intend to hand-edit.
+> Treat a saved profile as a scaffold: it recreates your layout and you add the commands, envs and options you actually want by hand. Tip: a saved raw layout string is exact but not human-friendly - feel free to replace it with a named preset (`tiled`, `main-vertical`, etc...) for a profile you intend to hand-edit.
 
 ## Profile resolution
 
@@ -243,7 +252,7 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 
 ## Specification
 
-A profile contains exactly one `session` block. Blocks take **no labels**; names are set with a `name` attribute. Strings, maps, and lists use standard HCL syntax.
+A profile contains exactly one `session` block. Blocks take **no labels**; names are set with a `name` attribute. Strings, maps and lists use standard HCL syntax.
 
 ### Session
 
@@ -296,7 +305,7 @@ window {
 }
 ```
 
-`layout` defaults to `tiled` when omitted. In addition to the five named presets it also accepts a **raw tmux layout coordinate string** (e.g. `"bb62,80x24,0,0"`) - this is what `glaze save` captures from a live window when no named preset applies, and `glaze up` replays it verbatim. The value is validated for structure when the profile is parsed; a malformed string fails fast. (tmux recomputes the leading checksum, so if you hand-edit the geometry and break it, tmux rejects the layout when `up` runs.) For hand-authored profiles, prefer a named preset - the raw string is exact but not human-readable.
+`layout` defaults to `tiled` when omitted. In addition to the five named presets it also accepts a **raw tmux layout coordinate string** (e.g. `"bb62,80x24,0,0"`) - this is what `glaze save` captures from a live window when no named preset applies and `glaze up` replays it verbatim. The value is validated for structure when the profile is parsed; a malformed string fails fast. (tmux recomputes the leading checksum, so if you hand-edit the geometry and break it, tmux rejects the layout when `up` runs.) For hand-authored profiles, prefer a named preset - the raw string is exact but not human-readable.
 
 ### Pane
 
@@ -324,46 +333,205 @@ pane {
 
 ## Variables & string functions
 
-Variables are referenced by name (e.g. `district`, `path.pwd`) and resolved (last write wins) from:
+### Declared variables (`var.`)
 
-1. Environment variables prefixed with `GLAZE_ENV_` (e.g. `GLAZE_ENV_district=watson` > `district`).
-2. `--var key=value` flags.
-3. Built-in defaults: `path.pwd` (working directory) and `path.base` (its basename).
+A profile declares the inputs it accepts with `variable` blocks, Terraform style. A declared variable is set with `--var name=value` and read back through the `var.` namespace and only that namespace; passing `--var` for a name no profile declares is an error.
 
 ```hcl
+variable "district" {
+  description = "the district the gig is themed after"
+  type        = string
+  default     = "watson"
+}
+
+variable "fixer" {
+  type = string
+}
+
 session {
-  name               = "gig-${district}"
-  starting_directory = path.pwd
+  name = "gig-${var.district}"
 
   window {
-    name = upper(path.base)
+    name = "${var.fixer}-ops"
 
     pane {
-      commands = ["echo ${trimspace(fixer)} has the next job"]
+      commands = ["echo ${var.fixer} has the next job"]
     }
   }
 }
 ```
 
 ```console
-$ GLAZE_ENV_district=watson glaze up --var fixer="wakako"
+$ glaze up --var fixer=wakako                      # district falls back to its default
+$ glaze up --var district=arasaka --var fixer=wakako
 ```
 
-Available functions (thin wrappers over `go-cty` stdlib):
-- `replace`
-- `regexreplace`
-- `upper`
-- `lower`
-- `reverse`
-- `len`
-- `substr`
+A `variable` block takes three arguments:
+
+| Argument | Required | Notes |
+|----------|----------|-------|
+| `type` | no | one of the bare keywords `string`, `number` or `bool`, defaulting to `string` when omitted. The supplied value is coerced to it (a non-numeric value for a `number`, for example, is rejected). |
+| `default` | no | a literal of the declared type. A variable **without** a default is required: omit it and `up` reports a missing variable. |
+| `description` | no | a literal string documenting the variable. |
+
+Values are supplied by `--var name=value` (repeatable) or `--var-file <path>` (an HCL or JSON file). Precedence, last write wins: `default` > `--var-file` > `--var`. Alongside `var.*`, expressions may reference `local.*` (from `locals` blocks), `env.*` (`GLAZE_ENV_*` variables), and `path.pwd` / `path.base`, and may use inline `for` comprehensions.
+
+> `glaze down` evaluates only the session `name`, so a variable used solely
+> deeper in the profile is neither required nor resolved when tearing a session
+> down (it stays as idempotent as before).
+
+### Built-in variables
+
+Multiple built-in namespaces sit alongside `var.` and need no declaration:
+
+- `env.*` exposes `GLAZE_ENV_*` environment variables with the prefix stripped (`GLAZE_ENV_token=…` is read as `env.token`).
+- `path.pwd` (working directory) and `path.base` (its basename).
+- `local.*` any locally-scoped variable definitions.
+
+```hcl
+session {
+  name               = "gig-${var.district}"
+  starting_directory = path.pwd
+
+  window {
+    name = upper(path.base)
+
+    pane {
+      commands = ["deploy --token ${env.token}"]
+    }
+  }
+}
+```
+
+```console
+$ GLAZE_ENV_token=abc123 glaze up --var district=watson
+```
+
+### A working example: one profile for multiple every gigs
+
+Variables turn a single `.glaze` file into a template you point at any project. Here is a workspace that boots an editor, a dev server and a log tail, all parameterised:
+
+```hcl
+variable "project" {
+  description = "absolute path to the project you're jacking into"
+  type        = string
+}
+
+variable "branch" {
+  description = "branch shown in the session name"
+  type        = string
+  default     = "main"
+}
+
+variable "editor" {
+  type    = string
+  default = "nvim"
+}
+
+session {
+  name               = "${var.branch}@${path.base}"
+  starting_directory = var.project
+
+  window {
+    name  = "edit"
+    focus = true
+
+    pane {
+      commands = ["${var.editor} ."]
+    }
+  }
+
+  window {
+    name = "run"
+
+    pane {
+      commands = ["npm run dev"]
+    }
+
+    pane {
+      commands = ["tail -f ${var.project}/logs/dev.log"]
+    }
+  }
+}
+```
+
+What each piece is doing, in plain English:
+
+- **`var.project` has no default**, so glaze refuses to start until you tell it where the work lives. That one required input is the whole contract: forget it and you get a clear "missing required variable", not a half-built session.
+- **`var.branch` and `var.editor` have defaults**, so you ignore them in the common case and override them only when you care.
+- The session **name** is stitched together from the branch and the current directory's basename, so `feature-x@glazier` tells you what you're looking at.
+- **`starting_directory = var.project`** uses the value directly; the `${...}` wrapper is only needed when you're splicing a value into a larger string.
+
+Same file, two very different workspaces, decided entirely by flags:
+
+```console
+$ glaze up --var project=$HOME/code/glazier                                  # nvim, on main
+$ glaze up --var project=$HOME/code/glazier --var branch=feature-x --var editor=hx
+```
+
+### Typed values are checked, not just pasted
+
+Because every variable declares a `type`, the value you pass on the command line is validated and converted before anything launches:
+
+```hcl
+variable "base_index" {
+  type    = number
+  default = 1
+}
+
+variable "verbose" {
+  type    = bool
+  default = false
+}
+
+session {
+  name = "typed-demo"
+
+  options = {
+    "base-index" = "${var.base_index}"
+  }
+
+  window {
+    pane {
+      commands = ["server --verbose=${var.verbose}"]
+    }
+  }
+}
+```
+
+- `base_index` is a real number, so `--var base_index=two` is rejected up front ("two" is not a number) instead of quietly breaking tmux later.
+- `verbose` is a real boolean: `--var verbose=true` lands as `--verbose=true` and anything that isn't `true` or `false` is refused.
+
+In short: declare what you accept and glaze guarantees the rest of the profile only ever sees values of the right shape.
+
+Available functions (thin wrappers over the `go-cty` stdlib, plus `random`):
+
+- `chomp`
+- `coalesce`
+- `concat`
+- `csvdecode`
+- `format`
 - `join`
+- `jsondecode`
+- `len`
+- `lower`
+- `random`
+- `regexreplace`
+- `replace`
+- `reverse`
+- `split`
+- `strlen`
+- `substr`
 - `title`
 - `trim`
+- `trimprefix`
 - `trimspace`
 - `trimsuffix`
-- `trimprefix`
-- `chomp`
+- `upper`
+
+`len` counts collection elements; `strlen` counts string characters; `random(list)` returns a seeded random element of a list, pairing naturally with a comprehension (`random([for e in local.editors : e])`).
+
+See [SPEC.md](SPEC.md) for the full profile reference; blocks, variables, `locals`, built-in namespaces, and the expression language.
 
 ## Development
 
@@ -390,13 +558,13 @@ Tooling versions are pinned in the `Makefile` and run with `go run <tool>@<versi
 
 The test suite includes an end-to-end test (`pkg/tmux/e2e_test.go`) that drives a real `tmux` server on a throwaway socket; it self-skips when `tmux` is not on the `PATH`. The attacker-controllable surfaces (HCL profile decoding, variable collection) carry native Go fuzz targets whose seed corpora replay as plain tests in every build; `make fuzz` runs real input generation.
 
-CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/) — both call the same Makefile targets, so a green local `make all` is a green build. GitHub additionally runs CodeQL, govulncheck, OpenSSF Scorecard, and weekly scheduled fuzzing.
+CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/) — both call the same Makefile targets, so a green local `make all` is a green build. GitHub additionally runs CodeQL, govulncheck, OpenSSF Scorecard and weekly scheduled fuzzing.
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SECURITY.md) for the security policy and reporting channel.
 
 ## AI Disclosure
 
-The architecture, functionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests, and bug hunting - and as a sounding board for structural decisions that keep the project easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
+The architecture, functionality and base structure of this project are my own. I use AI as a tool to assist with time-consuming work - documentation, tests and bug hunting - and as a sounding board for structural decisions that keep the project easy to adopt. For a solo developer it's a force multiplier for shipping high-quality code efficiently; simply a tool to address drudgery and toil, not a crutch.
 
 ## License
 

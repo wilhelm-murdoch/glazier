@@ -6,7 +6,6 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
-	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -89,12 +88,16 @@ func (a *ActionDown) sessionName() (string, error) {
 		return name, nil
 	}
 
-	variables, err := parser.CollectVariables(a.Command.StringSlice("var"))
-	if err != nil {
-		return "", fmt.Errorf("could not parse specified variables: %w", err)
+	// requireAll is false: `down` evaluates only the session name, so a
+	// variable that is required deeper in the profile but never referenced by
+	// `name` must not block a teardown (see DecodeSessionName).
+	ctx, ctxDiags := a.base.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), false)
+	if ctxDiags.HasErrors() {
+		a.base.DiagnosticsManager.Extend(ctxDiags)
+		return "", a.base.DiagnosticsManager.Write()
 	}
 
-	name, diags := a.base.Parser.DecodeSessionName(parser.BuildEvalContext(variables))
+	name, diags := a.base.Parser.DecodeSessionName(ctx)
 	if diags.HasErrors() {
 		a.base.DiagnosticsManager.Extend(diags)
 		return "", a.base.DiagnosticsManager.Write()

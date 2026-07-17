@@ -34,11 +34,10 @@ func (c *command) ExecWithStatus() int             { return c.result.Status }
 // results keyed by tmux subcommand (e.g. "ls", "neww", "splitw"). This lets a
 // single test exercise an operation that chains several different tmux commands.
 type Recorder struct {
-	mu          sync.Mutex
-	Calls       [][]string
-	queues      map[string][]Result
-	fallback    Result
-	hasFallback bool
+	mu       sync.Mutex
+	Calls    [][]string
+	queues   map[string][]Result
+	fallback Result
 }
 
 // New returns an empty Recorder.
@@ -56,7 +55,6 @@ func (r *Recorder) On(subcommand string, result Result) *Recorder {
 // Default sets the result returned when no queued result matches a subcommand.
 func (r *Recorder) Default(result Result) *Recorder {
 	r.fallback = result
-	r.hasFallback = true
 	return r
 }
 

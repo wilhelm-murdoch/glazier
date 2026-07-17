@@ -21,8 +21,10 @@ func FuzzDecode(f *testing.F) {
 		`session {`,
 		`session {}`,
 		`session { name = "demo" }`,
-		`session { name = "gig-${district}" window { pane {} } }`,
+		`session { name = "gig-${var.district}" window { pane {} } }`,
+		"variable \"district\" {\n  type    = string\n  default = \"watson\"\n}\nsession {\n  name = \"gig-${var.district}\"\n  window { pane {} }\n}",
 		`session { name = upper(trimspace(" demo ")) window { pane {} } }`,
+		`session { name = "${env.token}" window { pane {} } }`,
 		`session { name = "demo" starting_directory = "/nonexistent" }`,
 		`session {
 		  name = "daemon-run"
@@ -54,9 +56,16 @@ func FuzzDecode(f *testing.F) {
 	}
 
 	// A fixed eval context: enough variables for the interpolation seeds to
-	// resolve, without the per-run environment noise of CollectVariables.
+	// resolve, without the per-run environment noise of collectBaseVariables.
+	// Each source has its own namespace: declared variables under `var`,
+	// environment entries under `env`, and the built-in `path` object.
 	variables := map[string]cty.Value{
-		"district": cty.StringVal("watson"),
+		"var": cty.ObjectVal(map[string]cty.Value{
+			"district": cty.StringVal("watson"),
+		}),
+		"env": cty.ObjectVal(map[string]cty.Value{
+			"token": cty.StringVal("abc123"),
+		}),
 		"path": cty.ObjectVal(map[string]cty.Value{
 			"base": cty.StringVal("glazier"),
 			"pwd":  cty.StringVal("/tmp/glazier"),
@@ -106,7 +115,7 @@ func FuzzCollectVariables(f *testing.F) {
 			}
 		}
 
-		for name, collected := range collectEnvVariables([]string{input}, glazeEnvPrefix) {
+		for name, collected := range collectEnvVariables([]string{input}, EnvVariablePrefix) {
 			if collected.Type() != cty.String {
 				t.Fatalf("env variable %q collected as non-string: %#v", name, collected)
 			}

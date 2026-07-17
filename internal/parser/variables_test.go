@@ -16,7 +16,7 @@ func TestCollectEnvVariables(t *testing.T) {
 		"GLAZE_ENV_MULTI=a=b=c", // only split on first "="
 	}
 
-	out := collectEnvVariables(envs, glazeEnvPrefix)
+	out := collectEnvVariables(envs, EnvVariablePrefix)
 
 	assert.Equal(t, cty.StringVal("bar"), out["FOO"])
 	assert.Equal(t, cty.StringVal(""), out["EMPTY"])
@@ -51,29 +51,24 @@ func TestAddDefaultVariables(t *testing.T) {
 	assert.False(t, attrs["base"].AsString() == "")
 }
 
-func TestCollectVariablesPrecedenceAndMerge(t *testing.T) {
+func TestCollectBaseVariables(t *testing.T) {
 	t.Setenv("GLAZE_ENV_FROM_ENV", "env-value")
-	t.Setenv("GLAZE_ENV_SHARED", "env-wins-unless-flagged")
 
-	out, err := CollectVariables([]string{
-		"from_flag=flag-value",
-		"SHARED=flag-overrides-env",
-	})
+	out, err := collectBaseVariables()
 	assert.NoError(t, err)
 
-	// env-only variable survives the default-variable merge (regression guard
-	// for the addDefaultVariables overwrite bug).
-	assert.Equal(t, cty.StringVal("env-value"), out["FROM_ENV"])
+	// GLAZE_ENV_* entries live under the env namespace, prefix stripped.
+	assert.True(t, out["env"].GetAttr("FROM_ENV").RawEquals(cty.StringVal("env-value")))
 
-	// flag-only variable survives too.
-	assert.Equal(t, cty.StringVal("flag-value"), out["from_flag"])
-
-	// flags take precedence over env for the same key.
-	assert.Equal(t, cty.StringVal("flag-overrides-env"), out["SHARED"])
-
-	// default variables are still present.
+	// the built-in path object is always present.
 	_, hasPath := out["path"]
 	assert.True(t, hasPath)
+
+	// --var values are deliberately not collected here; they are resolved
+	// against their variable blocks and merged under the `var` namespace by
+	// VariableContext, never as bare top-level names.
+	_, hasVar := out["var"]
+	assert.False(t, hasVar)
 }
 
 func TestBuildEvalContext(t *testing.T) {
@@ -82,11 +77,16 @@ func TestBuildEvalContext(t *testing.T) {
 
 	assert.Equal(t, cty.StringVal("bar"), ctx.Variables["foo"])
 
-	for _, name := range []string{
-		"replace", "regexreplace", "upper", "lower", "reverse", "len",
-		"substr", "join", "title", "trim", "trimspace", "trimsuffix",
-		"trimprefix", "chomp",
-	} {
+	// The full library, as documented in SPEC.md and README.md; a drift in
+	// either direction fails here.
+	expected := []string{
+		"chomp", "coalesce", "concat", "csvdecode", "format", "join",
+		"jsondecode", "len", "lower", "random", "regexreplace", "replace",
+		"reverse", "split", "strlen", "substr", "title", "trim",
+		"trimprefix", "trimspace", "trimsuffix", "upper",
+	}
+	assert.Len(t, ctx.Functions, len(expected))
+	for _, name := range expected {
 		_, ok := ctx.Functions[name]
 		assert.True(t, ok, "expected function %q to be registered", name)
 	}
