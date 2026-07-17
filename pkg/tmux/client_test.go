@@ -348,6 +348,8 @@ func TestClientWindows(t *testing.T) {
 	t.Run("returns windows for a session", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("lsw", fakeResult{Output: "@1;1;win-a;tiled;1\n@2;2;win-b;even-vertical;0"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		client := testClient()
 		windows, err := client.Windows(testSession(client))
@@ -443,10 +445,13 @@ func TestClientPanes(t *testing.T) {
 }
 
 func TestClientNewWindowFromLine(t *testing.T) {
-	client := testClient()
-	session := testSession(client)
-
 	t.Run("parses a valid window line", func(t *testing.T) {
+		client := testClient()
+		session := testSession(client)
+
+		rec := setupRecorder(t)
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
 		window, err := client.NewWindowFromLine("@3;1;editor;main-vertical;1", session)
 		assert.NoError(t, err)
 		assert.Equal(t, 3, window.Id)
@@ -457,6 +462,8 @@ func TestClientNewWindowFromLine(t *testing.T) {
 		assert.True(t, window.IsFirst)
 	})
 
+	client := testClient()
+	session := testSession(client)
 	t.Run("errors on a non-numeric index", func(t *testing.T) {
 		_, err := client.NewWindowFromLine("@3;x;editor;tiled;1", session)
 		assert.Error(t, err)
@@ -469,10 +476,13 @@ func TestClientNewWindowFromLine(t *testing.T) {
 }
 
 func TestClientNewPaneFromLine(t *testing.T) {
-	client := testClient()
-	window := testWindow(testSession(client))
-
 	t.Run("parses a valid pane line", func(t *testing.T) {
+		client := testClient()
+		window := testWindow(testSession(client))
+
+		rec := setupRecorder(t)
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
 		pane, err := client.NewPaneFromLine("%4;1;shell;1;/srv", "1", window)
 		assert.NoError(t, err)
 		assert.Equal(t, PaneId(4), pane.Id)
@@ -484,11 +494,23 @@ func TestClientNewPaneFromLine(t *testing.T) {
 	})
 
 	t.Run("errors on a non-numeric index", func(t *testing.T) {
+		client := testClient()
+		window := testWindow(testSession(client))
+
+		rec := setupRecorder(t)
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
 		_, err := client.NewPaneFromLine("%4;x;shell;1;/srv", "1", window)
 		assert.Error(t, err)
 	})
 
 	t.Run("errors on too few parts", func(t *testing.T) {
+		client := testClient()
+		window := testWindow(testSession(client))
+
+		rec := setupRecorder(t)
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
 		_, err := client.NewPaneFromLine("%4;1;shell", "1", window)
 		assert.Error(t, err)
 	})

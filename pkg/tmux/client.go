@@ -214,6 +214,13 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	if err != nil {
 		return nil, err
 	}
+	baseIndexCmdParts, err := session.Client.GetBaseIndex(session.Target(), "base-index")
+	if err != nil {
+		return nil, err
+	}
+	if len(baseIndexCmdParts) != 2 {
+		return nil, errors.New("could not determine window base index")
+	}
 
 	return &Window{
 		Id:        id,
@@ -222,7 +229,7 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 		Layout:    enums.LayoutFromString(parts[3]),
 		RawLayout: parts[3],
 		IsActive:  parts[4] == "1",
-		IsFirst:   parts[1] == "1",
+		IsFirst:   parts[1] == baseIndexCmdParts[1],
 		Session:   session,
 	}, nil
 }
