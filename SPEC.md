@@ -136,9 +136,9 @@ variable "district" {
 
 Glazier converts each supplied value and each default to the declared type. A value that cannot convert causes an error. For example `--var count=two` for a `number` causes an error before Glazier starts a session.
 
-You supply values with the `--var name=value` flag or with a `--var-file <path>` flag. The `--var` flag is repeatable. A var file is a native HCL file of `name = value` attributes. JSON var files are not supported.
+You supply values with the `--var name=value` flag or with a `--var-file <path>` flag. The `--var` flag is repeatable. A var file is a native HCL file of `name = value` attributes. Glazier does not support JSON var files.
 
-Glazier applies values in this order: the default first, then the var file, then each `--var` flag. The last value for a name wins.
+Glazier applies values in this order: the default first, then the var file, then each `--var` flag. The last value for a name applies.
 
 An unset required variable causes an error. A `--var` flag or a var file entry with an undeclared name causes an error.
 
