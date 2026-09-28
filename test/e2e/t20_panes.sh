@@ -1,0 +1,521 @@
+# Size and adjust, commands, hooks, options and envs.
+
+size_fixture() { # LAYOUT_LINE PANE0_BODY
+  {
+    echo 'session {'; echo '  name = "sz"'; echo '  window {'; echo '    name = "w"'
+    [[ -n $1 ]] && echo "    layout = \"$1\""
+    echo '    pane {'; echo '      name = "p0"'; printf '%s\n' "$2"; echo '    }'
+    echo '    pane {'; echo '      name = "p1"'; echo '    }'
+    echo '  }'; echo '}'
+  } >.glaze
+}
+pw() { tm lsp -t =sz:w -F '#{pane_title} #{pane_width} #{pane_height}' | awk -v n="$1" '$1==n{print $2"x"$3}'; }
+
+t_size() {
+  local lay
+  for lay in "" "even-horizontal"; do
+    begin "size_cells_${lay:-nolayout}"
+    size_fixture "$lay" '      size {
+        x = "20"
+      }'
+    up; rc0 "up"
+    match "size x=20 honoured (layout=${lay:-default})" '^20x' "$(pw p0)"
+    end
+
+    begin "size_pct_${lay:-nolayout}"
+    size_fixture "$lay" '      size {
+        x = "25%"
+      }'
+    up; rc0 "up"
+    match "size x=25% honoured (layout=${lay:-default}, ~20 cols)" '^(19|20|21)x' "$(pw p0)"
+    end
+  done
+
+  begin size_y
+  size_fixture even-vertical '      size {
+        y = "5"
+      }'
+  up; rc0 "up"; match "size y=5 honoured" 'x5$' "$(pw p0)"; end
+
+  begin adjust_right
+  size_fixture even-horizontal '      adjust {
+        direction = "right"
+        amount = "10"
+      }'
+  up; rc0 "up"; info "adjust right 10 width (even split is 40)" "$(pw p0)"
+  match "adjust right 10 widens p0 beyond even split" '^(49|50|51)x' "$(pw p0)"
+  end
+
+  begin adjust_order
+  size_fixture even-horizontal '      size {
+        x = "30"
+      }
+      adjust {
+        direction = "right"
+        amount = "5"
+      }
+      adjust {
+        direction = "left"
+        amount = "2"
+      }'
+  up; rc0 "up"; match "size 30 then +5 -2 gives 33" '^33x' "$(pw p0)"; end
+
+  begin adjust_unknown_direction
+  size_fixture "" '      adjust {
+        direction = "unknown"
+        amount = "5"
+      }'
+  up; rcnz "adjust direction 'unknown' rejected"; info "unknown direction result" "rc=$RC err=[$ERR]"; end
+
+  begin adjust_bad_direction
+  size_fixture "" '      adjust {
+        direction = "sideways"
+        amount = "5"
+      }'
+  up; rcnz "adjust direction 'sideways' rejected"; no_server "bad direction"; end
+
+  begin adjust_five_blocks
+  local blk='      adjust {
+        direction = "up"
+        amount = "1"
+      }'
+  size_fixture "" "$blk"$'\n'"$blk"$'\n'"$blk"$'\n'"$blk"$'\n'"$blk"
+  up; rcnz "five adjust blocks rejected"; no_server "five adjust"; end
+
+  local v
+  for v in "0" "-5" "abc" "101%" "0%" "" " 10" "10.5" "1e3" "%"; do
+    begin size_invalid
+    size_fixture "" "      size {
+        x = \"$v\"
+      }"
+    up; rcnz "size x=[$v] rejected"; no_server "size x=[$v]"
+    end
+  done
+
+  for v in "0" "-3" "abc"; do
+    begin adjust_amount_invalid
+    size_fixture "" "      adjust {
+        direction = \"left\"
+        amount = \"$v\"
+      }"
+    up; rcnz "adjust amount=[$v] rejected"
+    end
+  done
+
+  begin size_empty_block
+  size_fixture "" '      size {
+      }'
+  up; rcnz "empty size block rejected"; no_server "empty size"; end
+
+  begin size_huge
+  size_fixture even-horizontal '      size {
+        x = "5000"
+      }'
+  up; info "size larger than window" "rc=$RC geo=$(pw p0) err=[$ERR]"; end
+}
+
+pane_cmds() { # SESSION_NAME HCL_LIST
+  fx <<EOF
+session {
+  name = "$1"
+  window {
+    name = "w"
+    pane {
+      name = "p"
+      commands = $2
+    }
+  }
+}
+EOF
+}
+
+t_commands() {
+  begin cmd_serial
+  pane_cmds cs '["sleep 2; echo a >> @WD@/o", "echo b >> @WD@/o", "echo c >> @WD@/o"]'
+  up; rc0 "up"
+  if ((DUR >= 1900)); then ok "up waits for non-final commands (${DUR}ms)"; else ko "up waits for non-final commands" "returned in ${DUR}ms"; fi
+  wf "$WD/o"; sleep 0.5; eq "commands ran in order" "a,b,c" "$(paste -sd, "$WD/o")"
+  end
+
+  begin cmd_last_long_running
+  pane_cmds cl '["echo x > @WD@/o", "sleep 600"]'
+  TO=15 up; rc0 "up with long-running final command"
+  if ((DUR < 5000)); then ok "final command is fire-and-forget (${DUR}ms)"; else ko "final command is fire-and-forget" "${DUR}ms"; fi
+  end
+
+  begin cmd_single_long_running
+  pane_cmds cl '["sleep 600"]'
+  TO=15 up; rc0 "up with single long-running command"; end
+
+  begin cmd_nonfinal_long_running
+  pane_cmds cn '["sleep 600", "echo x"]'
+  TO=8 up; info "non-final long-running command blocks up (by design)" "rc=$RC dur=${DUR}ms"; end
+
+  begin cmd_failing
+  pane_cmds cf '["false", "(exit 3)", "echo after > @WD@/o"]'
+  up; rc0 "up with a failing command"; wf "$WD/o"; eq "later commands still run" "after" "$(cat "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_trailing_comment
+  pane_cmds cc '["echo a > @WD@/o # a comment", "echo b >> @WD@/o"]'
+  TO=10 up; rc0 "non-final command with trailing # comment does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "both commands ran" "a,b" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_trailing_ampersand
+  pane_cmds ca '["sleep 300 &", "echo b > @WD@/o"]'
+  TO=10 up; rc0 "non-final backgrounded command (&) does not hang"
+  wf "$WD/o" 3; eq "command after & ran" "b" "$(cat "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_trailing_semicolon
+  pane_cmds cs2 '["echo a > @WD@/o;", "echo b >> @WD@/o"]'
+  TO=10 up; rc0 "non-final command ending in ; does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "both ran" "a,b" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_exit
+  pane_cmds ce '["exit", "echo b"]'
+  TO=8 up; info "non-final 'exit' command" "rc=$RC dur=${DUR}ms"; end
+
+  begin cmd_special_chars
+  pane_cmds sc '["printf \"%s|%s|%s\\n\" \"a;b\" '"'"'c d'"'"' \"$HOME\" > @WD@/o", "echo done"]'
+  up; rc0 "up"; wf "$WD/o"
+  eq "quotes, ; and \$VAR pass through" "a;b|c d|$HOME" "$(cat "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_keyname_like
+  pane_cmds kn '["echo Enter > @WD@/o", "echo C-c >> @WD@/o", "echo Space >> @WD@/o"]'
+  up; rc0 "up"; wf "$WD/o"; sleep 0.3; eq "key-name-like words are literal" "Enter,C-c,Space" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_bare_keyname
+  pane_cmds bk '["echo first > @WD@/o", "Escape", "echo third >> @WD@/o"]'
+  TO=8 up; info "a command that is exactly a tmux key name (Escape)" "rc=$RC dur=${DUR}ms file=[$(paste -sd, "$WD/o" 2>/dev/null)]"; end
+
+  begin cmd_multiline
+  pane_cmds ml '["echo one > @WD@/o\necho two >> @WD@/o", "echo three >> @WD@/o"]'
+  TO=10 up; info "command containing a newline" "rc=$RC dur=${DUR}ms file=[$(paste -sd, "$WD/o" 2>/dev/null)]"; end
+
+  begin cmd_pane_dir
+  mkdir -p pd
+  fx <<'EOF'
+session {
+  name = "pd"
+  window {
+    pane {
+      starting_directory = "@WD@/pd"
+      commands = ["pwd > @WD@/o"]
+    }
+  }
+}
+EOF
+  up; rc0 "up"; wf "$WD/o"; eq "command runs in pane dir" "$WD/pd" "$(cat "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_many_panes_serial
+  fx <<'EOF'
+session {
+  name = "mp"
+  window {
+    name = "w"
+    pane {
+      commands = ["sleep 1; echo a >> @WD@/o", "echo a2 >> @WD@/o"]
+    }
+    pane {
+      commands = ["echo b >> @WD@/o", "echo b2 >> @WD@/o"]
+    }
+  }
+}
+EOF
+  up; rc0 "up"; sleep 1; info "cross-pane command order" "$(paste -sd, "$WD/o")"; end
+
+  begin cmd_path_override_env
+  fx <<'EOF'
+session {
+  name = "po"
+  envs = {
+    PATH = "/nonexistent"
+  }
+  window {
+    pane {
+      commands = ["echo a", "echo b"]
+    }
+  }
+}
+EOF
+  TO=8 up; info "envs.PATH without tmux, then two commands" "rc=$RC dur=${DUR}ms"; end
+
+  begin session_commands
+  mkdir -p d1 d2
+  fx <<'EOF'
+session {
+  name = "sc"
+  commands = ["sleep 1; echo s1 > @WD@/o", "pwd >> @WD@/o"]
+  window {
+    name = "w1"
+    starting_directory = "@WD@/d1"
+    pane {
+      starting_directory = "@WD@/d1"
+    }
+  }
+  window {
+    name = "w2"
+    focus = true
+    pane {
+      starting_directory = "@WD@/d2"
+    }
+  }
+}
+EOF
+  up; rc0 "up"; wf "$WD/o"; sleep 0.5
+  eq "session commands ran in order in the active pane" "s1,$WD/d2" "$(paste -sd, "$WD/o" 2>/dev/null)"
+  end
+
+  local sname
+  for sname in "my sess" "semi;colon" "quote'd"; do
+    begin session_commands_name
+    fx <<EOF
+session {
+  name = "$sname"
+  commands = ["echo a > @WD@/o", "echo b >> @WD@/o"]
+  window {
+    pane {}
+  }
+}
+EOF
+    TO=10 up; rc0 "session commands with session name [$sname]"
+    wf "$WD/o" 3; sleep 0.3; eq "session commands ran [$sname]" "a,b" "$(paste -sd, "$WD/o" 2>/dev/null)"
+    end
+  done
+
+  begin pane_commands_many_windows_serial
+  fx <<'EOF'
+session {
+  name = "mw"
+  window {
+    name = "w1"
+    pane {
+      commands = ["echo 1 >> @WD@/o", "echo 2 >> @WD@/o"]
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      commands = ["echo 3 >> @WD@/o", "echo 4 >> @WD@/o"]
+    }
+  }
+}
+EOF
+  up; rc0 "up"; sleep 0.5; match "all commands ran" '1.*2.*3' "$(paste -sd, "$WD/o")"; end
+}
+
+t_options_hooks() {
+  begin options_all_scopes
+  fx <<'EOF'
+session {
+  name = "op"
+  options = {
+    "history-limit" = "4242"
+    "status" = "off"
+  }
+  window {
+    name = "w"
+    options = {
+      "automatic-rename" = "off"
+      "monitor-activity" = "on"
+    }
+    pane {
+      name = "p"
+      options = {
+        "remain-on-exit" = "on"
+      }
+    }
+  }
+}
+EOF
+  up; rc0 "up"
+  eq "session option history-limit" "4242" "$(tm show -t op -v history-limit)"
+  eq "session option status" "off" "$(tm show -t op -v status)"
+  eq "window option automatic-rename" "off" "$(tm show -w -t op:w -v automatic-rename)"
+  eq "window option monitor-activity" "on" "$(tm show -w -t op:w -v monitor-activity)"
+  eq "pane option remain-on-exit" "on" "$(tm show -p -t op:w.0 -v remain-on-exit)"
+  eq "window name survives automatic-rename" "w" "$(wnames op)"
+  end
+
+  begin options_numeric_value
+  fx <<'EOF'
+session {
+  name = "on"
+  options = {
+    "history-limit" = 5000
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; info "numeric (unquoted) option value" "rc=$RC val=$(tm show -t on -v history-limit) err=[$ERR]"; end
+
+  begin options_invalid_name
+  fx <<'EOF'
+session {
+  name = "oi"
+  options = {
+    "no-such-option" = "1"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rcnz "unknown option name fails"
+  info "unknown option aftermath" "session_left=$(has oi && echo yes || echo no) err=[$ERR]"; end
+
+  begin options_invalid_value
+  fx <<'EOF'
+session {
+  name = "ov"
+  window {
+    options = {
+      "automatic-rename" = "maybe"
+    }
+    pane {}
+  }
+}
+EOF
+  up; rcnz "invalid option value fails"
+  info "invalid option value aftermath" "session_left=$(has ov && echo yes || echo no) windows=$(wnames ov) err=[$ERR]"; end
+
+  begin options_user_option
+  fx <<'EOF'
+session {
+  name = "ou"
+  options = {
+    "@my-flag" = "yes"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rc0 "user @option"; eq "user @option set" "yes" "$(tm show -t ou -v @my-flag)"; end
+
+  begin hooks_all_scopes
+  fx <<'EOF'
+session {
+  name = "hk"
+  hooks = {
+    "session-renamed" = "run-shell 'touch @WD@/h_session'"
+  }
+  window {
+    name = "w"
+    hooks = {
+      "window-renamed" = "run-shell 'touch @WD@/h_window'"
+    }
+    pane {
+      name = "p"
+      hooks = {
+        "pane-focus-in" = "run-shell 'touch @WD@/h_pane'"
+      }
+    }
+  }
+}
+EOF
+  up; rc0 "up"
+  match "session hook registered" 'session-renamed' "$(tm show-hooks -t hk)"
+  match "window hook registered" 'window-renamed' "$(tm show-hooks -w -t hk:w)"
+  match "pane hook registered" 'pane-focus-in' "$(tm show-hooks -p -t hk:w.0)"
+  tm rename-window -t hk:w w2; we "$WD/h_window" 3 && ok "window hook fires" || ko "window hook fires" "no marker"
+  tm rename-session -t hk hk2; we "$WD/h_session" 3 && ok "session hook fires" || ko "session hook fires" "no marker"
+  end
+
+  begin hooks_invalid
+  fx <<'EOF'
+session {
+  name = "hi"
+  hooks = {
+    "no-such-hook" = "display hi"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rcnz "unknown hook name fails"; info "unknown hook aftermath" "session_left=$(has hi && echo yes || echo no) err=[$ERR]"; end
+
+  begin hooks_session_created
+  fx <<'EOF'
+session {
+  name = "hc"
+  hooks = {
+    "session-created" = "run-shell 'touch @WD@/h_created'"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up"; sleep 1
+  if [[ -e $WD/h_created ]]; then ok "session-created hook (README example) fires"; else ko "session-created hook (README example) fires" "hook is set after new-session, so it can never fire for this session"; fi
+  end
+}
+
+t_envs() {
+  begin envs_session
+  fx <<'EOF'
+session {
+  name = "ev"
+  envs = {
+    FOO = "bar baz"
+    EMPTY = ""
+    QUOTE = "it's \"q\""
+  }
+  window {
+    name = "w1"
+    pane {
+      commands = ["printf '[%s][%s][%s]\\n' \"$FOO\" \"$EMPTY\" \"$QUOTE\" > @WD@/o1"]
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      commands = ["echo \"$FOO\" > @WD@/o2"]
+    }
+  }
+}
+EOF
+  up; rc0 "up"; wf "$WD/o1"; wf "$WD/o2"
+  eq "envs reach first window panes" "[bar baz][][it's \"q\"]" "$(cat "$WD/o1" 2>/dev/null)"
+  eq "envs reach later windows" "bar baz" "$(cat "$WD/o2" 2>/dev/null)"
+  eq "session environment has FOO" "FOO=bar baz" "$(tm showenv -t ev FOO)"
+  end
+
+  local scope
+  for scope in window pane; do
+    begin "envs_on_$scope"
+    if [[ $scope == window ]]; then
+      fx <<'EOF'
+session {
+  name = "ew"
+  window {
+    envs = {
+      FOO = "x"
+    }
+    pane {}
+  }
+}
+EOF
+    else
+      fx <<'EOF'
+session {
+  name = "ew"
+  window {
+    pane {
+      envs = {
+        FOO = "x"
+      }
+    }
+  }
+}
+EOF
+    fi
+    up; rcnz "envs on $scope rejected"; no_server "envs on $scope"
+    match "envs on $scope diagnostic points at session" 'session' "$ERR$OUT"
+    info "envs on $scope diagnostic" "$ERR$OUT"
+    end
+  done
+}
