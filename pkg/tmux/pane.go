@@ -24,9 +24,9 @@ type Pane struct {
 	Id                PaneId
 }
 
-// Target returns the target pane by its composite id of session name, window id, and pane id.
+// Target returns the target pane by its string representation of the PaneId.
 func (p Pane) Target() string {
-	return fmt.Sprintf(`%s:%d.%d`, p.Window.Session.Name, p.Window.Index, p.Index)
+	return p.Id.String()
 }
 
 // SendKeys sends the given keystrokes to the current pane.

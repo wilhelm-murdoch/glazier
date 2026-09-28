@@ -166,7 +166,7 @@ func (c Client) NewSessionFromLine(line string) (*Session, error) {
 
 	return &Session{
 		Client:            c,
-		Id:                id,
+		Id:                SessionId(id),
 		Name:              strings.TrimSpace(parts[1]),
 		StartingDirectory: strings.TrimSpace(parts[2]),
 		logger:            c.logger,
@@ -225,7 +225,7 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	}
 
 	return &Window{
-		Id:        id,
+		Id:        WindowId(id),
 		Index:     index,
 		Name:      parts[2],
 		Layout:    enums.LayoutFromString(parts[3]),
@@ -353,11 +353,13 @@ func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*S
 	return exists, nil
 }
 
-// KillSession kills the given session.
+// KillSessionByName kills the given session by the specified session name.
+// Performs an attempt at an exact match by prepending the given sanitized
+// session name with "=" otherwise tmux will attempt to match on prefix.
 func (c Client) KillSessionByName(sessionName string) error {
 	sessionName = SanitizeSessionName(sessionName)
 
-	cmd := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
+	cmd := newCommand(c, "kill-session", "-t", fmt.Sprintf(`=%s`, sessionName))
 
 	c.logger.Debug(cmd.String())
 
@@ -383,9 +385,11 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	return nil, fmt.Errorf(`session "%s" not found`, sessionName)
 }
 
-// HasSession returns true if a session with the given name exists.
+// HasSession returns true if a session with the given name exists. Performs an attempt
+// at an exact match by prepending the given sanitized session name with "=" otherwise
+// tmux will attempt to match on prefix.
 func (c Client) HasSession(sessionName string) bool {
-	cmd := newCommand(c, "has-session", "-t", fmt.Sprint(SanitizeSessionName(sessionName)))
+	cmd := newCommand(c, "has-session", "-t", fmt.Sprintf(`=%s`, SanitizeSessionName(sessionName)))
 
 	c.logger.Debug(cmd.String())
 

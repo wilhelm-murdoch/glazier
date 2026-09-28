@@ -166,7 +166,7 @@ func TestClientNewSession(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, session)
-		assert.Equal(t, 1, session.Id)
+		assert.Equal(t, "$1", session.Id.String())
 		assert.Equal(t, "test", session.Name)
 		assert.Equal(t, "/foo/bar", session.StartingDirectory)
 	})
@@ -266,6 +266,9 @@ func TestClientKillSessionByName(t *testing.T) {
 		rec.On("kill-session", fakeResult{})
 
 		assert.NoError(t, testClient().KillSessionByName("demo"))
+
+		args := rec.ArgsFor("kill-session")
+		assert.Contains(t, args, "=demo")
 	})
 
 	t.Run("wraps the underlying error", func(t *testing.T) {
@@ -275,6 +278,9 @@ func TestClientKillSessionByName(t *testing.T) {
 		err := testClient().KillSessionByName("demo")
 		assert.Error(t, err)
 		assert.Equal(t, `session "demo" could not be killed: boom`, err.Error())
+
+		args := rec.ArgsFor("kill-session")
+		assert.Contains(t, args, "=demo")
 	})
 }
 
@@ -315,7 +321,10 @@ func TestClientHasSession(t *testing.T) {
 			rec := setupRecorder(t)
 			rec.On("has-session", fakeResult{Status: testCase.exitStatus})
 
-			assert.Equal(t, testCase.expected, testClient().HasSession("demo"))
+			assert.Equal(t, testCase.expected, testClient().HasSession("demos"))
+
+			args := rec.ArgsFor("has-session")
+			assert.Contains(t, args, "=demos")
 		})
 	}
 }
@@ -454,7 +463,7 @@ func TestClientNewWindowFromLine(t *testing.T) {
 
 		window, err := client.NewWindowFromLine("@3;1;editor;main-vertical;1", session)
 		assert.NoError(t, err)
-		assert.Equal(t, 3, window.Id)
+		assert.Equal(t, "@3", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, enums.LayoutMainVertical, window.Layout)

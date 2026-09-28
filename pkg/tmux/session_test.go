@@ -14,7 +14,7 @@ func TestSessionIdString(t *testing.T) {
 
 func TestSessionTarget(t *testing.T) {
 	client := testClient()
-	assert.Equal(t, "demo", testSession(client).Target())
+	assert.Equal(t, "$0", testSession(client).Target())
 }
 
 func TestSessionNewWindow(t *testing.T) {
@@ -28,7 +28,7 @@ func TestSessionNewWindow(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, window)
-		assert.Equal(t, 1, window.Id)
+		assert.Equal(t, "@1", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, enums.LayoutTiled, window.Layout)
@@ -143,7 +143,7 @@ func TestSessionSetEnv(t *testing.T) {
 		assert.NoError(t, testSession(client).SetEnv("EDITOR", "vim"))
 
 		args := rec.ArgsFor("setenv")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "EDITOR")
 		assert.Contains(t, args, "vim")
 	})
@@ -166,7 +166,7 @@ func TestSessionSetHook(t *testing.T) {
 		assert.NoError(t, testSession(client).SetHook("session-created", "echo hi"))
 
 		args := rec.ArgsFor("set-hook")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "session-created")
 		assert.Contains(t, args, "echo hi")
 	})
@@ -189,7 +189,7 @@ func TestSessionSetOption(t *testing.T) {
 		assert.NoError(t, testSession(client).SetOption("base-index", "1"))
 
 		args := rec.ArgsFor("set-option")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "base-index")
 		assert.Contains(t, args, "1")
 	})
@@ -212,7 +212,7 @@ func TestSessionSendKeys(t *testing.T) {
 		assert.NoError(t, testSession(client).SendKeys("nvim"))
 
 		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "demo")
+		assert.Contains(t, sendArgs, "$0")
 		assert.Contains(t, sendArgs, "nvim")
 		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
 		assert.False(t, rec.Called("wait-for"))
@@ -237,7 +237,7 @@ func TestSessionSendKeysAndWait(t *testing.T) {
 		assert.NoError(t, testSession(client).SendKeysAndWait("make build", "glaze-session-demo-0"))
 
 		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "demo")
+		assert.Contains(t, sendArgs, "$0")
 		assert.Contains(t, sendArgs, "make build ; tmux wait-for -S glaze-session-demo-0")
 		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
 		assert.Contains(t, rec.ArgsFor("wait-for"), "glaze-session-demo-0")

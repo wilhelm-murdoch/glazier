@@ -15,7 +15,7 @@ func TestWindowIdString(t *testing.T) {
 func TestWindowTarget(t *testing.T) {
 	client := testClient()
 	window := testWindow(testSession(client))
-	assert.Equal(t, "demo:1", window.Target())
+	assert.Equal(t, "@0", window.Target())
 }
 
 func TestWindowSplit(t *testing.T) {
@@ -166,7 +166,7 @@ func TestWindowSetEnv(t *testing.T) {
 	assert.NoError(t, window.SetEnv("EDITOR", "vim"))
 
 	args := rec.ArgsFor("setenv")
-	assert.Contains(t, args, "demo")
+	assert.Contains(t, args, "$0")
 	assert.Contains(t, args, "EDITOR")
 	assert.Contains(t, args, "vim")
 }
@@ -182,7 +182,7 @@ func TestWindowSetHook(t *testing.T) {
 
 		args := rec.ArgsFor("set-hook")
 		assert.Contains(t, args, "-w")
-		assert.Contains(t, args, "demo:1")
+		assert.Contains(t, args, "@0")
 		assert.Contains(t, args, "window-renamed")
 		assert.Contains(t, args, "echo renamed")
 	})
@@ -208,7 +208,7 @@ func TestWindowSetOption(t *testing.T) {
 
 		args := rec.ArgsFor("set-option")
 		assert.Contains(t, args, "-w")
-		assert.Contains(t, args, "demo:1")
+		assert.Contains(t, args, "@0")
 		assert.Contains(t, args, "automatic-rename")
 		assert.Contains(t, args, "off")
 	})

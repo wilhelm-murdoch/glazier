@@ -24,13 +24,13 @@ type Session struct {
 	Client            Client
 	Name              string
 	StartingDirectory string
-	Id                int
+	Id                SessionId
 	logger            *slog.Logger
 }
 
-// Target returns the target session by its name.
+// Target returns the target session by its string representation of the SessionId.
 func (s Session) Target() string {
-	return s.Name
+	return s.Id.String()
 }
 
 // NewWindow creates a new window in the current session and returns it.
@@ -40,7 +40,7 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 	args := []string{
 		"neww",
 		"-d",
-		"-t", s.Name,
+		"-t", s.Target(),
 		"-n", fmt.Sprint(windowName),
 		"-F", formatNewWindowResponse,
 		"-P",
@@ -90,7 +90,7 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 	}
 
 	return &Window{
-		Id:        id,
+		Id:        WindowId(id),
 		Index:     index,
 		Name:      parts[2],
 		Layout:    enums.LayoutFromString(parts[3]),

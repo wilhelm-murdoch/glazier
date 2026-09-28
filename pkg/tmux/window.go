@@ -24,7 +24,7 @@ type Window struct {
 	Name     string
 	IsActive bool
 	IsFirst  bool
-	Id       int
+	Id       WindowId
 	Index    int
 	Layout   enums.Layout
 	// RawLayout is the verbatim tmux window layout coordinate string (the
@@ -33,10 +33,9 @@ type Window struct {
 	RawLayout string
 }
 
-// Target returns the target window by its composite id of session name
-// and window id.
+// Target returns the target window by its string representation of the WindowId.
 func (w Window) Target() string {
-	return fmt.Sprintf(`%s:%d`, w.Session.Name, w.Index)
+	return w.Id.String()
 }
 
 // Split splits the current window into two panes.
