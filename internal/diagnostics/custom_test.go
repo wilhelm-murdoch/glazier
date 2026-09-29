@@ -115,37 +115,6 @@ func TestDirectoryDiagnostic(t *testing.T) {
 	})
 }
 
-func TestFileDiagnostic(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, "f.txt")
-	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
-
-	t.Run("no diagnostic for an existing file", func(t *testing.T) {
-		assert.Empty(t, FileDiagnostic("path", cty.StringVal(file)))
-	})
-
-	t.Run("no diagnostic for a null value", func(t *testing.T) {
-		assert.Empty(t, FileDiagnostic("path", cty.NullVal(cty.String)))
-	})
-
-	t.Run("diagnostic when the path is a directory", func(t *testing.T) {
-		diags := FileDiagnostic("path", cty.StringVal(dir))
-		assert.True(t, diags.HasErrors())
-	})
-
-	t.Run("diagnostic when the file does not exist", func(t *testing.T) {
-		diags := FileDiagnostic("path", cty.StringVal(filepath.Join(dir, "nope")))
-		assert.True(t, diags.HasErrors())
-	})
-}
-
-func TestWrongAttributeDiagnostic(t *testing.T) {
-	diag := WrongAttributeDiagnostic("type", "foo", "bar")
-	assert.Equal(t, hcl.DiagError, diag.Severity)
-	assert.Contains(t, diag.Detail, "foo")
-	assert.Contains(t, diag.Detail, "bar")
-}
-
 func TestWrongSizeDiagnostic(t *testing.T) {
 	t.Run("nil for a null value", func(t *testing.T) {
 		assert.Nil(t, WrongSizeDiagnostic("x", cty.NullVal(cty.String)))

@@ -153,7 +153,7 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--socket-name` | name of a custom tmux socket |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
-| `--var-file <path>` | HCL or JSON file of variable values |
+| `--var-file <path>` | HCL file of variable values |
 
 ### `glaze down`
 
@@ -170,7 +170,7 @@ $ glaze down --session daemon-run   # kill by name; no profile required
 | `--session` | session to kill (skips profile resolution entirely) |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
-| `--var-file <path>` | HCL or JSON file of variable values |
+| `--var-file <path>` | HCL file of variable values |
 | `--socket-path` / `--socket-name` | custom tmux socket |
 
 ### `glaze ls`
@@ -207,7 +207,7 @@ $ glaze format --validate --var region=us-east-1 # supply declared variables
 | `--validate` | decode the profile and report diagnostics before formatting |
 | `--profile-path` | path to a `.glaze` file (see [Profile resolution](#profile-resolution)) |
 | `--var key=value` | set a variable; repeatable |
-| `--var-file <path>` | HCL or JSON file of variable values |
+| `--var-file <path>` | HCL file of variable values |
 
 `--validate` enforces the full variable contract, so a profile with a required variable fails validation unless it is supplied with `--var` (or carries a default).
 

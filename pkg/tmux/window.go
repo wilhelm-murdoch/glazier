@@ -114,13 +114,6 @@ func (w Window) SelectLayout(layout string) error {
 	return cmd.Exec()
 }
 
-// SetEnv sets an environment variable on the session that owns this window.
-// tmux scopes environment variables to sessions, so window-level variables are
-// applied to the parent session.
-func (w Window) SetEnv(key, value string) error {
-	return w.Session.SetEnv(key, value)
-}
-
 // SetHook registers a window-scoped hook command which tmux will run when the
 // named hook fires for this window.
 func (w Window) SetHook(hook, command string) error {

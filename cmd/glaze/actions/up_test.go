@@ -108,7 +108,7 @@ func TestActionUpGenerateWindows(t *testing.T) {
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;ice-breaker;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;breach;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;breach;1;/tmp"})
 
 	pane := &decoders.Pane{
 		Base:     &decoders.Base{Name: "breach", StartingDirectory: "/tmp"},
@@ -145,7 +145,7 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
 	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"echo pane"}}
@@ -173,7 +173,7 @@ func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
 	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}}

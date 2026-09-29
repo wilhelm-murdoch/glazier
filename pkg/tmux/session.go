@@ -61,6 +61,7 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 }
 
 // Kill closes the current session.
+// NOTE: Not yet in use, but on the roadmap.
 func (s Session) Kill() error {
 	cmd := newCommand(s.Client, "kill-session", "-t", s.Target())
 

@@ -52,13 +52,13 @@ func TestClientSessions(t *testing.T) {
 		}, {
 			name:           "fails with missing expected return values from tmux client",
 			cmdResponse:    "$1;test-session-a",
-			expectedError:  "expected 3 parts for tmux line, but got 2 instead: $1;test-session-a",
+			expectedError:  `tmux: unexpected number of parts in line: expected 3, got 2: "$1;test-session-a"`,
 			expectedValues: nil,
 			sessionCount:   0,
 		}, {
 			name:           "fails with malformed expected return values from tmux client",
 			cmdResponse:    "$a;;test-session-a+",
-			expectedError:  "strconv.Atoi: parsing \"a\": invalid syntax",
+			expectedError:  `tmux: line has an invalid id: strconv.Atoi: parsing "a": invalid syntax`,
 			expectedValues: nil,
 			sessionCount:   0,
 		}, {
@@ -159,8 +159,7 @@ func TestClientIsRunning(t *testing.T) {
 func TestClientNewSession(t *testing.T) {
 	t.Run("successfully create a new session", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("new", fakeResult{})
-		rec.On("ls", fakeResult{Output: "$1;test;/foo/bar"})
+		rec.On("new", fakeResult{Output: "$1;test;/foo/bar"})
 
 		session, err := testClient().NewSession("test", "/foo/bar")
 
@@ -182,34 +181,9 @@ func TestClientNewSession(t *testing.T) {
 		assert.Equal(t, "generic error message", err.Error())
 	})
 
-	t.Run("fails when listing sessions errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("new", fakeResult{})
-		rec.On("ls", fakeResult{Err: errors.New("list failed")})
-
-		session, err := testClient().NewSession("test", "/foo/bar")
-
-		assert.Error(t, err)
-		assert.Nil(t, session)
-		assert.Equal(t, "list failed", err.Error())
-	})
-
-	t.Run("fails when the created session cannot be found afterwards", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("new", fakeResult{})
-		rec.On("ls", fakeResult{Output: "$1;other;/foo/bar"})
-
-		session, err := testClient().NewSession("test", "/foo/bar")
-
-		assert.Error(t, err)
-		assert.Nil(t, session)
-		assert.Contains(t, err.Error(), "could not be found")
-	})
-
 	t.Run("sanitizes names tmux would rewrite so the session is findable", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("new", fakeResult{})
-		rec.On("ls", fakeResult{Output: "$1;my-app-1;/foo/bar"})
+		rec.On("new", fakeResult{Output: "$1;my-app-1;/foo/bar"})
 
 		session, err := testClient().NewSession("my.app:1", "/foo/bar")
 
@@ -230,34 +204,6 @@ func TestSanitizeSessionName(t *testing.T) {
 	} {
 		assert.Equal(t, expected, SanitizeSessionName(name))
 	}
-}
-
-func TestClientNewSessionIfNotExists(t *testing.T) {
-	t.Run("returns the existing session when present", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("ls", fakeResult{Output: "$1;existing;/tmp"})
-
-		session, err := testClient().NewSessionIfNotExists("existing", "/tmp")
-
-		assert.NoError(t, err)
-		assert.NotNil(t, session)
-		assert.Equal(t, "existing", session.Name)
-		assert.False(t, rec.Called("new"))
-	})
-
-	t.Run("creates a new session when absent", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("ls", fakeResult{Output: "$1;other;/tmp"})
-		rec.On("new", fakeResult{})
-		rec.On("ls", fakeResult{Output: "$2;created;/tmp"})
-
-		session, err := testClient().NewSessionIfNotExists("created", "/tmp")
-
-		assert.NoError(t, err)
-		assert.NotNil(t, session)
-		assert.Equal(t, "created", session.Name)
-		assert.True(t, rec.Called("new"))
-	})
 }
 
 func TestClientKillSessionByName(t *testing.T) {

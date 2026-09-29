@@ -88,37 +88,6 @@ func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	return out
 }
 
-// FileDiagnostic is responsible for checking if a given value is a valid file and returning a diagnostic if not.
-func FileDiagnostic(field string, value cty.Value) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
-	if !value.IsNull() {
-		fileInfo, err := os.Stat(files.ExpandPath(value.AsString()))
-		if err != nil || errors.Is(err, fs.ErrNotExist) || fileInfo.IsDir() {
-			return hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-				Detail: fmt.Sprintf(
-					`The %s of "%s" does not exist, cannot be accessed or is a directory.`,
-					field,
-					value.AsString(),
-				),
-			}}
-		}
-	}
-
-	return out
-}
-
-// WrongAttributeDiagnostic is responsible for returning a diagnostic for an incorrect attribute value.
-func WrongAttributeDiagnostic(field, have, want string) hcl.Diagnostic {
-	return hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-		Detail:   fmt.Sprintf(`The %s value "%s" should be "%s".`, field, have, want),
-	}
-}
-
 // WrongSizeDiagnostic is used to determine whether a size value resolves to either a positive integer or a valid percentage string.
 func WrongSizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	var out hcl.Diagnostics

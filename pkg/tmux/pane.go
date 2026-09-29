@@ -62,25 +62,6 @@ func (p Pane) SendKeysAndWait(keys, channel string) error {
 	return p.Window.Session.Client.WaitFor(channel)
 }
 
-// SetEnv sets the given environment variable to the given value on the session
-// that owns this pane. tmux scopes environment variables to sessions, so the
-// target is the owning session rather than the pane itself.
-func (p Pane) SetEnv(key, value string) error {
-	args := []string{
-		"setenv",
-		"-t",
-		p.Window.Session.Target(),
-		fmt.Sprint(key),
-		fmt.Sprint(value),
-	}
-
-	cmd := newCommand(p.Window.Session.Client, args...)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
-}
-
 // SetHook registers a pane-scoped hook command which tmux will run when the
 // named hook fires for this pane.
 func (p Pane) SetHook(hook, command string) error {

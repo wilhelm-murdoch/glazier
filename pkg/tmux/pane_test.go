@@ -80,21 +80,6 @@ func TestPaneSendKeysAndWait(t *testing.T) {
 	})
 }
 
-func TestPaneSetEnv(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("setenv", fakeResult{})
-
-	client := testClient()
-	pane := testPane(testWindow(testSession(client)))
-	assert.NoError(t, pane.SetEnv("FOO", "bar"))
-
-	args := rec.ArgsFor("setenv")
-	// env is scoped to the owning session, so the target is the session id.
-	assert.Contains(t, args, "$0")
-	assert.Contains(t, args, "FOO")
-	assert.Contains(t, args, "bar")
-}
-
 func TestPaneSetHook(t *testing.T) {
 	t.Run("registers a pane-scoped hook", func(t *testing.T) {
 		rec := setupRecorder(t)

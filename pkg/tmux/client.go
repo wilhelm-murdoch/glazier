@@ -13,12 +13,6 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-const (
-	formatActiveSessions = "#{session_id};#{q:session_name};#{q:session_path}"
-	formatActiveWindows  = "#{window_id};#{window_index};#{q:window_name};#{window_layout};#{window_active}"
-	formatActivePanes    = "#{pane_id};#{pane_index};#{q:pane_title};#{pane_active};#{q:pane_current_path}"
-)
-
 var defaultTmuxExecutablePath = "tmux"
 
 // Client represents a tmux client.
@@ -330,21 +324,6 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 	}
 
 	return session, nil
-}
-
-// NewSessionIfNotExists creates a new session with the given name and starting
-// directory if it does not already exist.
-func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*Session, error) {
-	sessionName = SanitizeSessionName(sessionName)
-
-	sessions, _ := c.Sessions()
-	exists := findSessionByName(sessions, sessionName)
-
-	if exists == nil {
-		return c.NewSession(sessionName, startingDirectory)
-	}
-
-	return exists, nil
 }
 
 // KillSessionByName kills the given session by the specified session name.

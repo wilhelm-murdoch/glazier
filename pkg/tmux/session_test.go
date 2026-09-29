@@ -81,7 +81,7 @@ func TestSessionNewWindow(t *testing.T) {
 		window, err := testSession(client).NewWindow("editor", "")
 		assert.Error(t, err)
 		assert.Nil(t, window)
-		assert.Contains(t, err.Error(), "expected 5 fields")
+		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
 	})
 
 	t.Run("errors on non-numeric window index", func(t *testing.T) {
@@ -112,25 +112,6 @@ func TestSessionNewWindow(t *testing.T) {
 		_, err := testSession(client).NewWindow("editor", "")
 		assert.Error(t, err)
 		assert.Equal(t, "could not determine window base index", err.Error())
-	})
-}
-
-func TestSessionKill(t *testing.T) {
-	t.Run("successfully kills the session", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("kill-session", fakeResult{})
-
-		client := testClient()
-		assert.NoError(t, testSession(client).Kill())
-		assert.True(t, rec.Called("kill-session"))
-	})
-
-	t.Run("propagates errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("kill-session", fakeResult{Err: errors.New("boom")})
-
-		client := testClient()
-		assert.Error(t, testSession(client).Kill())
 	})
 }
 

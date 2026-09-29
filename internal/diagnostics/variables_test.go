@@ -86,14 +86,6 @@ func TestVarFileUnreadable(t *testing.T) {
 	assert.Contains(t, d.Detail, "permission denied")
 }
 
-func TestVarFileInvalid(t *testing.T) {
-	d := VarFileInvalid("vars.json", "unexpected end of input")
-	assert.Equal(t, hcl.DiagError, d.Severity)
-	assert.Equal(t, "Invalid var file", d.Summary)
-	assert.Contains(t, d.Detail, "vars.json")
-	assert.Contains(t, d.Detail, "unexpected end of input")
-}
-
 func TestUndeclaredVarFileVariable(t *testing.T) {
 	t.Run("carries a subject when the entry has a range", func(t *testing.T) {
 		d := UndeclaredVarFileVariable("ghost", "vars.glazevars", testRange)

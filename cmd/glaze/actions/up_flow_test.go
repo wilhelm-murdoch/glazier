@@ -11,6 +11,7 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
@@ -168,8 +169,7 @@ func TestActionUpResolveSession(t *testing.T) {
 	t.Run("creates a new session when none exists", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
 		rec.On("has-session", tmuxtest.Result{Status: 1})
-		rec.On("new", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		profile, err := up.loadProfile()
 		assert.NoError(t, err)
@@ -180,6 +180,7 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.True(t, rec.Called("new"))
 		assert.NotNil(t, up.session)
 		assert.Equal(t, "demo", up.session.Name)
+		assert.Equal(t, tmux.SessionId(1), up.session.Id)
 	})
 
 	t.Run("attaches to an existing session when not detached", func(t *testing.T) {
@@ -217,8 +218,7 @@ func TestActionUpResolveSession(t *testing.T) {
 	t.Run("kills the previous session when --clear is set", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
 		rec.On("has-session", tmuxtest.Result{Status: 1})
-		rec.On("new", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		profile, err := up.loadProfile()
 		assert.NoError(t, err)
@@ -246,11 +246,10 @@ func TestActionUpRun(t *testing.T) {
 	t.Run("provisions a brand new detached session end to end", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
 		rec.On("has-session", tmuxtest.Result{Status: 1})
-		rec.On("new", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("neww", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-		rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 		assert.NoError(t, up.Run())
@@ -261,6 +260,7 @@ func TestActionUpRun(t *testing.T) {
 		assert.True(t, rec.Called("killw"))
 		// Detached: no attach/switch should be issued.
 		assert.False(t, rec.Called("attach"))
+		assert.False(t, rec.Called("ls"))
 		assert.False(t, rec.Called("switchc"))
 	})
 
