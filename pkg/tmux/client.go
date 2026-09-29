@@ -159,7 +159,7 @@ func (c Client) Sessions() ([]*Session, error) {
 }
 
 func (c Client) NewSessionFromLine(line string) (*Session, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "$", 3)
+	parts, id, err := getPartsFromTmuxLine(line, "$", 3)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (c Client) Windows(session *Session) ([]*Window, error) {
 }
 
 func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "@", 5)
+	parts, id, err := getPartsFromTmuxLine(line, "@", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -277,7 +277,7 @@ func (c Client) Panes(window *Window) ([]*Pane, error) {
 }
 
 func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "%", 5)
+	parts, id, err := getPartsFromTmuxLine(line, "%", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -476,27 +476,4 @@ func (c Client) GetBaseIndex(target, option string) ([]string, error) {
 	}
 
 	return strings.Split(result, " "), nil
-}
-
-func (c Client) getPartsFromTmuxLine(
-	line, prefix string,
-	expectedLength int,
-) ([]string, int, error) {
-	parts := strings.SplitN(line, ";", expectedLength)
-
-	if len(parts) != expectedLength {
-		return parts, 0, fmt.Errorf(
-			"expected %d parts for tmux line, but got %d instead: %s",
-			expectedLength,
-			len(parts),
-			line,
-		)
-	}
-
-	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], prefix, ""))
-	if err != nil {
-		return parts, 0, err
-	}
-
-	return parts, id, nil
 }
