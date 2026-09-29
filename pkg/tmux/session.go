@@ -1,16 +1,9 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
-
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
-
-const formatNewWindowResponse = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
 
 type SessionId int
 
@@ -42,7 +35,7 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 		"-d",
 		"-t", s.Target(),
 		"-n", fmt.Sprint(windowName),
-		"-F", formatNewWindowResponse,
+		"-F", formatActiveWindows,
 		"-P",
 	}
 
@@ -59,46 +52,12 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 		return window, err
 	}
 
-	parts := strings.Split(output, ";")
-
-	if len(parts) != 5 {
-		return window, fmt.Errorf(
-			"expected 5 fields from tmux when creating window `%s`, but got %d: %q",
-			windowName,
-			len(parts),
-			output,
-		)
-	}
-
-	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "@", ""))
+	window, err = s.Client.NewWindowFromLine(output, s)
 	if err != nil {
 		return window, err
 	}
 
-	index, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return window, err
-	}
-
-	baseIndexCmdParts, err := s.Client.GetBaseIndex(s.Target(), "base-index")
-	if err != nil {
-		return window, err
-	}
-
-	if len(baseIndexCmdParts) != 2 {
-		return window, errors.New("could not determine window base index")
-	}
-
-	return &Window{
-		Id:        WindowId(id),
-		Index:     index,
-		Name:      parts[2],
-		Layout:    enums.LayoutFromString(parts[3]),
-		RawLayout: parts[3],
-		IsActive:  parts[4] == "1",
-		IsFirst:   parts[1] == baseIndexCmdParts[1],
-		Session:   s,
-	}, nil
+	return window, nil
 }
 
 // Kill closes the current session.

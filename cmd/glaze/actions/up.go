@@ -123,6 +123,7 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 			}
 			continue
 		}
+
 		channel := fmt.Sprintf("glaze-session-%s-%d", a.session.Name, i)
 		if err := a.session.SendKeysAndWait(cmd, channel); err != nil {
 			return fmt.Errorf(

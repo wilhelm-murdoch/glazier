@@ -14,9 +14,9 @@ import (
 )
 
 const (
-	formatActiveSessions = "#{session_id};#{session_name};#{session_path}"
-	formatActiveWindows  = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
-	formatActivePanes    = "#{pane_id};#{pane_index};#{pane_title};#{pane_active};#{pane_current_path}"
+	formatActiveSessions = "#{session_id};#{q:session_name};#{q:session_path}"
+	formatActiveWindows  = "#{window_id};#{window_index};#{q:window_name};#{window_layout};#{window_active}"
+	formatActivePanes    = "#{pane_id};#{pane_index};#{q:pane_title};#{pane_active};#{q:pane_current_path}"
 )
 
 var defaultTmuxExecutablePath = "tmux"
@@ -311,28 +311,22 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		fmt.Sprint(sessionName),
 		"-c",
 		fmt.Sprint(startingDirectory),
+		"-F", formatActiveSessions,
+		"-P",
 	}
 
 	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
-	if err := cmd.Exec(); err != nil {
-		return session, err
-	}
-
-	sessions, err := c.Sessions()
+	output, err := cmd.ExecWithOutput()
 	if err != nil {
 		return session, err
 	}
 
-	session = findSessionByName(sessions, sessionName)
-
-	if session == nil {
-		return nil, fmt.Errorf(
-			"session `%s` was created but could not be found afterwards",
-			sessionName,
-		)
+	session, err = c.NewSessionFromLine(output)
+	if err != nil {
+		return session, err
 	}
 
 	return session, nil
