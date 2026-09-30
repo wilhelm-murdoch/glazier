@@ -140,6 +140,32 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	assert.NotContains(t, sends[1][len(sends[1])-2], "wait-for")
 }
 
+func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;runner;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;2;shell;1;/tmp"})
+
+	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{
+		Base:     &decoders.Base{Name: "runner"},
+		Commands: []string{"true; exit"},
+	})
+	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "shell"}})
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+
+	// A pane that exits at once must not be the parent of a later split.
+	var order []string
+	for _, call := range rec.Calls {
+		if call[0] == "splitw" || call[0] == "send" {
+			order = append(order, call[0])
+		}
+	}
+	assert.Equal(t, []string{"splitw", "splitw", "send"}, order)
+}
+
 func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	up, rec := newTestUp(t)
 
