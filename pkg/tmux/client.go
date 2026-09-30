@@ -17,11 +17,10 @@ var defaultTmuxExecutablePath = "tmux"
 
 // Client represents a tmux client.
 type Client struct {
-	CurrentSession *Session
-	socketPath     string
-	socketName     string
-	logger         *slog.Logger
-	tmuxPath       string
+	socketPath string
+	socketName string
+	logger     *slog.Logger
+	tmuxPath   string
 }
 
 // NewClient returns a new client.
@@ -89,8 +88,6 @@ func (c *Client) Attach(session *Session) error {
 			err,
 		)
 	}
-
-	c.CurrentSession = session
 
 	return nil
 }
@@ -373,20 +370,18 @@ func (c Client) HasSession(sessionName string) bool {
 	return true
 }
 
-// CurrentSessionName returns the name of the session attached to the current
-// client. This is intended to be called from within a running tmux session
-// (e.g. by the `save` command) to determine which session to capture.
-func (c Client) CurrentSessionName() (string, error) {
-	cmd := newCommand(c, "display-message", "-p", "#{session_name}")
+// CurrentSession returns the session attached to the current client.
+func (c Client) CurrentSession() (*Session, error) {
+	cmd := newCommand(c, "display-message", "-p", formatActiveSessions)
 
 	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
-		return "", fmt.Errorf("could not determine current session: %w", err)
+		return nil, fmt.Errorf("could not determine current session: %w", err)
 	}
 
-	return strings.TrimSpace(output), nil
+	return c.NewSessionFromLine(output)
 }
 
 // GetOption returns the specified option for the target of the attached client session.

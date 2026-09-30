@@ -64,8 +64,16 @@ func splitTmuxLine(line string, delimiter byte) ([]string, error) {
 	return append(parts, part.String()), nil
 }
 
+// undoDollarEscape removes the backslash in front of each $ in a line that
+// tmux printed with #{q:...} fields. This is only safe for q: fields. A
+// plain #{name} field does not escape $, so a real backslash in front of
+// $ would be removed.
+func undoDollarEscape(line string) string {
+	return strings.ReplaceAll(line, `\$`, "$")
+}
+
 func getPartsFromTmuxLine(line, prefix string, expectedLength int) ([]string, int, error) {
-	parts, err := splitTmuxLine(line, tmuxLinePartDelimiter)
+	parts, err := splitTmuxLine(undoDollarEscape(line), tmuxLinePartDelimiter)
 
 	if err != nil {
 		return parts, 0, err

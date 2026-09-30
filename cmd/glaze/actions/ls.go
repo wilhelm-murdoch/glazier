@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,7 +52,7 @@ func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
 // any, is marked with an asterisk.
 func (a *ActionLs) Run() error {
 	if !a.tmux.IsRunning() {
-		return fmt.Errorf("no running tmux server found")
+		return errors.New("no running tmux server found")
 	}
 
 	sessions, err := a.tmux.Sessions()
@@ -61,10 +62,14 @@ func (a *ActionLs) Run() error {
 
 	// Resolving the attached session only makes sense from inside tmux;
 	// elsewhere `display-message` would report an arbitrary session.
-	var current string
+	var currentSession *tmux.Session
 	if os.Getenv("TMUX") != "" {
-		if name, err := a.tmux.CurrentSessionName(); err == nil {
-			current = name
+		currentSession, err = a.tmux.CurrentSession()
+		if err != nil {
+			return fmt.Errorf(
+				"could not determine current session: %w",
+				err,
+			)
 		}
 	}
 
@@ -83,7 +88,7 @@ func (a *ActionLs) Run() error {
 		}
 
 		marker := ""
-		if session.Name == current {
+		if currentSession != nil && session.Id == currentSession.Id {
 			marker = "*"
 		}
 

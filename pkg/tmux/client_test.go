@@ -275,25 +275,39 @@ func TestClientHasSession(t *testing.T) {
 	}
 }
 
-func TestClientCurrentSessionName(t *testing.T) {
-	t.Run("returns the trimmed current session name", func(t *testing.T) {
+func TestClientCurrentSession(t *testing.T) {
+	t.Run("returns the current session", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("display-message", fakeResult{Output: "demo\n"})
+		rec.On("display-message", fakeResult{Output: "$1;demo;/tmp\n"})
 
-		name, err := testClient().CurrentSessionName()
+		session, err := testClient().CurrentSession()
 		assert.NoError(t, err)
-		assert.Equal(t, "demo", name)
+		assert.Equal(t, "demo", session.Name)
+		assert.Equal(t, SessionId(1), session.Id)
 
 		args := rec.ArgsFor("display-message")
 		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, "#{session_name}")
+		assert.Contains(t, args, formatActiveSessions)
+	})
+
+	t.Run("returns unparsable session result", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "garbage"})
+
+		_, err := testClient().CurrentSession()
+		assert.Error(t, err)
+		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
+
+		args := rec.ArgsFor("display-message")
+		assert.Contains(t, args, "-p")
+		assert.Contains(t, args, formatActiveSessions)
 	})
 
 	t.Run("wraps the underlying error", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("display-message", fakeResult{Err: errors.New("not in tmux")})
 
-		_, err := testClient().CurrentSessionName()
+		_, err := testClient().CurrentSession()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not determine current session")
 	})
@@ -554,19 +568,25 @@ func TestClientAttach(t *testing.T) {
 
 		client := testClient()
 		session := testSession(client)
+		session.Id = 7
+
 		assert.NoError(t, client.Attach(session))
-		assert.True(t, rec.Called("switchc"))
-		assert.Equal(t, session, client.CurrentSession)
+		assert.Subset(t, rec.ArgsFor("switchc"), []string{"-t", "$7"})
+		assert.False(t, rec.Called("attach"))
 	})
 
 	t.Run("uses attach when outside tmux", func(t *testing.T) {
-		_ = os.Unsetenv("TMUX")
+		t.Setenv("TMUX", "")
 		rec := setupRecorder(t)
 		rec.On("attach", fakeResult{})
 
 		client := testClient()
-		assert.NoError(t, client.Attach(testSession(client)))
+		session := testSession(client)
+		session.Id = 7
+		assert.NoError(t, client.Attach(session))
 		assert.True(t, rec.Called("attach"))
+		assert.Subset(t, rec.ArgsFor("attach"), []string{"-t", "$7"})
+		assert.False(t, rec.Called("switchc"))
 	})
 
 	t.Run("includes socket flags when configured", func(t *testing.T) {

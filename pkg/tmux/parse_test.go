@@ -306,3 +306,45 @@ func TestGetPartsFromTmuxLine(t *testing.T) {
 		})
 	}
 }
+
+// TestGetPartsFromTmuxLineDollarEscape uses q: output from real tmux servers.
+// tmux 3.4 escapes a $ that starts a variable name a second time; 3.2a, 3.3a
+// and 3.5a do not. Each stored name must decode the same way on every version.
+func TestGetPartsFromTmuxLineDollarEscape(t *testing.T) {
+	tests := []struct {
+		name   string // Name of the test case
+		field  string // The q:session_name field exactly as tmux printed it
+		stored string // The session name that tmux stored
+	}{
+		{name: "tmux 3.3a/$ before a variable name", field: `p\$x`, stored: "p$x"},
+		{name: "tmux 3.4/$ before a variable name", field: `p\\$x`, stored: "p$x"},
+		{name: "tmux 3.3a/$ before a brace", field: `p\${x}`, stored: "p${x}"},
+		{name: "tmux 3.4/$ before a brace", field: `p\\${x}`, stored: "p${x}"},
+		{name: "tmux 3.3a/$ before an underscore", field: `p\$_a`, stored: "p$_a"},
+		{name: "tmux 3.4/$ before an underscore", field: `p\\$_a`, stored: "p$_a"},
+		{name: "tmux 3.3a/stored backslash before $", field: `p\\\${x}`, stored: `p\${x}`},
+		{name: "tmux 3.4/stored backslash before $", field: `p\\\\${x}`, stored: `p\${x}`},
+		{name: "all versions/$ before a digit", field: `p\$1`, stored: "p$1"},
+		{name: "all versions/$ before a backslash", field: `p\$\\{`, stored: `p$\{`},
+		{name: "all versions/$ before a space", field: `p\$\ x`, stored: "p$ x"},
+		{name: "all versions/two $", field: `p\$\$`, stored: "p$$"},
+		{name: "all versions/$ at the end", field: `p\$`, stored: "p$"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			line := "$1;" + tc.field + ";/tmp"
+
+			parts, id, err := getPartsFromTmuxLine(line, "$", 3)
+			if err != nil {
+				t.Fatalf("getPartsFromTmuxLine(%q) error = %v", line, err)
+			}
+			if id != 1 {
+				t.Errorf("id = %d, want 1", id)
+			}
+			if parts[1] != tc.stored {
+				t.Errorf("name = %q, want %q", parts[1], tc.stored)
+			}
+		})
+	}
+}

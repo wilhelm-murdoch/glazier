@@ -113,19 +113,10 @@ func (a *ActionSave) Run() error {
 func (a *ActionSave) resolveSession() (*tmux.Session, error) {
 	name := a.Command.String("session")
 	if name == "" {
-		current, err := a.tmux.CurrentSessionName()
-		if err != nil {
-			return nil, err
-		}
-		name = current
+		return a.tmux.CurrentSession()
 	}
 
-	session, err := a.tmux.FindSessionByName(name)
-	if err != nil {
-		return nil, err
-	}
-
-	return session, nil
+	return a.tmux.FindSessionByName(name)
 }
 
 // captureSession reads the windows and panes of the given session into the
@@ -153,12 +144,9 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 			// string verbatim as a fallback: `up` replays it via select-layout
 			// (which accepts a raw string), and glaze's layout validation
 			// accepts a well-formed coordinate string in addition to the named
-			// presets. This is a structural snapshot of geometry, not a preset
-			// guess - see the "raw layout" note in AGENTS.md.
+			// presets.
 			Layout: window.RawLayout,
-
-			// The active window is the one tmux would focus on attach.
-			Focus: window.IsActive,
+			Focus:  window.IsActive, // The active window is the one tmux would focus on attach.
 		}
 
 		panes, err := a.tmux.Panes(window)
@@ -171,9 +159,7 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 			sw.Panes = append(sw.Panes, savedPane{
 				Name:              pane.Name,
 				StartingDirectory: pane.StartingDirectory,
-
-				// The active pane is the one tmux would focus within the window.
-				Focus: pane.IsActive,
+				Focus:             pane.IsActive, // The active pane is the one tmux would focus within the window.
 			})
 		}
 
@@ -210,6 +196,7 @@ func generateProfile(session savedSession) []byte {
 		if window.Layout != "" {
 			windowBody.SetAttributeValue("layout", cty.StringVal(window.Layout))
 		}
+
 		if window.Focus {
 			windowBody.SetAttributeValue("focus", cty.BoolVal(true))
 		}
@@ -223,6 +210,7 @@ func generateProfile(session savedSession) []byte {
 			if pane.StartingDirectory != "" {
 				paneBody.SetAttributeValue("starting_directory", cty.StringVal(pane.StartingDirectory))
 			}
+
 			if pane.Focus {
 				paneBody.SetAttributeValue("focus", cty.BoolVal(true))
 			}
