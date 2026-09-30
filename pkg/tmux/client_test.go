@@ -181,6 +181,15 @@ func TestClientNewSession(t *testing.T) {
 		assert.Equal(t, "generic error message", err.Error())
 	})
 
+	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("new", fakeResult{Output: "$1;s#{x};/d#S"})
+
+		_, err := testClient().NewSession("s#{x}", "/d#S")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("new"), []string{"-s", "s##{x}", "-c", "/d##S"})
+	})
+
 	t.Run("sanitizes names tmux would rewrite so the session is findable", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("new", fakeResult{Output: "$1;my-app-1;/foo/bar"})

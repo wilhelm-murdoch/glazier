@@ -291,9 +291,9 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		"new",
 		"-d",
 		"-s",
-		fmt.Sprint(sessionName),
+		escapeFormat(sessionName),
 		"-c",
-		fmt.Sprint(startingDirectory),
+		escapeFormat(startingDirectory),
 		"-F", formatActiveSessions,
 		"-P",
 	}

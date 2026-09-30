@@ -34,13 +34,13 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 		"neww",
 		"-d",
 		"-t", s.Target(),
-		"-n", fmt.Sprint(windowName),
+		"-n", escapeFormat(windowName),
 		"-F", formatActiveWindows,
 		"-P",
 	}
 
 	if startingDirectory != "" {
-		args = append(args, "-c", startingDirectory)
+		args = append(args, "-c", escapeFormat(startingDirectory))
 	}
 
 	cmd := newCommand(s.Client, args...)

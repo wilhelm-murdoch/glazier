@@ -72,6 +72,36 @@ func undoDollarEscape(line string) string {
 	return strings.ReplaceAll(line, `\$`, "$")
 }
 
+// escapeFormat doubles each # so tmux does not expand a name, title or directory as a format.
+// tmux keeps a run of # before [ as it is, because #[ starts a style, so that run is not doubled.
+func escapeFormat(s string) string {
+	var out strings.Builder
+
+	for i := 0; i < len(s); {
+		if s[i] != '#' {
+			out.WriteByte(s[i])
+			i++
+			continue
+		}
+
+		end := i
+		for end < len(s) && s[end] == '#' {
+			end++
+		}
+
+		run := s[i:end]
+		if end < len(s) && s[end] == '[' {
+			out.WriteString(run)
+		} else {
+			out.WriteString(run + run)
+		}
+
+		i = end
+	}
+
+	return out.String()
+}
+
 func getPartsFromTmuxLine(line, prefix string, expectedLength int) ([]string, int, error) {
 	parts, err := splitTmuxLine(undoDollarEscape(line), tmuxLinePartDelimiter)
 

@@ -18,6 +18,16 @@ func TestSessionTarget(t *testing.T) {
 }
 
 func TestSessionNewWindow(t *testing.T) {
+	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("neww", fakeResult{Output: "@1;1;w#{session_name};tiled;1"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
+		_, err := testSession(testClient()).NewWindow("w#{session_name}", "/d#S")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "w##{session_name}", "-c", "/d##S"})
+	})
+
 	t.Run("successfully creates a window", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})

@@ -42,7 +42,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		"splitw",
 		"-Pd",
 		"-t", parentId,
-		"-c", startingDirectory,
+		"-c", escapeFormat(startingDirectory),
 		"-F", formatActivePanes,
 	}
 
@@ -69,7 +69,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		return pane, err
 	}
 
-	cmd = newCommand(w.Session.Client, "selectp", "-T", fmt.Sprint(name), "-t", pane.Id.String())
+	cmd = newCommand(w.Session.Client, "selectp", "-T", escapeFormat(name), "-t", pane.Id.String())
 
 	w.Session.logger.Debug(cmd.String())
 

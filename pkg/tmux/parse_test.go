@@ -348,3 +348,27 @@ func TestGetPartsFromTmuxLineDollarEscape(t *testing.T) {
 		})
 	}
 }
+
+func TestEscapeFormat(t *testing.T) {
+	tests := []struct {
+		in   string // Text that glaze passes to tmux
+		want string // The same text with every # doubled
+	}{
+		{in: "plain", want: "plain"},
+		{in: "#{session_name}", want: "##{session_name}"},
+		{in: "a#Sb", want: "a##Sb"},
+		{in: "hash#tag", want: "hash##tag"},
+		{in: "##", want: "####"},
+		{in: "", want: ""},
+		{in: "#[fg=red]x", want: "#[fg=red]x"},
+		{in: "##[x", want: "##[x"},
+		{in: "x#[y#{z}", want: "x#[y##{z}"},
+		{in: "a##b#[c", want: "a####b#[c"},
+	}
+
+	for _, tc := range tests {
+		if got := escapeFormat(tc.in); got != tc.want {
+			t.Errorf("escapeFormat(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}

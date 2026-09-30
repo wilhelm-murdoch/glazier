@@ -41,6 +41,19 @@ func TestWindowSplit(t *testing.T) {
 		assert.Subset(t, rec.ArgsFor("selectp"), []string{"-T", "shell", "-t", "%2"})
 	})
 
+	t.Run("escapes format sequences in the directory and title", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/d#S"})
+		rec.On("show", fakeResult{Output: "pane-base-index 1"})
+		rec.On("selectp", fakeResult{})
+
+		window := testWindow(testSession(testClient()))
+		_, err := window.Split("%1", "p#{pane_id}", "/d#S")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("splitw"), []string{"-c", "/d##S"})
+		assert.Subset(t, rec.ArgsFor("selectp"), []string{"-T", "p##{pane_id}"})
+	})
+
 	t.Run("propagates split command errors", func(t *testing.T) {
 		splitErr := errors.New("splitw failed")
 
