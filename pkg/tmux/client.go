@@ -59,22 +59,10 @@ func (c Client) IsRunning() bool {
 // Attach attaches to the given session. If we are inside a tmux session,
 // we switch to the given session.
 func (c *Client) Attach(session *Session) error {
-	var args []string
-
-	// Technically, you can specify both -L and -S parameters when creating
-	// a tmux client session, but the last of the two will take precedence.
-	if c.socketName != "" {
-		args = append(args, "-L", c.socketName)
-	}
-
-	if c.socketPath != "" {
-		args = append(args, "-S", c.socketPath)
-	}
-
+	// NewCommand adds the socket flags.
+	args := []string{"attach", "-t", session.Target()}
 	if os.Getenv("TMUX") != "" {
-		args = append(args, "switchc", "-t", session.Target())
-	} else {
-		args = append(args, "attach", "-t", session.Target())
+		args = []string{"switchc", "-t", session.Target()}
 	}
 
 	cmd := newCommand(*c, args...)

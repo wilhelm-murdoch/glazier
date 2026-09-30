@@ -10,31 +10,36 @@ func TestNewCommandArgs(t *testing.T) {
 	t.Run("prepends the socket name when set", func(t *testing.T) {
 		client := Client{tmuxPath: "tmux", socketName: "sock"}
 		cmd := NewCommand(client, "ls", "-F", "x")
-		assert.Equal(t, []string{"tmux", "-L", "sock", "ls", "-F", "x"}, cmd.args)
+		assert.Equal(t, []string{"tmux", "-L", "sock", "-u", "ls", "-F", "x"}, cmd.args)
 	})
 
 	t.Run("prepends the socket path when set", func(t *testing.T) {
 		client := Client{tmuxPath: "tmux", socketPath: "/tmp/tmux.sock"}
 		cmd := NewCommand(client, "ls")
-		assert.Equal(t, []string{"tmux", "-S", "/tmp/tmux.sock", "ls"}, cmd.args)
+		assert.Equal(t, []string{"tmux", "-S", "/tmp/tmux.sock", "-u", "ls"}, cmd.args)
 	})
 
 	t.Run("prefers the socket name over the socket path", func(t *testing.T) {
 		client := Client{tmuxPath: "tmux", socketName: "sock", socketPath: "/tmp/tmux.sock"}
 		cmd := NewCommand(client, "ls")
-		assert.Equal(t, []string{"tmux", "-L", "sock", "ls"}, cmd.args)
+		assert.Equal(t, []string{"tmux", "-L", "sock", "-u", "ls"}, cmd.args)
 	})
 
 	t.Run("uses only the tmux path when no socket is set", func(t *testing.T) {
 		client := Client{tmuxPath: "tmux"}
 		cmd := NewCommand(client, "info")
-		assert.Equal(t, []string{"tmux", "info"}, cmd.args)
+		assert.Equal(t, []string{"tmux", "-u", "info"}, cmd.args)
+	})
+
+	t.Run("leaves attach to the user's locale", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "tmux"}, "-L", "sock", "attach", "-t", "$1")
+		assert.Equal(t, []string{"tmux", "-L", "sock", "attach", "-t", "$1"}, cmd.args)
 	})
 }
 
 func TestCommandString(t *testing.T) {
 	cmd := NewCommand(Client{tmuxPath: "tmux", socketName: "sock"}, "ls", "-F", "x")
-	assert.Equal(t, "tmux -L sock ls -F x", cmd.String())
+	assert.Equal(t, "tmux -L sock -u ls -F x", cmd.String())
 }
 
 func TestCommandExec(t *testing.T) {
@@ -56,7 +61,7 @@ func TestCommandExecWithOutput(t *testing.T) {
 		cmd := NewCommand(Client{tmuxPath: "echo"}, "hello world")
 		out, err := cmd.ExecWithOutput()
 		assert.NoError(t, err)
-		assert.Equal(t, "hello world", out)
+		assert.Equal(t, "-u hello world", out)
 	})
 
 	t.Run("returns a wrapped error on failure", func(t *testing.T) {

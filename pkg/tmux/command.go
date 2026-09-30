@@ -49,6 +49,12 @@ type Command struct {
 
 // NewCommand returns a new command with the given arguments.
 func NewCommand(client Client, args ...string) *Command {
+	// Glaze reads output as UTF-8, so stop tmux printing non-ASCII as "_" under a non-UTF-8 locale.
+	// An attached client is the user's terminal, so its locale decides.
+	if subcommandOf(args) != "attach" {
+		args = append([]string{"-u"}, args...)
+	}
+
 	if client.socketName != "" {
 		args = append([]string{"-L", client.socketName}, args...)
 	} else if client.socketPath != "" {
@@ -63,6 +69,20 @@ func NewCommand(client Client, args ...string) *Command {
 		// entire purpose; args[0] is the resolved tmux binary path.
 		cmd: exec.Command(args[0], args[1:]...), //nolint:gosec // G204
 	}
+}
+
+// subcommandOf returns the tmux command in args, skipping any socket flags.
+func subcommandOf(args []string) string {
+	for i := 0; i < len(args); i++ {
+		if args[i] == "-L" || args[i] == "-S" {
+			i++
+			continue
+		}
+
+		return args[i]
+	}
+
+	return ""
 }
 
 // String returns the full command with arguments as a string.

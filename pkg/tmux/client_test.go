@@ -593,17 +593,14 @@ func TestClientAttach(t *testing.T) {
 		assert.False(t, rec.Called("switchc"))
 	})
 
-	t.Run("includes socket flags when configured", func(t *testing.T) {
+	t.Run("leaves the socket flags to NewCommand", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-1000/default,1,0")
 		rec := setupRecorder(t)
 		rec.On("switchc", fakeResult{})
 
 		client := Client{socketName: "sock", socketPath: "/tmp/tmux.sock", logger: discardLogger}
 		assert.NoError(t, client.Attach(testSession(client)))
-
-		args := rec.ArgsFor("switchc")
-		assert.Contains(t, args, "sock")
-		assert.Contains(t, args, "/tmp/tmux.sock")
+		assert.Equal(t, []string{"switchc", "-t", "$0"}, rec.ArgsFor("switchc"))
 	})
 
 	t.Run("wraps attach errors", func(t *testing.T) {
