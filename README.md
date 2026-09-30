@@ -281,7 +281,7 @@ session {
 
 | Attribute | Type | Notes |
 |-----------|------|-------|
-| `name` | string | session name; defaults to `default` |
+| `name` | string | session name; defaults to `default`. glaze replaces `.`, `:`, `\` and `$` with `-` and shows a warning, because tmux rewrites these characters |
 | `starting_directory` | string | must exist; defaults to CWD |
 | `hooks` | map(string) | tmux hook name > command |
 | `options` | map(string) | tmux option name > value |

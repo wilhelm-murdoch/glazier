@@ -1,11 +1,13 @@
 package actions
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/hashicorp/hcl/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
@@ -76,6 +78,41 @@ func TestActionFormatRun(t *testing.T) {
 		action := buildFormat(t, bad, map[string]string{"validate": "true"})
 
 		assert.ErrorIs(t, action.Run(), diagnostics.ErrHasDiagnostics)
+	})
+
+	t.Run("validation shows a warning and still formats the profile", func(t *testing.T) {
+		unformatted := "session {\n  name = \"a.b\"\n  window {\n  name = \"w\"\n    pane {}\n  }\n}\n"
+		action := buildFormat(t, unformatted, map[string]string{"validate": "true"})
+
+		var out bytes.Buffer
+		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
+			&out,
+			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
+			0,
+			false,
+		)
+
+		assert.NoError(t, action.Run())
+		assert.Contains(t, out.String(), "Warning: Session name will be changed")
+
+		contents, err := os.ReadFile(action.ProfilePath)
+		assert.NoError(t, err)
+		assert.Contains(t, string(contents), "    name = \"w\"")
+	})
+
+	t.Run("validation does not write warnings into --stdout output", func(t *testing.T) {
+		action := buildFormat(t, "session {\n  name = \"a.b\"\n  window {\n    pane {}\n  }\n}\n", map[string]string{"validate": "true", "stdout": "true"})
+
+		var out bytes.Buffer
+		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
+			&out,
+			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
+			0,
+			false,
+		)
+
+		assert.NoError(t, action.Run())
+		assert.Empty(t, out.String())
 	})
 
 	t.Run("validation passes for a valid profile", func(t *testing.T) {

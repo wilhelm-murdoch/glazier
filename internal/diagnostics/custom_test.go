@@ -91,6 +91,25 @@ func TestLayoutDiagnostic(t *testing.T) {
 	})
 }
 
+func TestSessionNameDiagnostic(t *testing.T) {
+	t.Run("warns when tmux would rewrite the name", func(t *testing.T) {
+		diags := SessionNameDiagnostic(cty.StringVal("a.b"))
+		if assert.Len(t, diags, 1) {
+			assert.Equal(t, hcl.DiagWarning, diags[0].Severity)
+			assert.Contains(t, diags[0].Detail, `"a-b"`)
+		}
+	})
+
+	t.Run("accepts a name tmux keeps", func(t *testing.T) {
+		assert.Empty(t, SessionNameDiagnostic(cty.StringVal("my session;1")))
+	})
+
+	t.Run("ignores null and unknown values", func(t *testing.T) {
+		assert.Empty(t, SessionNameDiagnostic(cty.NullVal(cty.String)))
+		assert.Empty(t, SessionNameDiagnostic(cty.UnknownVal(cty.String)))
+	})
+}
+
 func TestDirectoryDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")

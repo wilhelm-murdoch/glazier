@@ -1,9 +1,12 @@
 package actions
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -181,6 +184,46 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.NotNil(t, up.session)
 		assert.Equal(t, "demo", up.session.Name)
 		assert.Equal(t, tmux.SessionId(1), up.session.Id)
+	})
+
+	t.Run("sanitises a session name tmux would rewrite and warns", func(t *testing.T) {
+		up, rec := buildUp(t, strings.Replace(validProfile, `"demo"`, `"a.b\\c"`, 1), map[string]string{"detached": "true"})
+		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("new", tmuxtest.Result{Output: "$1;a-b-c;/tmp"})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.NoError(t, err)
+
+		// Every tmux call uses the sanitised name, so a second up and down
+		// find the session tmux created.
+		assert.Contains(t, rec.ArgsFor("has-session"), "=a-b-c")
+		assert.Subset(t, rec.ArgsFor("new"), []string{"-s", "a-b-c"})
+
+		assert.Contains(t, logs.String(), "level=WARN")
+		assert.Contains(t, logs.String(), `name=a.b\c`)
+		assert.Contains(t, logs.String(), "tmux_name=a-b-c")
+	})
+
+	t.Run("does not warn about a session name tmux accepts", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.NotContains(t, logs.String(), "level=WARN")
 	})
 
 	t.Run("attaches to an existing session when not detached", func(t *testing.T) {

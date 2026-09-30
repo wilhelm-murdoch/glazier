@@ -14,6 +14,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
@@ -62,6 +63,31 @@ func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnost
 			field,
 			s,
 			strings.Join(list, ", "),
+		),
+	}}
+}
+
+// SessionNameDiagnostic warns when tmux would rewrite characters in a session
+// name. glaze replaces them with hyphens before it starts tmux, so the session
+// gets a different name from the one in the profile.
+func SessionNameDiagnostic(value cty.Value) hcl.Diagnostics {
+	if value.IsNull() || !value.IsKnown() {
+		return nil
+	}
+
+	name := value.AsString()
+	sanitized := tmux.SanitizeSessionName(name)
+	if sanitized == name {
+		return nil
+	}
+
+	return hcl.Diagnostics{{
+		Severity: hcl.DiagWarning,
+		Summary:  "Session name will be changed",
+		Detail: fmt.Sprintf(
+			`tmux does not accept the characters ".", ":", "\" and "$" in a session name, so glaze replaces them with "-". The session "%s" will have the name "%s".`,
+			name,
+			sanitized,
 		),
 	}}
 }

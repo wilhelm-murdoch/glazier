@@ -200,7 +200,11 @@ func TestSanitizeSessionName(t *testing.T) {
 		"my.app":    "my-app",
 		"my:app":    "my-app",
 		"a.b:c.d":   "a-b-c-d",
+		`back\sl`:   "back-sl",
+		"p$x":       "p-x",
+		"p${x}":     "p-{x}",
 		"no_change": "no_change",
+		"semi;co n": "semi;co n",
 	} {
 		assert.Equal(t, expected, SanitizeSessionName(name))
 	}

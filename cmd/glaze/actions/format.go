@@ -35,9 +35,19 @@ func (a *ActionFormat) Run() error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
 	if a.Command.Bool("validate") {
-		if validationDiags := a.isGlazeDefinitionValid(); validationDiags != nil {
+		validationDiags := a.isGlazeDefinitionValid()
+		if validationDiags.HasErrors() {
 			a.DiagnosticsManager.Extend(validationDiags)
 			return a.DiagnosticsManager.Write()
+		}
+
+		// Warnings do not stop the format. Show them and continue. Diagnostics
+		// go to stdout, so with --stdout a warning would end up in the
+		// formatted output.
+		if len(validationDiags) > 0 && !a.Command.Bool("stdout") {
+			if err := a.DiagnosticsManager.Writer.WriteDiagnostics(validationDiags); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -72,9 +82,7 @@ func (a *ActionFormat) isGlazeDefinitionValid() hcl.Diagnostics {
 		return ctxDiags
 	}
 
-	if _, decodeDiags := a.Parser.Decode(spec.Session, ctx); decodeDiags.HasErrors() {
-		return decodeDiags
-	}
+	_, decodeDiags := a.Parser.Decode(spec.Session, ctx)
 
-	return nil
+	return ctxDiags.Extend(decodeDiags)
 }

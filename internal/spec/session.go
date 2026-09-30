@@ -3,6 +3,8 @@ package spec
 import (
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
 // Session is the hcldec specification for the *body* of a session block. The
@@ -11,7 +13,10 @@ import (
 // sibling blocks (notably `variable` declarations) are handled before this
 // point and never reach the session decode.
 var Session = &hcldec.ObjectSpec{
-	"name":               Name,
+	"name": &hcldec.ValidateSpec{
+		Wrapped: Name,
+		Func:    diagnostics.SessionNameDiagnostic,
+	},
 	"starting_directory": StartingDirectory,
 	"hooks":              Hooks,
 	"options":            Options,

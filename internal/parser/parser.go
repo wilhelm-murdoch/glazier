@@ -172,5 +172,6 @@ func (p *Parser) Decode(
 		return nil, sessionDiags
 	}
 
-	return session, nil
+	// Return the warnings from a successful decode, so callers can show them.
+	return session, diags
 }

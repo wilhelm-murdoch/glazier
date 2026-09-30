@@ -411,6 +411,14 @@ func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error)
 // detached) and false when a brand new session was created and still needs to be
 // provisioned by the caller.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
+	if name := tmux.SanitizeSessionName(profile.Name); name != profile.Name {
+		a.Logger.Warn(
+			"tmux cannot use some characters in this session name; replacing them with hyphens",
+			"name", profile.Name,
+			"tmux_name", name,
+		)
+	}
+
 	if a.Command.Bool("clear") {
 		a.Logger.Info("clearing previous session", "name", profile.Name)
 		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
