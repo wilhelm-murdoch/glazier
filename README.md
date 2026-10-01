@@ -283,6 +283,13 @@ session {
 | `options` | map(string) | A map of a tmux option name to a value. |
 | `window` | block(s) | One or more windows. At least one window is required. |
 
+tmux rewrites some characters in names. Thus Glazier replaces these characters with `-` before it starts tmux, and it shows a warning with the new name:
+
+- In a session name: `.`, `:`, `$`, a backslash and control characters, for example a tab.
+- In a window name or a pane name: a backslash and control characters.
+
+`glaze format --validate` shows the same warning with the file and the line.
+
 ### Window
 
 ```hcl

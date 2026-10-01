@@ -52,6 +52,18 @@ func TestWindowSplit(t *testing.T) {
 		assert.Equal(t, "/srv", pane.StartingDirectory)
 	})
 
+	t.Run("sanitises a backslash and control characters in the title", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
+		rec.On("show", fakeResult{Output: "pane-base-index 1"})
+		rec.On("selectp", fakeResult{})
+
+		pane, err := testWindow(testSession(testClient())).Split("%1", "p\\z\tq", "/srv")
+		require.NoError(t, err)
+		assert.Equal(t, "p-z-q", pane.Name)
+		assert.Subset(t, rec.ArgsFor("selectp"), []string{"-T", "p-z-q"})
+	})
+
 	t.Run("escapes format sequences in the directory and title", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/d#S"})

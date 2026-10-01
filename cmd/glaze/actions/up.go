@@ -189,6 +189,7 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 	for _, ws := range windows {
 		a.Logger.Info("creating new window", "name", ws.Name)
+		a.warnRename("window", ws.Name, tmux.SanitizeName(ws.Name))
 		wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
 		if err != nil {
 			return fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
@@ -263,6 +264,7 @@ func (a *ActionUp) generatePanes(
 	created := make([]*tmux.Pane, 0, len(panes))
 	target := defaultPane.Target()
 	for _, ps := range panes {
+		a.warnRename("pane", ps.Name, tmux.SanitizeName(ps.Name))
 		a.Logger.Info("splitting pane", "name", ps.Name, "from", target)
 		ptmx, err := wtmx.Split(target, ps.Name, ps.StartingDirectory)
 		if err != nil {
@@ -418,18 +420,23 @@ func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error)
 	return windows[index], nil
 }
 
+// warnRename tells the user when glaze must change a name because tmux would rewrite it.
+func (a *ActionUp) warnRename(kind, name, sanitized string) {
+	if name != sanitized {
+		a.Logger.Warn(
+			fmt.Sprintf("tmux cannot use some characters in this %s name; replacing them with hyphens", kind),
+			"name", name,
+			"tmux_name", sanitized,
+		)
+	}
+}
+
 // resolveSession resolves the tmux session for this run. It returns true when
 // the session already existed (in which case it has also attached to it, unless
 // detached) and false when a brand new session was created and still needs to be
 // provisioned by the caller.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
-	if name := tmux.SanitizeSessionName(profile.Name); name != profile.Name {
-		a.Logger.Warn(
-			"tmux cannot use some characters in this session name; replacing them with hyphens",
-			"name", profile.Name,
-			"tmux_name", name,
-		)
-	}
+	a.warnRename("session", profile.Name, tmux.SanitizeSessionName(profile.Name))
 
 	if a.Command.Bool("clear") {
 		a.Logger.Info("clearing previous session", "name", profile.Name)

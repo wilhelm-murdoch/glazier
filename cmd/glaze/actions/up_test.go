@@ -1,7 +1,9 @@
 package actions
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,6 +140,25 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	assert.Contains(t, sends[0][len(sends[0])-2], "cd /tmp ; tmux wait-for -S")
 	assert.Contains(t, sends[1][len(sends[1])-2], "htop")
 	assert.NotContains(t, sends[1][len(sends[1])-2], "wait-for")
+}
+
+func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w-z;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p-z;1;/tmp"})
+
+	window := windowWithPane(`w\z`, enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p\tz"}})
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+
+	assert.Contains(t, logs.String(), "this window name")
+	assert.Contains(t, logs.String(), "tmux_name=w-z")
+	assert.Contains(t, logs.String(), "this pane name")
+	assert.Contains(t, logs.String(), "tmux_name=p-z")
 }
 
 func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {

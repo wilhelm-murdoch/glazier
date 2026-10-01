@@ -34,7 +34,7 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 		"neww",
 		"-d",
 		"-t", s.Target(),
-		"-n", escapeFormat(windowName),
+		"-n", escapeFormat(SanitizeName(windowName)),
 		"-F", formatActiveWindows,
 		"-P",
 	}

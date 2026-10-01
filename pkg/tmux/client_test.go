@@ -214,8 +214,23 @@ func TestSanitizeSessionName(t *testing.T) {
 		"p${x}":     "p-{x}",
 		"no_change": "no_change",
 		"semi;co n": "semi;co n",
+		"tab\tx":    "tab-x",
 	} {
 		assert.Equal(t, expected, SanitizeSessionName(name))
+	}
+}
+
+func TestSanitizeName(t *testing.T) {
+	for name, expected := range map[string]string{
+		"plain":    "plain",
+		`back\sl`:  "back-sl",
+		"tab\tx":   "tab-x",
+		"del\x7fx": "del-x",
+		"a.b:c":    "a.b:c",
+		"p$x":      "p$x",
+		"ünï":      "ünï",
+	} {
+		assert.Equal(t, expected, SanitizeName(name))
 	}
 }
 

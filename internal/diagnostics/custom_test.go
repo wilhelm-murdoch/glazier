@@ -91,6 +91,21 @@ func TestLayoutDiagnostic(t *testing.T) {
 	})
 }
 
+func TestNameDiagnostic(t *testing.T) {
+	t.Run("warns when tmux would rewrite a window name", func(t *testing.T) {
+		diags := NameDiagnostic("window", cty.StringVal(`w\z`))
+		if assert.Len(t, diags, 1) {
+			assert.Equal(t, hcl.DiagWarning, diags[0].Severity)
+			assert.Equal(t, "Window name will be changed", diags[0].Summary)
+			assert.Contains(t, diags[0].Detail, `"w-z"`)
+		}
+	})
+
+	t.Run("accepts characters that only session names cannot use", func(t *testing.T) {
+		assert.Empty(t, NameDiagnostic("pane", cty.StringVal("p.$x:1")))
+	})
+}
+
 func TestSessionNameDiagnostic(t *testing.T) {
 	t.Run("warns when tmux would rewrite the name", func(t *testing.T) {
 		diags := SessionNameDiagnostic(cty.StringVal("a.b"))

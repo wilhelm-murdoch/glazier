@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
@@ -80,21 +81,24 @@ func (c *Client) Attach(session *Session) error {
 	return nil
 }
 
-// sessionNameReplacer normalises characters that tmux silently rewrites in
-// session names into hyphens. tmux swaps `.` and `:` for underscores, doubles
-// a backslash, and escapes `$` on tmux 3.2a to 3.4. A session created with one
-// of them would immediately be unfindable under the name we asked for, so a
-// second `up` fails with "duplicate session" and `down` leaves it running.
-// Replacing them up front keeps the name we use to create, look up, and kill a
-// session consistent with what tmux stores. `$` is replaced on every version so
-// that one profile gives the same session name on every machine.
-var sessionNameReplacer = strings.NewReplacer(".", "-", ":", "-", `\`, "-", "$", "-")
+// sessionNameReplacer replaces the characters that tmux rewrites only in session names.
+// `$` is replaced on every version so that one profile gives the same name everywhere.
+var sessionNameReplacer = strings.NewReplacer(".", "-", ":", "-", "$", "-")
 
-// SanitizeSessionName returns a session name safe to use with tmux, replacing
-// the characters tmux would otherwise rewrite (`.`, `:`, `\` and `$`) with
-// hyphens.
+// SanitizeName replaces each backslash and control character with a hyphen, because tmux 3.7 and later store them escaped.
+func SanitizeName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\\' || unicode.IsControl(r) {
+			return '-'
+		}
+
+		return r
+	}, name)
+}
+
+// SanitizeSessionName returns a session name that tmux stores unchanged.
 func SanitizeSessionName(sessionName string) string {
-	return sessionNameReplacer.Replace(sessionName)
+	return SanitizeName(sessionNameReplacer.Replace(sessionName))
 }
 
 // findSessionByName returns the first session with the given name, or nil.

@@ -67,25 +67,36 @@ func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnost
 	}}
 }
 
-// SessionNameDiagnostic warns when tmux would rewrite characters in a session
-// name. glaze replaces them with hyphens before it starts tmux, so the session
-// gets a different name from the one in the profile.
+// SessionNameDiagnostic warns when tmux would rewrite characters in a session name.
 func SessionNameDiagnostic(value cty.Value) hcl.Diagnostics {
+	return renamedDiagnostic("session", `".", ":", "\", "$" or a control character`, value, tmux.SanitizeSessionName)
+}
+
+// NameDiagnostic warns when tmux would rewrite characters in a window or pane name.
+func NameDiagnostic(kind string, value cty.Value) hcl.Diagnostics {
+	return renamedDiagnostic(kind, `"\" or a control character`, value, tmux.SanitizeName)
+}
+
+// renamedDiagnostic warns when sanitize changes the name, because glaze then uses a different name.
+func renamedDiagnostic(kind, chars string, value cty.Value, sanitize func(string) string) hcl.Diagnostics {
 	if value.IsNull() || !value.IsKnown() {
 		return nil
 	}
 
 	name := value.AsString()
-	sanitized := tmux.SanitizeSessionName(name)
+	sanitized := sanitize(name)
 	if sanitized == name {
 		return nil
 	}
 
 	return hcl.Diagnostics{{
 		Severity: hcl.DiagWarning,
-		Summary:  "Session name will be changed",
+		Summary:  fmt.Sprintf("%s name will be changed", strings.ToUpper(kind[:1])+kind[1:]),
 		Detail: fmt.Sprintf(
-			`tmux does not accept the characters ".", ":", "\" and "$" in a session name, so glaze replaces them with "-". The session "%s" will have the name "%s".`,
+			`tmux does not accept %s in a %s name, so glaze replaces them with "-". The %s %q will have the name %q.`,
+			chars,
+			kind,
+			kind,
 			name,
 			sanitized,
 		),

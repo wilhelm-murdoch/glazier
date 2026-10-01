@@ -18,6 +18,16 @@ func TestSessionTarget(t *testing.T) {
 }
 
 func TestSessionNewWindow(t *testing.T) {
+	t.Run("sanitises a backslash and control characters in the name", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("neww", fakeResult{Output: "@1;1;w-z-q;tiled;1"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
+		_, err := testSession(testClient()).NewWindow("w\\z\tq", "")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "w-z-q"})
+	})
+
 	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;w#{session_name};tiled;1"})

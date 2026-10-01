@@ -115,15 +115,12 @@ func TestEndToEndHostileNames(t *testing.T) {
 		_ = exec.Command("tmux", "-L", socket, "kill-server").Run() //nolint:gosec // G204
 	})
 
-	// The window and pane names have a delimiter, spaces, a backslash and $ in
-	// front of a variable name. A name must not end in ; because tmux reads a
-	// trailing ; as a command separator. The session name has no $ or backslash:
-	// tmux rewrites both in session names when it creates the session, so the
-	// name that tmux stores is not the name that glaze requested.
+	// A name must not end in ; because tmux reads a trailing ; as a command separator.
+	// TestEndToEndRewrittenNames covers the characters that glaze replaces.
 	const (
 		sessionName = `s;1 x`
-		windowName  = `w;1 $HOME \z`
-		paneName    = `p;1 ${x} \z`
+		windowName  = `w;1 $HOME`
+		paneName    = `p;1 ${x}`
 	)
 
 	session, err := client.NewSession(sessionName, t.TempDir())
@@ -170,10 +167,9 @@ func TestEndToEndHostileNames(t *testing.T) {
 	}), "pane name did not round-trip")
 }
 
-// TestEndToEndRewrittenSessionNames uses session names that tmux would rewrite
-// on creation. Each must be found and killed again by the name glaze was given,
-// which is what a second `up` and `down` do.
-func TestEndToEndRewrittenSessionNames(t *testing.T) {
+// TestEndToEndRewrittenNames uses names that tmux would rewrite. A session must be found
+// and killed again by the name glaze was given, and window and pane names come back sanitised.
+func TestEndToEndRewrittenNames(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed; skipping end-to-end test")
 	}
@@ -190,7 +186,7 @@ func TestEndToEndRewrittenSessionNames(t *testing.T) {
 		_ = exec.Command("tmux", "-L", socket, "kill-server").Run() //nolint:gosec // G204
 	})
 
-	for _, name := range []string{"a.b", "a:b", `a\b`, "p$x", "p${x}"} {
+	for _, name := range []string{"a.b", "a:b", `a\b`, "p$x", "p${x}", "tab\tx"} {
 		t.Run(name, func(t *testing.T) {
 			session, err := client.NewSession(name, t.TempDir())
 			if !assert.NoError(t, err) {
@@ -208,6 +204,40 @@ func TestEndToEndRewrittenSessionNames(t *testing.T) {
 			assert.False(t, client.HasSession(name), "session still running after kill")
 		})
 	}
+
+	session, err := client.NewSession("names", t.TempDir())
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	window, err := session.NewWindow("w\\z\tq", "")
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "w-z-q", window.Name)
+
+	windows, err := client.Windows(session)
+	assert.NoError(t, err)
+	assert.True(t, slices.ContainsFunc(windows, func(w *Window) bool {
+		return w.Name == "w-z-q"
+	}), "sanitised window name did not round-trip")
+
+	defaultPane, err := firstPaneOf(client, window)
+	if !assert.NoError(t, err) {
+		return
+	}
+
+	pane, err := window.Split(defaultPane.Target(), "p\\z\tq", "")
+	if !assert.NoError(t, err) {
+		return
+	}
+	assert.Equal(t, "p-z-q", pane.Name)
+
+	panes, err := client.Panes(window)
+	assert.NoError(t, err)
+	assert.True(t, slices.ContainsFunc(panes, func(p *Pane) bool {
+		return p.Name == "p-z-q"
+	}), "sanitised pane title did not round-trip")
 }
 
 // TestEndToEndNonASCIINamesUnderCLocale reads non-ASCII names back while the

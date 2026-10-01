@@ -128,12 +128,13 @@ session {
   }
 }
 EOF
+  # glaze replaces a backslash in a pane name with -, because tmux 3.7 and later store it escaped.
   up; rc0 "up with escape-worthy names"
-  eq "window name literal" 'q"uote' "$(wnames esc)"; eq "pane names literal" '${dollar},%{pct},back\slash' "$(ptitles =esc:)"
+  eq "window name literal" 'q"uote' "$(wnames esc)"; eq "pane names literal" '${dollar},%{pct},back-slash' "$(ptitles =esc:)"
   gz save --session esc --profile-path s.glaze --socket-name "$SOCK"; rc0 "save escape-worthy names"
   cp s.glaze "$OUT_DIR/logs/saved_escaping.glaze"
   down; up --profile-path s.glaze; rc0 "up from saved escaped profile"
-  eq "escaped window name round-trips" 'q"uote' "$(wnames esc)"; eq "escaped pane names round-trip" '${dollar},%{pct},back\slash' "$(ptitles =esc:)"
+  eq "escaped window name round-trips" 'q"uote' "$(wnames esc)"; eq "escaped pane names round-trip" '${dollar},%{pct},back-slash' "$(ptitles =esc:)"
   end
 
   begin save_titles_changed

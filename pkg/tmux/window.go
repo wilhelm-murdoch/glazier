@@ -38,6 +38,8 @@ func (w Window) Target() string {
 func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) {
 	var pane *Pane
 
+	name = SanitizeName(name)
+
 	args := []string{
 		"splitw",
 		"-Pd",
