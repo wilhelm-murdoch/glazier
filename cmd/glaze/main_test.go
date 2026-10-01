@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -24,6 +25,8 @@ func TestExitCode(t *testing.T) {
 	}{
 		{"no error", nil, exitOK},
 		{"a tmux command fails", errors.New("could not set option"), exitFailure},
+		{"a tmux command exits non-zero", fmt.Errorf("could not set option: %w", tmux.NewCommandErrorWithOutput([]string{"tmux"}, exec.Command("false").Run(), "bad value: maybe")), exitFailure},
+		{"tmux exits non-zero and is unreachable", fmt.Errorf("%w: %w", tmux.ErrUnreachable, tmux.NewCommandErrorWithOutput([]string{"tmux"}, exec.Command("false").Run(), "Permission denied")), exitUnreachable},
 		{"a usage error", fmt.Errorf("%w: unknown flag", errUsage), exitUsage},
 		{"an invalid profile", fmt.Errorf("could not decode: %w", diagnostics.ErrHasDiagnostics), exitInvalidProfile},
 		{"a missing profile", fmt.Errorf("%w: `x.glaze`", files.ErrProfileNotFound), exitInvalidProfile},
@@ -49,7 +52,8 @@ func TestRun(t *testing.T) {
 		stderr string
 	}{
 		{"unknown flag", []string{"up", "--nope"}, exitUsage, "see `glaze up --help`"},
-		{"unknown subcommand", []string{"nope"}, exitUsage, "nope"},
+		{"unknown subcommand", []string{"nope"}, exitUsage, "unknown command `nope`"},
+		{"no arguments shows the help", nil, exitOK, ""},
 		{"malformed --var", []string{"format", "--var", "nokey", "--profile-path", bad}, exitUsage, "key=value"},
 		{"unknown log level", []string{"--log-level", "loud", "format"}, exitUsage, "loud"},
 		{"missing profile", []string{"format", "--profile-path", filepath.Join(dir, "missing.glaze")}, exitInvalidProfile, "glaze profile not found"},

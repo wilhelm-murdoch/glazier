@@ -26,13 +26,10 @@ var errUsage = errors.New("usage error")
 
 // exitCode returns the exit code for the error that a command returned.
 func exitCode(err error) int {
-	var exitCoder cli.ExitCoder
-
 	switch {
 	case err == nil:
 		return exitOK
-	case errors.Is(err, errUsage), errors.As(err, &exitCoder):
-		// The CLI library returns an ExitCoder only for an unknown command.
+	case errors.Is(err, errUsage):
 		return exitUsage
 	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound):
 		return exitInvalidProfile
@@ -41,6 +38,16 @@ func exitCode(err error) int {
 	default:
 		return exitFailure
 	}
+}
+
+// rootAction shows the help, or returns a usage error for an unknown command.
+// The CLI library reports an unknown command with an ExitCoder, which a failed tmux command also unwraps to.
+func rootAction(_ context.Context, cmd *cli.Command) error {
+	if cmd.Args().Present() {
+		return fmt.Errorf("%w: unknown command `%s` (see `glaze --help`)", errUsage, cmd.Args().First())
+	}
+
+	return cli.ShowRootCommandHelp(cmd)
 }
 
 // usageError marks err as a usage error. The CLI library calls it for a flag or an argument that it cannot parse.

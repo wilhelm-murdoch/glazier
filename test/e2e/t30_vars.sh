@@ -308,7 +308,23 @@ t_down() {
 
 t_ls() {
   begin ls_no_server
-  gz ls --socket-name "$SOCK"; info "ls with no server" "rc=$RC out=[$OUT] err=[$ERR]"; end
+  gz ls --socket-name "$SOCK"; rc0 "ls with no server"
+  eq "ls with no server prints nothing" "" "$OUT"
+  match "ls with no server says so on stderr" 'no tmux server is running' "$ERR"; end
+
+  # nobody cannot open root's socket directory, which gives tmux "Permission denied".
+  local sub
+  for sub in ls down up; do
+    begin "${sub}_unreachable"
+    simple unr; tm new-session -d -s unr; chmod 755 "$WD"
+    [[ $sub == ls ]] && r su -s /bin/sh nobody -c "$G ls --socket-path /tmp/tmux-0/$SOCK"
+    [[ $sub == down ]] && r su -s /bin/sh nobody -c "$G down --session unr --socket-path /tmp/tmux-0/$SOCK --profile-path $WD/.glaze"
+    [[ $sub == up ]] && r su -s /bin/sh nobody -c "$G up --detached --socket-path /tmp/tmux-0/$SOCK --profile-path $WD/.glaze"
+    eq "$sub exits 4 when tmux is unreachable" 4 "$RC"
+    match "$sub names the cause" 'Permission denied' "$ERR"
+    exists "$sub leaves the session alone" unr
+    end
+  done
 
   begin ls_sessions
   mkdir -p a "b dir"; tm new-session -d -s alpha -c "$WD/a"; tm neww -t =alpha:; tm new-session -d -s "beta two" -c "$WD/b dir"

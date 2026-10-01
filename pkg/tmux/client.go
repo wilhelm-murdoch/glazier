@@ -42,22 +42,37 @@ func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, err
 	}, nil
 }
 
-// IsRunning returns true if the local tmux server is currently running. It uses
-// `list-sessions` rather than `server-info` (`info`): the latter requires an
-// attached client and exits non-zero with "no current client" when a server is
-// running but only has detached sessions (e.g. in CI), which is a false
-// negative. `list-sessions` talks to the server without needing a client and
-// exits 0 whenever the server is up.
-func (c Client) IsRunning() bool {
+// IsRunning reports whether a tmux server runs on the socket; `server-info` would need an attached client, so it uses `list-sessions`.
+// An error means that glaze cannot reach the server, which is not the same as no server.
+func (c Client) IsRunning() (bool, error) {
 	cmd := newCommand(c, "list-sessions")
 
 	c.logger.Debug(cmd.String())
 
-	if exitStatus := cmd.ExecWithStatus(); exitStatus == 0 {
-		return true
+	if _, err := cmd.ExecWithOutput(); err != nil {
+		return false, lookupFailure(err)
 	}
 
-	return false
+	return true, nil
+}
+
+// absentOutputs are the messages with which tmux says that the server or the session does not exist.
+// A missing socket file and a missing socket directory both give "No such file or directory".
+var absentOutputs = []string{"can't find session", "no server running on", "(No such file or directory)"}
+
+// lookupFailure returns nil when err only says that the server or the session does not exist.
+// Any other failure, for example a socket without permission, means that glaze cannot reach tmux.
+func lookupFailure(err error) error {
+	var withOutput CommandErrorWithOutput
+	if errors.As(err, &withOutput) {
+		for _, output := range absentOutputs {
+			if strings.Contains(withOutput.Output, output) {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("%w: %w", ErrUnreachable, err)
 }
 
 // Attach attaches to the given session. If we are inside a tmux session,
@@ -334,19 +349,18 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	return nil, fmt.Errorf(`session "%s" not found`, sessionName)
 }
 
-// HasSession returns true if a session with the given name exists. Performs an attempt
-// at an exact match by prepending the given sanitized session name with "=" otherwise
-// tmux will attempt to match on prefix.
-func (c Client) HasSession(sessionName string) bool {
+// HasSession returns true if a session with exactly the given name exists; "=" stops tmux matching a prefix.
+// An error means that glaze cannot reach the server, so it cannot know whether the session exists.
+func (c Client) HasSession(sessionName string) (bool, error) {
 	cmd := newCommand(c, "has-session", "-t", fmt.Sprintf(`=%s`, SanitizeSessionName(sessionName)))
 
 	c.logger.Debug(cmd.String())
 
-	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
-		return false
+	if _, err := cmd.ExecWithOutput(); err != nil {
+		return false, lookupFailure(err)
 	}
 
-	return true
+	return true, nil
 }
 
 // CurrentSession returns the session attached to the current client.

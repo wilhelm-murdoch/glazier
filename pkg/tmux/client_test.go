@@ -126,31 +126,34 @@ func TestClientNew(t *testing.T) {
 	})
 }
 
+// lookupCases are the tmux results that decide between a session or server that exists, one that does not and one that glaze cannot reach.
+var lookupCases = []struct {
+	name        string
+	result      fakeResult
+	exists      bool
+	unreachable bool
+}{
+	{name: "exists", result: fakeResult{}, exists: true},
+	{name: "session missing", result: tmuxFailure("can't find session: demos")},
+	{name: "no socket file", result: tmuxFailure("error connecting to /tmp/tmux-1000/default (No such file or directory)")},
+	{name: "stale socket", result: tmuxFailure("no server running on /tmp/tmux-1000/default")},
+	{name: "permission denied", result: tmuxFailure("error connecting to /tmp/tmux-0/default (Permission denied)"), unreachable: true},
+	{name: "tmux cannot run", result: fakeResult{Err: errors.New("fork/exec /usr/bin/tmux: exec format error")}, unreachable: true},
+}
+
 func TestClientIsRunning(t *testing.T) {
-	testCases := []struct {
-		name           string
-		exitStatus     int
-		expectedResult bool
-	}{
-		{
-			name:           "simulate tmux server is running",
-			exitStatus:     0,
-			expectedResult: true,
-		},
-		{
-			name:           "simulate tmux server has stopped",
-			exitStatus:     1,
-			expectedResult: false,
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, c := range lookupCases {
+		t.Run(c.name, func(t *testing.T) {
 			rec := setupRecorder(t)
-			rec.On("list-sessions", fakeResult{Status: testCase.exitStatus})
+			rec.On("list-sessions", c.result)
 
-			assert.Equal(t, testClient().IsRunning(), testCase.expectedResult)
-			assert.True(t, rec.Called("list-sessions"))
+			running, err := testClient().IsRunning()
+			assert.Equal(t, c.exists, running)
+			if c.unreachable {
+				assert.ErrorIs(t, err, ErrUnreachable)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
@@ -280,24 +283,20 @@ func TestClientFindSessionByName(t *testing.T) {
 }
 
 func TestClientHasSession(t *testing.T) {
-	testCases := []struct {
-		name       string
-		exitStatus int
-		expected   bool
-	}{
-		{name: "session exists", exitStatus: 0, expected: true},
-		{name: "session missing", exitStatus: 1, expected: false},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
+	for _, c := range lookupCases {
+		t.Run(c.name, func(t *testing.T) {
 			rec := setupRecorder(t)
-			rec.On("has-session", fakeResult{Status: testCase.exitStatus})
+			rec.On("has-session", c.result)
 
-			assert.Equal(t, testCase.expected, testClient().HasSession("demos"))
+			exists, err := testClient().HasSession("demos")
+			assert.Equal(t, c.exists, exists)
+			if c.unreachable {
+				assert.ErrorIs(t, err, ErrUnreachable)
+			} else {
+				assert.NoError(t, err)
+			}
 
-			args := rec.ArgsFor("has-session")
-			assert.Contains(t, args, "=demos")
+			assert.Contains(t, rec.ArgsFor("has-session"), "=demos")
 		})
 	}
 }

@@ -136,6 +136,7 @@ func newApp() *cli.Command {
 		// glaze picks the exit code itself, so the CLI library must not exit the process.
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		OnUsageError:   usageError,
+		Action:         rootAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",

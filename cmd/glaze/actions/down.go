@@ -63,7 +63,12 @@ func (a *ActionDown) Run() error {
 		return err
 	}
 
-	if !a.tmux.HasSession(name) {
+	exists, err := a.tmux.HasSession(name)
+	if err != nil {
+		return fmt.Errorf("could not check for session `%s`: %w", name, err)
+	}
+
+	if !exists {
 		a.Logger.Info("nothing to do; session is not running", "session", name)
 		return nil
 	}

@@ -171,7 +171,7 @@ func TestActionUpLoadProfile(t *testing.T) {
 func TestActionUpResolveSession(t *testing.T) {
 	t.Run("creates a new session when none exists", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		profile, err := up.loadProfile()
@@ -186,9 +186,21 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.Equal(t, tmux.SessionId(1), up.session.Id)
 	})
 
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		rec.On("has-session", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.ErrorIs(t, err, tmux.ErrUnreachable)
+		assert.False(t, rec.Called("new"))
+	})
+
 	t.Run("sanitises a session name tmux would rewrite and warns", func(t *testing.T) {
 		up, rec := buildUp(t, strings.Replace(validProfile, `"demo"`, `"a.b\\c"`, 1), map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;a-b-c;/tmp"})
 
 		var logs bytes.Buffer
@@ -212,7 +224,7 @@ func TestActionUpResolveSession(t *testing.T) {
 
 	t.Run("does not warn about a session name tmux accepts", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		var logs bytes.Buffer
@@ -229,7 +241,7 @@ func TestActionUpResolveSession(t *testing.T) {
 	t.Run("attaches to an existing session when not detached", func(t *testing.T) {
 		t.Setenv("TMUX", "")
 		up, rec := buildUp(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("attach", tmuxtest.Result{})
 
@@ -245,7 +257,7 @@ func TestActionUpResolveSession(t *testing.T) {
 
 	t.Run("finds existing session without attaching when detached", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		profile, err := up.loadProfile()
@@ -260,7 +272,7 @@ func TestActionUpResolveSession(t *testing.T) {
 
 	t.Run("kills the previous session when --clear is set", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		profile, err := up.loadProfile()
@@ -273,7 +285,7 @@ func TestActionUpResolveSession(t *testing.T) {
 
 	t.Run("errors when an existing session cannot be found", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;other;/tmp"})
 
 		profile, err := up.loadProfile()
@@ -288,7 +300,7 @@ func TestActionUpResolveSession(t *testing.T) {
 func TestActionUpRun(t *testing.T) {
 	t.Run("provisions a brand new detached session end to end", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
@@ -310,7 +322,7 @@ func TestActionUpRun(t *testing.T) {
 
 	t.Run("returns early without provisioning when already attached", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("attach", tmuxtest.Result{})
 
@@ -323,7 +335,7 @@ func TestActionUpRun(t *testing.T) {
 
 	t.Run("leaves a detached existing session untouched", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
 		assert.NoError(t, up.Run())

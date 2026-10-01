@@ -92,15 +92,3 @@ func TestCommandExecWithOutput(t *testing.T) {
 		assert.IsType(t, CommandErrorWithOutput{}, err)
 	})
 }
-
-func TestCommandExecWithStatus(t *testing.T) {
-	t.Run("returns zero on success", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "true"})
-		assert.Equal(t, 0, cmd.ExecWithStatus())
-	})
-
-	t.Run("returns non-zero on failure", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "false"})
-		assert.Equal(t, 1, cmd.ExecWithStatus())
-	})
-}

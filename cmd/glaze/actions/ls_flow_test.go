@@ -3,11 +3,14 @@ package actions
 import (
 	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
@@ -51,7 +54,7 @@ func TestActionLsRun(t *testing.T) {
 	t.Run("renders a table of sessions with window counts", func(t *testing.T) {
 		t.Setenv("TMUX", "")
 		ls, rec, out := buildLs(t)
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;gig-watson;/home/v"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1\n@2;2;logs;tiled;0"})
 		rec.On("lsw", tmuxtest.Result{Output: "@3;1;main;tiled;1"})
@@ -74,7 +77,7 @@ func TestActionLsRun(t *testing.T) {
 	t.Run("marks the attached session when run inside tmux", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
 		ls, rec, out := buildLs(t)
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
 		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
@@ -88,19 +91,31 @@ func TestActionLsRun(t *testing.T) {
 		assert.NotRegexp(t, `demo\*`, out.String())
 	})
 
-	t.Run("errors when no tmux server is running", func(t *testing.T) {
-		ls, rec, _ := buildLs(t)
-		rec.On("list-sessions", tmuxtest.Result{Status: 1})
+	t.Run("prints nothing and succeeds when no tmux server is running", func(t *testing.T) {
+		ls, rec, out := buildLs(t)
+		rec.On("list-sessions", tmuxtest.Failure("no server running on /tmp/tmux-1000/default"))
 
-		err := ls.Run()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no running tmux server")
+		var logs bytes.Buffer
+		ls.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		assert.NoError(t, ls.Run())
+		assert.Empty(t, out.String())
+		assert.Contains(t, logs.String(), "no tmux server is running")
+		assert.False(t, rec.Called("ls"))
+	})
+
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		ls, rec, out := buildLs(t)
+		rec.On("list-sessions", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
+
+		assert.ErrorIs(t, ls.Run(), tmux.ErrUnreachable)
+		assert.Empty(t, out.String())
 	})
 
 	t.Run("propagates window listing failures", func(t *testing.T) {
 		t.Setenv("TMUX", "")
 		ls, rec, _ := buildLs(t)
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Err: assert.AnError})
 
@@ -112,7 +127,7 @@ func TestActionLsRun(t *testing.T) {
 	t.Run("errors when the current session cannot be determined", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
 		ls, rec, out := buildLs(t)
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("display-message", tmuxtest.Result{Err: assert.AnError})
 

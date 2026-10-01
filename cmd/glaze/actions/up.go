@@ -516,7 +516,12 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 		}
 	}
 
-	if a.tmux.HasSession(profile.Name) {
+	exists, err := a.tmux.HasSession(profile.Name)
+	if err != nil {
+		return false, fmt.Errorf("could not check for session `%s`: %w", profile.Name, err)
+	}
+
+	if exists {
 		session, err := a.tmux.FindSessionByName(profile.Name)
 		if err != nil {
 			return true, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)

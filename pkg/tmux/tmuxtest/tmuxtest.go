@@ -5,6 +5,7 @@
 package tmuxtest
 
 import (
+	"errors"
 	"strings"
 	"sync"
 	"testing"
@@ -16,10 +17,14 @@ import (
 type Result struct {
 	Output string
 	Err    error
-	Status int
 
 	// OnExec runs before the command returns, so a test can block a command or react to it.
 	OnExec func()
+}
+
+// Failure returns the result of a tmux command that fails and prints output, for example "can't find session: x".
+func Failure(output string) Result {
+	return Result{Err: tmux.NewCommandErrorWithOutput([]string{"tmux"}, errors.New("exit status 1"), output)}
 }
 
 // command is a programmable tmux.Commander representing one tmux invocation.
@@ -40,11 +45,6 @@ func (c *command) Exec() error {
 func (c *command) ExecWithOutput() (string, error) {
 	c.run()
 	return c.result.Output, c.result.Err
-}
-
-func (c *command) ExecWithStatus() int {
-	c.run()
-	return c.result.Status
 }
 
 func (c *command) ExecWithInput(input string) error {

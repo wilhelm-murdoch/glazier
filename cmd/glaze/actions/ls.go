@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -51,8 +50,15 @@ func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
 // and starting directory. The session the current client is attached to, if
 // any, is marked with an asterisk.
 func (a *ActionLs) Run() error {
-	if !a.tmux.IsRunning() {
-		return errors.New("no running tmux server found")
+	running, err := a.tmux.IsRunning()
+	if err != nil {
+		return err
+	}
+
+	// No server means no sessions, so stdout stays empty for a script that reads it.
+	if !running {
+		a.Logger.Info("no tmux server is running")
+		return nil
 	}
 
 	sessions, err := a.tmux.Sessions()

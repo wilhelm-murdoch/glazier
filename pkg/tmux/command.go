@@ -1,7 +1,6 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -16,7 +15,6 @@ type Commander interface {
 	Exec() error
 	ExecWithOutput() (string, error)
 	ExecWithInput(input string) error
-	ExecWithStatus() int
 }
 
 var (
@@ -132,16 +130,6 @@ func (c *Command) Exec() error {
 	}
 
 	return nil
-}
-
-// ExecWithStatus executes the command and attempts to return its exit status.
-func (c Command) ExecWithStatus() int {
-	err := c.cmd.Run()
-	if err != nil && !errors.Is(err, CommandError{}) {
-		return 1
-	}
-
-	return returnExitStatusFromError(err)
 }
 
 // ExecWithOutput executes the command and returns the output as a string.

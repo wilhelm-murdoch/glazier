@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -68,8 +69,13 @@ func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
 // Run captures the state of a running tmux session and writes it to a glaze
 // profile, either on disk or to stdout.
 func (a *ActionSave) Run() error {
-	if !a.tmux.IsRunning() {
-		return fmt.Errorf("no running tmux server found")
+	running, err := a.tmux.IsRunning()
+	if err != nil {
+		return err
+	}
+
+	if !running {
+		return errors.New("no tmux server is running, so there is no session to save")
 	}
 
 	a.Logger.Warn("this feature is currently EXPERIMENTAL and is limited to exporting structural layouts ONLY")

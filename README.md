@@ -138,11 +138,11 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success. |
+| `0` | Success. `ls` with no tmux server and `down` for a session that does not run also succeed. |
 | `1` | A tmux command failed, for example because tmux rejected an option value. |
 | `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
 | `3` | The profile has errors, or Glazier cannot find the profile. |
-| `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH`. |
+| `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH` or the socket does not give access. Glazier does not treat this as "no server". |
 
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
@@ -186,7 +186,7 @@ $ glaze down --session daemon-run   # kill by name; no profile is required
 
 ### `glaze ls`
 
-List the sessions on the target tmux server with window counts and starting directories. When you run the command inside tmux, Glazier marks the attached session with an asterisk.
+List the sessions on the target tmux server with window counts and starting directories. When you run the command inside tmux, Glazier marks the attached session with an asterisk. When no tmux server runs, `ls` writes nothing to stdout and exits with code `0`.
 
 ```console
 $ glaze ls

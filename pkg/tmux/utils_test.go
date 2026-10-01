@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"errors"
 	"io"
 	"log/slog"
 	"strings"
@@ -37,11 +38,6 @@ func (m *MockCommander) ExecWithOutput() (string, error) {
 func (m *MockCommander) ExecWithInput(input string) error {
 	args := m.Called(input)
 	return args.Error(0)
-}
-
-func (m *MockCommander) ExecWithStatus() int {
-	args := m.Called()
-	return args.Int(0)
 }
 
 func (m *MockCommander) String() string {
@@ -97,10 +93,14 @@ func setupTestDeps(t *testing.T) *TestDepsBase {
 type fakeResult struct {
 	Output string
 	Err    error
-	Status int
 
 	// OnExec runs before the command returns, so a test can block a command or react to it.
 	OnExec func()
+}
+
+// tmuxFailure returns the result of a tmux command that fails and prints output.
+func tmuxFailure(output string) fakeResult {
+	return fakeResult{Err: NewCommandErrorWithOutput([]string{"tmux"}, errors.New("exit status 1"), output)}
 }
 
 // fakeCommand is a programmable Commander representing one tmux invocation.
@@ -134,11 +134,6 @@ func (f *fakeCommand) ExecWithInput(input string) error {
 
 	f.run()
 	return f.result.Err
-}
-
-func (f *fakeCommand) ExecWithStatus() int {
-	f.run()
-	return f.result.Status
 }
 
 func (f *fakeCommand) run() {
