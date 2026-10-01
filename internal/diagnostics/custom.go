@@ -1,10 +1,7 @@
 package diagnostics
 
 import (
-	"errors"
 	"fmt"
-	"io/fs"
-	"math/big"
 	"os"
 	"regexp"
 	"slices"
@@ -18,53 +15,31 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-// ContainsDiagnostic is responsible for checking if a value is present in a given list and returning a diagnostic if not.
-func ContainsDiagnostic(field string, value cty.Value, list []string) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
-	if !value.IsNull() && !slices.Contains(list, value.AsString()) {
-		return hcl.Diagnostics{{
-			Severity: hcl.DiagError,
-			Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-			Detail: fmt.Sprintf(
-				`The %s value of "%s" is not supported among: %s.`,
-				field,
-				value.AsString(),
-				strings.Join(list, ", "),
-			),
-		}}
-	}
-
-	return out
-}
-
-// LayoutDiagnostic validates a window layout. A layout is valid when it is
-// either one of the named presets in list OR a structurally valid tmux layout
-// coordinate string (e.g. "bb62,80x24,0,0"), which `save` captures verbatim
-// from a live window as a fallback when no named preset applies. Anything else
-// fails hard so a malformed value is caught before it reaches tmux.
-func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
-	if value.IsNull() {
-		return out
-	}
-
-	s := value.AsString()
-	if slices.Contains(list, s) || enums.IsLayoutString(s) {
-		return out
-	}
-
+// Invalid returns the error for a field value that glaze does not accept.
+func Invalid(field, detail string, args ...any) hcl.Diagnostics {
 	return hcl.Diagnostics{{
 		Severity: hcl.DiagError,
-		Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-		Detail: fmt.Sprintf(
-			`The %s value of "%s" is not a supported preset (%s) nor a valid tmux layout string.`,
-			field,
-			s,
-			strings.Join(list, ", "),
-		),
+		Summary:  fmt.Sprintf("Invalid %s specified", field),
+		Detail:   fmt.Sprintf(detail, args...),
 	}}
+}
+
+// ContainsDiagnostic rejects a value that is not in list.
+func ContainsDiagnostic(field string, value cty.Value, list []string) hcl.Diagnostics {
+	if value.IsNull() || slices.Contains(list, value.AsString()) {
+		return nil
+	}
+
+	return Invalid(field, `The %s value of "%s" is not supported among: %s.`, field, value.AsString(), strings.Join(list, ", "))
+}
+
+// LayoutDiagnostic accepts a named preset from list or a raw tmux layout string, which `save` writes when no preset matches.
+func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnostics {
+	if value.IsNull() || slices.Contains(list, value.AsString()) || enums.IsLayoutString(value.AsString()) {
+		return nil
+	}
+
+	return Invalid(field, `The %s value of "%s" is not a supported preset (%s) nor a valid tmux layout string.`, field, value.AsString(), strings.Join(list, ", "))
 }
 
 // SessionNameDiagnostic warns when tmux would rewrite characters in a session name.
@@ -103,79 +78,27 @@ func renamedDiagnostic(kind, chars string, value cty.Value, sanitize func(string
 	}}
 }
 
-// DirectoryDiagnostic is responsible for checking if a given value is a valid directory and returning a diagnostic if not.
+// DirectoryDiagnostic rejects a path that does not exist or is not a directory.
 func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
-	if !value.IsNull() {
-		fileInfo, err := os.Stat(files.ExpandPath(value.AsString()))
-		if err != nil || errors.Is(err, fs.ErrNotExist) || !fileInfo.IsDir() {
-			return hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-				Detail: fmt.Sprintf(
-					`The %s of "%s" does not exist or is not a directory.`,
-					field,
-					value.AsString(),
-				),
-			}}
-		}
-	}
-
-	return out
-}
-
-// WrongSizeDiagnostic is used to determine whether a size value resolves to either a positive integer or a valid percentage string.
-func WrongSizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
 	if value.IsNull() {
 		return nil
 	}
 
-	switch value.Type() {
-	case cty.Number:
-		f := value.AsBigFloat()
-		i, acc := f.Int64()
-
-		if acc != big.Exact || i <= 0 {
-			out = out.Append(&hcl.Diagnostic{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-				Detail: fmt.Sprintf(
-					`The %s value "%s" should be a positive integer.`,
-					field,
-					f.String(),
-				),
-			})
-		}
-	case cty.String:
-		matched, _ := regexp.MatchString(
-			`^(\d+)\s*%$|^(\d+)$`,
-			value.AsString(),
-		)
-
-		if !matched {
-			out = out.Append(&hcl.Diagnostic{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-				Detail: fmt.Sprintf(
-					`The %s value "%s" should be a valid percentage.`,
-					field,
-					value.AsString(),
-				),
-			})
-		}
-	default:
-		out = out.Append(&hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-			Detail: fmt.Sprintf(
-				`The %s value must be an integer or percentage.`,
-				field,
-			),
-		})
+	if info, err := os.Stat(files.ExpandPath(value.AsString())); err == nil && info.IsDir() {
+		return nil
 	}
 
-	return out
+	return Invalid(field, `The %s of "%s" does not exist or is not a directory.`, field, value.AsString())
+}
+
+// sizePattern matches a size in cells, for example "20", or as a percentage, for example "25%".
+var sizePattern = regexp.MustCompile(`^(\d+)\s*%$|^(\d+)$`)
+
+// WrongSizeDiagnostic rejects a size that is not a number of cells or a percentage. The spec makes every size a string.
+func WrongSizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+	if value.IsNull() || sizePattern.MatchString(value.AsString()) {
+		return nil
+	}
+
+	return Invalid(field, `The %s value "%s" should be a number of cells or a percentage, for example 20 or 25%%.`, field, value.AsString())
 }

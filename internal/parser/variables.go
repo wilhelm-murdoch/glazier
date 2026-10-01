@@ -2,7 +2,6 @@ package parser
 
 import (
 	"fmt"
-	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,11 +24,16 @@ func collectBaseVariables() (map[string]cty.Value, error) {
 
 	out["env"] = cty.ObjectVal(collectEnvVariables(os.Environ(), EnvVariablePrefix))
 
-	defaults, err := addDefaultVariables()
+	pwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not read current working directory: %w", err)
 	}
-	maps.Copy(out, defaults)
+
+	// path.pwd is the working directory and path.base is its last element.
+	out["path"] = cty.ObjectVal(map[string]cty.Value{
+		"base": cty.StringVal(filepath.Base(pwd)),
+		"pwd":  cty.StringVal(pwd),
+	})
 
 	return out, nil
 }
@@ -52,24 +56,6 @@ func collectEnvVariables(envs []string, prefix string) map[string]cty.Value {
 	}
 
 	return out
-}
-
-// addDefaultVariables appends the built-in path object: path.pwd (the
-// working directory) and path.base (its basename).
-func addDefaultVariables() (map[string]cty.Value, error) {
-	out := make(map[string]cty.Value)
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("could not read current working directory: %w", err)
-	}
-
-	out["path"] = cty.ObjectVal(map[string]cty.Value{
-		"base": cty.StringVal(filepath.Base(pwd)),
-		"pwd":  cty.StringVal(pwd),
-	})
-
-	return out, nil
 }
 
 // VariableContext builds the evaluation context for a profile, namespace by

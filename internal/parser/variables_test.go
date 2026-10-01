@@ -39,8 +39,8 @@ func TestCollectFlagVariables(t *testing.T) {
 	assert.Equal(t, cty.StringVal("a=b"), out["token"])
 }
 
-func TestAddDefaultVariables(t *testing.T) {
-	out, err := addDefaultVariables()
+func TestCollectBaseVariablesPath(t *testing.T) {
+	out, err := collectBaseVariables()
 	assert.NoError(t, err)
 
 	path, ok := out["path"]

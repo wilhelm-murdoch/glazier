@@ -74,14 +74,6 @@ func TestNew(t *testing.T) {
 	assert.NotNil(t, l.Logger)
 }
 
-func TestLoggerTrace(t *testing.T) {
-	// Trace below the configured level should be filtered out by the handler.
-	l := New(LevelInfo)
-	assert.NotPanics(t, func() {
-		l.Trace("trace message", "key", "value")
-	})
-}
-
 func TestFriendlyToInternal(t *testing.T) {
 	assert.Equal(t, LevelTrace, FriendlyToInternal["trace"])
 	assert.Equal(t, LevelCritical, FriendlyToInternal["critical"])

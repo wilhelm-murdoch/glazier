@@ -8,41 +8,38 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 )
 
+// Parser holds a parsed profile.
 type Parser struct {
-	File   *hcl.File
-	parser *hclparse.Parser
+	File *hcl.File
 }
 
-// New is responsible for creating a new Parser and parsing the specified HCL file.
+// New parses the profile at path.
 func New(path string) (*Parser, hcl.Diagnostics) {
-	parser := hclparse.NewParser()
-	file, diags := parser.ParseHCLFile(path)
-
-	if diags.HasErrors() {
-		return nil, diags
-	}
-
-	return &Parser{
-		File:   file,
-		parser: parser,
-	}, nil
+	return newParser(hclparse.NewParser().ParseHCLFile(path))
 }
 
-// NewFromBytes parses an in-memory HCL profile. The filename only labels
-// diagnostics; nothing is read from disk. This is the entry point the fuzz
-// tests use, which would otherwise have to write a file per generated input.
+// NewFromBytes parses a profile in memory, for the fuzz tests. The filename only labels the diagnostics.
 func NewFromBytes(src []byte, filename string) (*Parser, hcl.Diagnostics) {
-	parser := hclparse.NewParser()
-	file, diags := parser.ParseHCL(src, filename)
+	return newParser(hclparse.NewParser().ParseHCL(src, filename))
+}
 
+// newParser returns a parser for file, or the diagnostics when the file has syntax errors.
+func newParser(file *hcl.File, diags hcl.Diagnostics) (*Parser, hcl.Diagnostics) {
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	return &Parser{
-		File:   file,
-		parser: parser,
-	}, nil
+	return &Parser{File: file}, nil
+}
+
+// missingSession returns the error for a profile without a session block.
+func (p *Parser) missingSession() *hcl.Diagnostic {
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Missing session block",
+		Detail:   "A block of type \"session\" is required here.",
+		Subject:  p.File.Body.MissingItemRange().Ptr(),
+	}
 }
 
 // DecodeSessionName evaluates only the session block's `name` attribute. Unlike
@@ -59,34 +56,26 @@ func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostic
 		return "", diags
 	}
 
-	for _, block := range content.Blocks {
-		if block.Type != "session" {
-			continue
-		}
-
-		attrs, _, attrDiags := block.Body.PartialContent(&hcl.BodySchema{
-			Attributes: []hcl.AttributeSchema{{Name: "name", Required: true}},
-		})
-		diags = append(diags, attrDiags...)
-		if diags.HasErrors() {
-			return "", diags
-		}
-
-		value, valueDiags := attrs.Attributes["name"].Expr.Value(ctx)
-		diags = append(diags, valueDiags...)
-		if diags.HasErrors() {
-			return "", diags
-		}
-
-		return value.AsString(), diags
+	if len(content.Blocks) == 0 {
+		return "", append(diags, p.missingSession())
 	}
 
-	return "", append(diags, &hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "Missing session block",
-		Detail:   "A block of type \"session\" is required here.",
-		Subject:  p.File.Body.MissingItemRange().Ptr(),
+	// The schema has only the session block, so the first block is the session.
+	attrs, _, attrDiags := content.Blocks[0].Body.PartialContent(&hcl.BodySchema{
+		Attributes: []hcl.AttributeSchema{{Name: "name", Required: true}},
 	})
+	diags = append(diags, attrDiags...)
+	if diags.HasErrors() {
+		return "", diags
+	}
+
+	value, valueDiags := attrs.Attributes["name"].Expr.Value(ctx)
+	diags = append(diags, valueDiags...)
+	if diags.HasErrors() {
+		return "", diags
+	}
+
+	return value.AsString(), diags
 }
 
 // topLevelSchema describes everything allowed at the root of a profile: the
@@ -131,12 +120,7 @@ func (p *Parser) sessionBlock() (*hcl.Block, hcl.Diagnostics) {
 	}
 
 	if session == nil {
-		return nil, hcl.Diagnostics{{
-			Severity: hcl.DiagError,
-			Summary:  "Missing session block",
-			Detail:   "A block of type \"session\" is required here.",
-			Subject:  p.File.Body.MissingItemRange().Ptr(),
-		}}
+		return nil, hcl.Diagnostics{p.missingSession()}
 	}
 
 	return session, nil
@@ -167,11 +151,6 @@ func (p *Parser) Decode(
 		panic("glaze definition invalid")
 	}
 
-	session := decoders.NewSession(decodedSpec)
-	if sessionDiags := session.Decode(); sessionDiags.HasErrors() {
-		return nil, sessionDiags
-	}
-
 	// Return the warnings from a successful decode, so callers can show them.
-	return session, diags
+	return decoders.NewSession(decodedSpec), diags
 }

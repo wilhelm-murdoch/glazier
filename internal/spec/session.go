@@ -21,10 +21,7 @@ var Session = &hcldec.ObjectSpec{
 	"hooks":              Hooks,
 	"options":            Options,
 	"windows":            Window,
-	"commands": &hcldec.AttrSpec{
-		Name: "commands",
-		Type: cty.List(cty.String),
-	},
+	"commands":           Commands,
 	"envs": &hcldec.AttrSpec{
 		Name: "envs",
 		Type: cty.Map(cty.String),

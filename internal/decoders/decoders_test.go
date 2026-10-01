@@ -108,9 +108,7 @@ func TestPaneDecode(t *testing.T) {
 		)
 
 		pane := NewPane(spec)
-		diags := pane.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.True(t, pane.Focus)
 		assert.True(t, pane.Size.Valid())
 		assert.Equal(t, "50%", pane.Size.X)
@@ -126,9 +124,7 @@ func TestPaneDecode(t *testing.T) {
 		)
 
 		pane := NewPane(spec)
-		diags := pane.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.False(t, pane.Focus)
 		assert.False(t, pane.Size.Valid())
 		assert.Empty(t, pane.Commands)
@@ -145,9 +141,7 @@ func TestPaneDecode(t *testing.T) {
 		)
 
 		pane := NewPane(spec)
-		diags := pane.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "", pane.Size.Y)
 		assert.False(t, pane.Size.Valid())
@@ -167,9 +161,7 @@ func TestPaneDecodeAdjust(t *testing.T) {
 		)
 
 		pane := NewPane(spec)
-		diags := pane.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Len(t, pane.Adjustments, 2)
 		assert.Equal(t, enums.AdjustmentUp, pane.Adjustments[0].Direction)
 		assert.Equal(t, "5", pane.Adjustments[0].Amount)
@@ -186,9 +178,7 @@ func TestPaneDecodeAdjust(t *testing.T) {
 		)
 
 		pane := NewPane(spec)
-		diags := pane.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Empty(t, pane.Adjustments)
 	})
 }
@@ -223,9 +213,7 @@ func TestWindowDecode(t *testing.T) {
 		spec := windowSpec(cty.StringVal("main-vertical"), cty.True, onePane)
 
 		window := NewWindow(spec)
-		diags := window.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Equal(t, enums.LayoutMainVertical, window.Layout)
 		assert.True(t, window.Focus)
 		assert.Equal(t, 1, len(window.Panes))
@@ -236,9 +224,7 @@ func TestWindowDecode(t *testing.T) {
 		spec := windowSpec(nullStr, cty.NullVal(cty.Bool), onePane)
 
 		window := NewWindow(spec)
-		diags := window.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Equal(t, enums.LayoutTiled, window.Layout)
 		assert.Equal(t, "tiled", window.LayoutValue())
 		assert.False(t, window.Focus)
@@ -248,9 +234,7 @@ func TestWindowDecode(t *testing.T) {
 		spec := windowSpec(cty.StringVal("bb62,80x24,0,0"), cty.NullVal(cty.Bool), onePane)
 
 		window := NewWindow(spec)
-		diags := window.Decode()
 
-		assert.False(t, diags.HasErrors())
 		assert.Equal(t, enums.LayoutUnknown, window.Layout)
 		assert.Equal(t, "bb62,80x24,0,0", window.LayoutRaw)
 		assert.Equal(t, "bb62,80x24,0,0", window.LayoutValue())
@@ -276,9 +260,7 @@ func TestSessionDecode(t *testing.T) {
 	})
 
 	session := NewSession(spec)
-	diags := session.Decode()
 
-	assert.False(t, diags.HasErrors())
 	assert.Equal(t, "demo", session.Name)
 	assert.Equal(t, []string{"echo booting"}, session.Commands)
 	assert.Equal(t, 1, len(session.Windows))

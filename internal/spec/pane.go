@@ -13,70 +13,30 @@ var Pane = &hcldec.BlockListSpec{
 	TypeName: "pane",
 	MinItems: 1,
 	Nested: &hcldec.ObjectSpec{
-		"name": &hcldec.ValidateSpec{
-			Wrapped: Name,
-			Func: func(value cty.Value) hcl.Diagnostics {
-				return diagnostics.NameDiagnostic("pane", value)
-			},
-		},
+		"name":               nameSpec("pane"),
 		"starting_directory": StartingDirectory,
 		"hooks":              Hooks,
 		"options":            Options,
-		"focus": &hcldec.AttrSpec{
-			Name: "focus",
-			Type: cty.Bool,
-		},
+		"focus":              Focus,
+		"commands":           Commands,
 		"size": &hcldec.ValidateSpec{
 			Wrapped: &hcldec.BlockSpec{
 				TypeName: "size",
 				Nested: hcldec.ObjectSpec{
-					"x": &hcldec.ValidateSpec{
-						Wrapped: &hcldec.AttrSpec{
-							Name: "x",
-							Type: cty.String,
-						},
-						Func: func(value cty.Value) hcl.Diagnostics {
-							return diagnostics.WrongSizeDiagnostic(
-								"x",
-								value,
-							)
-						},
-					},
-					"y": &hcldec.ValidateSpec{
-						Wrapped: &hcldec.AttrSpec{
-							Name: "y",
-							Type: cty.String,
-						},
-						Func: func(value cty.Value) hcl.Diagnostics {
-							return diagnostics.WrongSizeDiagnostic(
-								"y",
-								value,
-							)
-						},
-					},
+					"x": sizeSpec("x", false),
+					"y": sizeSpec("y", false),
 				},
 			},
 			Func: func(value cty.Value) hcl.Diagnostics {
-				var out hcl.Diagnostics
-				if value.IsNull() {
-					return out
+				if value.IsNull() || !value.GetAttr("x").IsNull() || !value.GetAttr("y").IsNull() {
+					return nil
 				}
 
-				x := value.GetAttr("x")
-				y := value.GetAttr("y")
-				if x.IsNull() && y.IsNull() {
-					return hcl.Diagnostics{{
-						Severity: hcl.DiagError,
-						Summary:  "Invalid size specified",
-						Detail:   "A size block must have a valid `x` and or `y` attribute.",
-					}}
-				}
-				return out
+				return diagnostics.Invalid("size", "A size block must have a valid `x` and or `y` attribute.")
 			},
 		},
 		"adjust": &hcldec.BlockListSpec{
 			TypeName: "adjust",
-			MinItems: 0,
 			MaxItems: 4,
 			Nested: hcldec.ObjectSpec{
 				"direction": &hcldec.ValidateSpec{
@@ -86,31 +46,11 @@ var Pane = &hcldec.BlockListSpec{
 						Required: true,
 					},
 					Func: func(value cty.Value) hcl.Diagnostics {
-						return diagnostics.ContainsDiagnostic(
-							"direction",
-							value,
-							enums.AdjustmentList,
-						)
+						return diagnostics.ContainsDiagnostic("direction", value, enums.AdjustmentList)
 					},
 				},
-				"amount": &hcldec.ValidateSpec{
-					Wrapped: &hcldec.AttrSpec{
-						Name:     "amount",
-						Type:     cty.String,
-						Required: true,
-					},
-					Func: func(value cty.Value) hcl.Diagnostics {
-						return diagnostics.WrongSizeDiagnostic(
-							"amount",
-							value,
-						)
-					},
-				},
+				"amount": sizeSpec("amount", true),
 			},
-		},
-		"commands": &hcldec.AttrSpec{
-			Name: "commands",
-			Type: cty.List(cty.String),
 		},
 	},
 }
