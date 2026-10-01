@@ -11,7 +11,7 @@ import (
 
 type TestDepsClient struct {
 	*TestDepsBase
-	Client *Client
+	Client Client
 }
 
 func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
@@ -115,7 +115,7 @@ func TestClientNew(t *testing.T) {
 		client, err := NewClient(testSocketPath, testSocketPath, discardLogger)
 
 		assert.ErrorIs(t, err, ErrUnreachable)
-		assert.Nil(t, client)
+		assert.Equal(t, Client{}, client)
 	})
 
 	t.Run("successfully finds tmux executable", func(t *testing.T) {

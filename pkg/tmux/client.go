@@ -26,13 +26,13 @@ type Client struct {
 }
 
 // NewClient returns a client for the server on socketPath or socketName, or on the default socket when both are empty.
-func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, error) {
+func NewClient(socketPath, socketName string, logger *slog.Logger) (Client, error) {
 	resolvedTmuxPath, err := exec.LookPath(defaultTmuxExecutablePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: tmux is not installed or not on PATH", ErrUnreachable)
+		return Client{}, fmt.Errorf("%w: tmux is not installed or not on PATH", ErrUnreachable)
 	}
 
-	return &Client{
+	return Client{
 		socketPath: socketPath,
 		socketName: socketName,
 		logger:     logger,

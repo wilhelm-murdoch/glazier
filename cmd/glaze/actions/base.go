@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"github.com/hashicorp/hcl/v2"
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
@@ -9,6 +10,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/parser"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
 // ActionBase is a type that will be ultimately embedded within other action types in
@@ -31,47 +33,51 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 
 	parser, parserDiags := parser.New(profilePath)
 	if parserDiags.HasErrors() {
-		diagsManager := diagnostics.New(profilePath, nil)
-		diagsManager.Extend(parserDiags)
-		return nil, diagsManager.Write()
+		return nil, diagnostics.New(profilePath, nil).Report(parserDiags)
 	}
 
-	diagsManager := diagnostics.New(profilePath, parser.File)
-	if diagsManager.HasErrors() {
-		return nil, diagsManager.Write()
-	}
+	return &ActionBase{
+		Command:            cmd,
+		DiagnosticsManager: diagnostics.New(profilePath, parser.File),
+		Parser:             parser,
+		ProfilePath:        profilePath,
+		Logger:             newLogger(cmd, logLevel),
+	}, nil
+}
 
+// newLogger returns the logger at logLevel, or at debug level when --debug is set.
+func newLogger(cmd *cli.Command, logLevel string) *logger.Logger {
 	level := logger.FriendlyToInternal[logLevel]
-
 	if cmd.Bool("debug") && level > logger.LevelDebug {
 		level = logger.LevelDebug
 	}
 
-	log := logger.New(level)
-
-	return &ActionBase{
-		Command:            cmd,
-		DiagnosticsManager: diagsManager,
-		Parser:             parser,
-		ProfilePath:        profilePath,
-		Logger:             log,
-	}, nil
+	return logger.New(level)
 }
 
-// loadProfile resolves the profile's variables and decodes its HCL definition.
-// Every declared variable must resolve (requireAll), since `up` provisions the
-// whole session tree and any unresolved interpolation would surface mid-build.
-func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
-	ctx, ctxDiags := ba.Parser.VariableContext(ba.Command.StringSlice("var"), ba.Command.String("var-file"), true)
-	if ctxDiags.HasErrors() {
-		ba.DiagnosticsManager.Extend(ctxDiags)
-		return nil, ba.DiagnosticsManager.Write()
+// newTmuxClient returns a client for the tmux server on --socket-path or --socket-name.
+func newTmuxClient(cmd *cli.Command, log *logger.Logger) (tmux.Client, error) {
+	return tmux.NewClient(cmd.String("socket-path"), cmd.String("socket-name"), log.Logger)
+}
+
+// decodeProfile resolves every declared variable and decodes the profile, returning all diagnostics.
+// Every variable must resolve, because `up` builds the whole session and an unresolved one would fail mid-build.
+func (ba *ActionBase) decodeProfile() (*decoders.Session, hcl.Diagnostics) {
+	ctx, diags := ba.Parser.VariableContext(ba.Command.StringSlice("var"), ba.Command.String("var-file"), true)
+	if diags.HasErrors() {
+		return nil, diags
 	}
 
 	profile, decodeDiags := ba.Parser.Decode(spec.Session, ctx)
-	if decodeDiags.HasErrors() {
-		ba.DiagnosticsManager.Extend(decodeDiags)
-		return nil, ba.DiagnosticsManager.Write()
+
+	return profile, diags.Extend(decodeDiags)
+}
+
+// loadProfile decodes the profile, and writes the diagnostics when there is an error.
+func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
+	profile, diags := ba.decodeProfile()
+	if diags.HasErrors() {
+		return nil, ba.DiagnosticsManager.Report(diags)
 	}
 
 	return profile, nil

@@ -34,10 +34,7 @@ func (dm *DiagnosticsManager) Append(diag *hcl.Diagnostic) {
 	dm.Diagnostics = dm.Diagnostics.Append(diag)
 }
 
-// Write is responsible for writing the diagnostics to the DiagnosticWriter.
-// When the accumulated set contains error-level diagnostics, the rendered
-// diagnostics are returned as an error so callers can halt execution. A nil
-// error is only returned when there are no error-level diagnostics.
+// Write writes every diagnostic and returns ErrHasDiagnostics when there is an error, so the caller stops.
 func (dm *DiagnosticsManager) Write() error {
 	if writeErr := dm.Writer.WriteDiagnostics(dm.Diagnostics); writeErr != nil {
 		return writeErr
@@ -62,4 +59,10 @@ func New(filePath string, file *hcl.File) *DiagnosticsManager {
 			true,
 		),
 	}
+}
+
+// Report adds diags and writes every diagnostic, returning ErrHasDiagnostics when there is an error.
+func (dm *DiagnosticsManager) Report(diags hcl.Diagnostics) error {
+	dm.Extend(diags)
+	return dm.Write()
 }

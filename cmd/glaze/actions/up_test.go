@@ -348,8 +348,8 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 			}
 		}
 		assert.Equal(t, []string{"history-limit", "status"}, sessionOptions)
-		assert.Contains(t, logs.String(), "not only to this window")
-		assert.Contains(t, logs.String(), "not only to this pane")
+		assert.Contains(t, logs.String(), "declared_on=\"window `w`\"")
+		assert.Contains(t, logs.String(), "declared_on=\"pane `p` in window `w`\"")
 	})
 }
 

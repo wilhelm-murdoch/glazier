@@ -1,14 +1,13 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
-
-	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
 // ActionFormat is a struct that represents a Glazier "action".
@@ -31,14 +30,13 @@ func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
 
 // Run is a method that reformats the given glaze definition file to match a canonical
 // format and style, ensuring consistency.
-func (a *ActionFormat) Run() error {
+func (a *ActionFormat) Run(_ context.Context) error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 
 	if a.Command.Bool("validate") {
-		validationDiags := a.isGlazeDefinitionValid()
+		_, validationDiags := a.decodeProfile()
 		if validationDiags.HasErrors() {
-			a.DiagnosticsManager.Extend(validationDiags)
-			return a.DiagnosticsManager.Write()
+			return a.DiagnosticsManager.Report(validationDiags)
 		}
 
 		// Warnings do not stop the format. Show them and continue.
@@ -68,19 +66,4 @@ func (a *ActionFormat) Run() error {
 	}
 
 	return nil
-}
-
-// isGlazeDefinitionValid checks if the given glaze definition file and any
-// variable flags yield a valid result when run through the parser. Validation
-// is strict (requireAll): a declared variable with no default and no --var
-// value is reported, the same as it would be on `up`.
-func (a *ActionFormat) isGlazeDefinitionValid() hcl.Diagnostics {
-	ctx, ctxDiags := a.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), true)
-	if ctxDiags.HasErrors() {
-		return ctxDiags
-	}
-
-	_, decodeDiags := a.Parser.Decode(spec.Session, ctx)
-
-	return ctxDiags.Extend(decodeDiags)
 }

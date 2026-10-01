@@ -42,20 +42,16 @@ type savedSession struct {
 type ActionSave struct {
 	Command *cli.Command
 	Logger  *logger.Logger
-	tmux    *tmux.Client
+	tmux    tmux.Client
 }
 
 // NewSave is responsible for creating a new ActionSave struct value. Unlike the
 // other actions, save writes a profile rather than reading one, so it does not
 // resolve or parse an existing profile file.
 func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
-	log := logger.New(logger.FriendlyToInternal[logLevel])
+	log := newLogger(cmd, logLevel)
 
-	tmuxClient, err := tmux.NewClient(
-		cmd.String("socket-path"),
-		cmd.String("socket-name"),
-		log.Logger,
-	)
+	tmuxClient, err := newTmuxClient(cmd, log)
 	if err != nil {
 		return nil, err
 	}
@@ -70,8 +66,7 @@ func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
 // Run captures the state of a running tmux session and writes it to a glaze
 // profile, either on disk or to stdout.
 func (a *ActionSave) Run(ctx context.Context) error {
-	client := a.tmux.WithContext(ctx)
-	a.tmux = &client
+	a.tmux = a.tmux.WithContext(ctx)
 
 	running, err := a.tmux.IsRunning()
 	if err != nil {

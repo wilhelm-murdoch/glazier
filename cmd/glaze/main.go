@@ -143,6 +143,24 @@ func cancelOnSignal(cancel context.CancelCauseFunc) (stop func()) {
 	}
 }
 
+// action is a glaze subcommand, built from the flags and then run.
+type action interface {
+	Run(ctx context.Context) error
+}
+
+// actionFor returns the CLI action that builds a subcommand with build and runs it.
+// logLevel is a pointer, because the global flag is parsed after newApp returns.
+func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string) cli.ActionFunc {
+	return func(ctx context.Context, cmd *cli.Command) error {
+		a, err := build(cmd, *logLevel)
+		if err != nil {
+			return err
+		}
+
+		return a.Run(ctx)
+	}
+}
+
 // newApp returns the glaze command with all of its subcommands.
 func newApp() *cli.Command {
 	var logLevel string
@@ -213,14 +231,7 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewUp(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewUp, &logLevel),
 			},
 			{
 				Name:  "down",
@@ -232,27 +243,13 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewDown(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewDown, &logLevel),
 			},
 			{
-				Name:  "ls",
-				Usage: "list the sessions running on the target tmux server",
-				Flags: socketFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewLs(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Name:   "ls",
+				Usage:  "list the sessions running on the target tmux server",
+				Flags:  socketFlags(),
+				Action: actionFor(actions.NewLs, &logLevel),
 			},
 			{
 				Name:  "format",
@@ -268,14 +265,7 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewFormat(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run()
-				},
+				Action: actionFor(actions.NewFormat, &logLevel),
 			},
 			{
 				Name:  "save",
@@ -294,14 +284,7 @@ func newApp() *cli.Command {
 						Usage: "writes the saved glaze output to your terminal instead of a file",
 					},
 				}, socketFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewSave(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewSave, &logLevel),
 			},
 		},
 	}

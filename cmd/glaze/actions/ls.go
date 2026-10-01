@@ -17,7 +17,7 @@ import (
 type ActionLs struct {
 	Command *cli.Command
 	Logger  *logger.Logger
-	tmux    *tmux.Client
+	tmux    tmux.Client
 
 	// out receives the rendered table; it defaults to stdout and exists so
 	// tests can capture the output.
@@ -28,13 +28,9 @@ type ActionLs struct {
 // ls only inspects the running tmux server, so it does not resolve or parse
 // a profile file.
 func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
-	log := logger.New(logger.FriendlyToInternal[logLevel])
+	log := newLogger(cmd, logLevel)
 
-	tmuxClient, err := tmux.NewClient(
-		cmd.String("socket-path"),
-		cmd.String("socket-name"),
-		log.Logger,
-	)
+	tmuxClient, err := newTmuxClient(cmd, log)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +47,7 @@ func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
 // and starting directory. The session the current client is attached to, if
 // any, is marked with an asterisk.
 func (a *ActionLs) Run(ctx context.Context) error {
-	client := a.tmux.WithContext(ctx)
-	a.tmux = &client
+	a.tmux = a.tmux.WithContext(ctx)
 
 	running, err := a.tmux.IsRunning()
 	if err != nil {

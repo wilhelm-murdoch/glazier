@@ -520,7 +520,7 @@ func TestEndToEndUnreachableServer(t *testing.T) {
 }
 
 // hasSession reports whether the session exists and fails the test when tmux cannot answer.
-func hasSession(t *testing.T, client *Client, name string) bool {
+func hasSession(t *testing.T, client Client, name string) bool {
 	t.Helper()
 
 	exists, err := client.HasSession(name)
@@ -530,7 +530,7 @@ func hasSession(t *testing.T, client *Client, name string) bool {
 }
 
 // firstPaneOf returns the pane that tmux created with the window, which has the lowest id.
-func firstPaneOf(client *Client, window *Window) (*Pane, error) {
+func firstPaneOf(client Client, window *Window) (*Pane, error) {
 	panes, err := client.Panes(window)
 	if err != nil {
 		return nil, err
