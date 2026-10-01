@@ -41,6 +41,17 @@ func TestWindowSplit(t *testing.T) {
 		assert.Subset(t, rec.ArgsFor("selectp"), []string{"-T", "shell", "-t", "%2"})
 	})
 
+	t.Run("uses the requested directory when tmux reports none", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;"})
+		rec.On("show", fakeResult{Output: "pane-base-index 1"})
+		rec.On("selectp", fakeResult{})
+
+		pane, err := testWindow(testSession(testClient())).Split("%1", "shell", "/srv")
+		require.NoError(t, err)
+		assert.Equal(t, "/srv", pane.StartingDirectory)
+	})
+
 	t.Run("escapes format sequences in the directory and title", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/d#S"})

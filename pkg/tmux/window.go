@@ -69,6 +69,11 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		return pane, err
 	}
 
+	// tmux can report an empty path for a pane that has only just started.
+	if pane.StartingDirectory == "" {
+		pane.StartingDirectory = startingDirectory
+	}
+
 	cmd = newCommand(w.Session.Client, "selectp", "-T", escapeFormat(name), "-t", pane.Id.String())
 
 	w.Session.logger.Debug(cmd.String())

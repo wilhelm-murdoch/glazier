@@ -317,7 +317,9 @@ func TestEndToEndFormatSequencesInNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
-	assert.Equal(t, resolvedDir, pane.StartingDirectory)
+	splitDir, err := filepath.EvalSymlinks(pane.StartingDirectory)
+	assert.NoError(t, err)
+	assert.Equal(t, resolvedDir, splitDir)
 
 	panes, err := client.Panes(window)
 	assert.NoError(t, err)
