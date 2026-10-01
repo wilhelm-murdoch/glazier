@@ -14,11 +14,7 @@ import (
 // under the env.* namespace: GLAZE_ENV_district=... becomes env.district.
 const EnvVariablePrefix = "GLAZE_ENV_"
 
-// collectBaseVariables returns the always-available top-level variables: the
-// `env` object holding any GLAZE_ENV_* entries (with the prefix stripped) and
-// the built-in `path` object. Each lives in its own namespace, mirroring how
-// declared variables are exposed under `var` and locals under `local`;
-// nothing sits bare at the root.
+// collectBaseVariables returns the env object (GLAZE_ENV_* without the prefix) and the path object.
 func collectBaseVariables() (map[string]cty.Value, error) {
 	out := make(map[string]cty.Value)
 
@@ -58,15 +54,8 @@ func collectEnvVariables(envs []string, prefix string) map[string]cty.Value {
 	return out
 }
 
-// VariableContext builds the evaluation context for a profile, namespace by
-// namespace: the built-ins (env.*, path.*), the declared `var` object
-// resolved from the --var flags and --var-file, and finally the `local`
-// object last, so locals can reference everything before them. requireAll
-// enforces that every declared variable (and local) resolves; `down` passes
-// false because it evaluates only the session name and must not demand
-// variables used solely deeper in the profile. The returned context is
-// always usable even when diagnostics contain errors, so callers can render
-// the full set before deciding to halt.
+// VariableContext builds the evaluation context: env and path, then var from --var and --var-file, then local.
+// requireAll is false for `down`. The context is usable even with errors, so callers can show every diagnostic.
 func (p *Parser) VariableContext(flags []string, varFile string, requireAll bool) (*hcl.EvalContext, hcl.Diagnostics) {
 	base, err := collectBaseVariables()
 	if err != nil {

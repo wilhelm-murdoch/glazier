@@ -13,8 +13,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-// ActionBase is a type that will be ultimately embedded within other action types in
-// an effort to deduplicate common fields and methods.
+// ActionBase holds what the actions that read a profile share.
 type ActionBase struct {
 	Command            *cli.Command
 	DiagnosticsManager *diagnostics.DiagnosticsManager
@@ -23,8 +22,7 @@ type ActionBase struct {
 	Logger             *logger.Logger
 }
 
-// NewActionBase is responsible for creating a new ActionBase struct value, resolving
-// the profile path, and initializing the diagnostics manager and parser.
+// NewActionBase finds and parses the profile, and returns the diagnostics as an error when the profile has syntax errors.
 func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
 	if err != nil {

@@ -64,9 +64,7 @@ func TestCollectBaseVariables(t *testing.T) {
 	_, hasPath := out["path"]
 	assert.True(t, hasPath)
 
-	// --var values are deliberately not collected here; they are resolved
-	// against their variable blocks and merged under the `var` namespace by
-	// VariableContext, never as bare top-level names.
+	// --var values are not collected here. VariableContext resolves them against their variable blocks under `var`.
 	_, hasVar := out["var"]
 	assert.False(t, hasVar)
 }

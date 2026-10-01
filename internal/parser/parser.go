@@ -42,12 +42,8 @@ func (p *Parser) missingSession() *hcl.Diagnostic {
 	}
 }
 
-// DecodeSessionName evaluates only the session block's `name` attribute. Unlike
-// Decode it never touches the window/pane tree, so a profile that interpolates
-// variables deeper down (e.g. inside a pane command) can still be torn down by
-// `glaze down` without supplying every one of those variables. Only the
-// variables referenced by `name` itself must resolve. This keeps interpolated
-// session names working while sparing `down` the full evaluation that `up` needs.
+// DecodeSessionName evaluates only the `name` of the session block, for `down`.
+// A variable that only windows and panes use then needs no value.
 func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostics) {
 	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{{Type: "session"}},
@@ -78,11 +74,7 @@ func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostic
 	return value.AsString(), diags
 }
 
-// topLevelSchema describes everything allowed at the root of a profile: the
-// single session block and any number of variable declarations. Decoding the
-// root against this exact schema keeps the parser strict (a stray top-level
-// attribute or misspelled block is still an error) while letting `variable`
-// blocks sit alongside the session.
+// topLevelSchema allows one session block and any variable and locals blocks at the root, and rejects anything else.
 var topLevelSchema = &hcl.BodySchema{
 	Blocks: []hcl.BlockHeaderSchema{
 		{Type: "session"},
@@ -91,10 +83,7 @@ var topLevelSchema = &hcl.BodySchema{
 	},
 }
 
-// sessionBlock extracts the single required session block from the profile
-// root. Pulling it out by hand (rather than letting hcldec decode the whole
-// file) is what lets sibling `variable` blocks coexist with the session: they
-// are declared in the schema and simply ignored here.
+// sessionBlock returns the single session block, so that variable and locals blocks can sit beside it.
 func (p *Parser) sessionBlock() (*hcl.Block, hcl.Diagnostics) {
 	content, diags := p.File.Body.Content(topLevelSchema)
 	if diags.HasErrors() {
@@ -126,10 +115,7 @@ func (p *Parser) sessionBlock() (*hcl.Block, hcl.Diagnostics) {
 	return session, nil
 }
 
-// Decode is responsible for decoding the HCL file into a session.Session
-// struct. The bodySpec describes the session block's body (see spec.Session);
-// the session block itself is located here so that any top-level `variable`
-// declarations are tolerated rather than rejected as unexpected blocks.
+// Decode decodes the session block with bodySpec, the spec for the body of the block (see spec.Session).
 func (p *Parser) Decode(
 	bodySpec hcldec.Spec,
 	ctx *hcl.EvalContext,

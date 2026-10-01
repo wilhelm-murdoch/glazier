@@ -95,10 +95,8 @@ func TestEndToEndProvisioning(t *testing.T) {
 	assert.False(t, hasSession(t, client, "e2e"))
 }
 
-// TestEndToEndHostileNames creates a session, window and pane with names that
-// tmux escapes in -F output and reads each name back. It guards the q: formats
-// and the splitter against the tmux version under test. tmux 3.4 escapes a $
-// that starts a variable name a second time, so run it on 3.4 as well.
+// TestEndToEndHostileNames reads back session, window and pane names that tmux escapes in -F output, to test q: and the splitter.
+// tmux 3.4 escapes a $ that starts a variable name a second time, so run it on 3.4 too.
 func TestEndToEndHostileNames(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed; skipping end-to-end test")

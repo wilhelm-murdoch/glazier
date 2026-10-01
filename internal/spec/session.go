@@ -7,11 +7,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
-// Session is the hcldec specification for the *body* of a session block. The
-// parser locates the single session block itself and decodes its body against
-// this spec, which is why there is no enclosing BlockSpec here: top-level
-// sibling blocks (notably `variable` declarations) are handled before this
-// point and never reach the session decode.
+// Session is the spec for the body of the session block. The parser finds the block itself, so variable blocks never reach it.
 var Session = &hcldec.ObjectSpec{
 	"name": &hcldec.ValidateSpec{
 		Wrapped: Name,

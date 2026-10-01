@@ -124,17 +124,13 @@ func TestGenerateProfileEmitsFocus(t *testing.T) {
 
 	output := string(generateProfile(captured))
 
-	// Both the active window and active pane should emit a `focus` attribute
-	// set to true, and the idle pane should not. hclwrite aligns the `=`, so
-	// match on `= true` rather than exact spacing.
+	// The active window and the active pane get `focus = true` and the idle pane does not. hclwrite aligns `=`, so match `= true`.
 	assert.Equal(t, 2, strings.Count(output, "= true"))
 	assert.NotContains(t, output, "= false")
 }
 
-// TestGenerateProfileWithoutLayoutValidates guards the original failure mode:
-// captureSession cannot recover a window's layout, so it omits the attribute.
-// A profile with no layout must still decode cleanly (an earlier "unknown"
-// placeholder broke `format --validate`).
+// TestGenerateProfileWithoutLayoutValidates checks that a profile with no layout decodes.
+// An earlier "unknown" placeholder broke `format --validate`.
 func TestGenerateProfileWithoutLayoutValidates(t *testing.T) {
 	captured := savedSession{
 		Name: "demo",

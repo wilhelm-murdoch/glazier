@@ -15,7 +15,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-// ActionUp is a struct that represents a Glazier "action".
+// ActionUp creates and provisions the session of a profile.
 type ActionUp struct {
 	ActionBase
 	tmux    tmux.Client
@@ -34,9 +34,7 @@ type ActionUp struct {
 	commandTimeout time.Duration
 }
 
-// NewUp is responsible for creating a new ActionFormat struct value pre-populated
-// with fields that are common across all other action structs as well as a tmux
-// client.
+// NewUp returns the up action, with the profile parsed and a tmux client.
 func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
@@ -70,10 +68,7 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		return err
 	}
 
-	// A pre-existing session is left untouched: resolveSession has already
-	// attached to it when not detached. Re-provisioning would duplicate
-	// windows and panes, so rebuilding an existing session is opt-in via
-	// --clear (which kills it first, so it is treated as new here).
+	// An existing session stays as it is, and resolveSession has attached to it. `--clear` kills it first to rebuild it.
 	if existed {
 		return nil
 	}
@@ -414,7 +409,7 @@ func (a *ActionUp) runCommands(kind, name, target string, commands []string) err
 	return err
 }
 
-// getDefaultPane is responsible for retrieving the default pane for a given tmux window.
+// getDefaultPane returns the pane that tmux creates with the window, which has the lowest id.
 func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 	panes, err := a.tmux.Panes(window)
 	if err != nil {
@@ -478,10 +473,8 @@ func (a *ActionUp) warnRename(kind, name, sanitized string) {
 	}
 }
 
-// resolveSession resolves the tmux session for this run. It returns true when
-// the session already existed (in which case it has also attached to it, unless
-// detached) and false when a brand new session was created and still needs to be
-// provisioned by the caller.
+// resolveSession returns true for a session that already runs, after it attaches to it unless --detached is set.
+// Otherwise it creates the session, which the caller then provisions.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	a.warnRename("session", profile.Name, tmux.SanitizeSessionName(profile.Name))
 

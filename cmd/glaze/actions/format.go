@@ -10,13 +10,12 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// ActionFormat is a struct that represents a Glazier "action".
+// ActionFormat formats a profile, and validates it with --validate.
 type ActionFormat struct {
 	ActionBase
 }
 
-// NewFormat is responsible for creating a new ActionFormat struct value pre-populated
-// with fields that are common across all other action structs.
+// NewFormat returns the format action, with the profile parsed.
 func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
 	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
@@ -28,8 +27,7 @@ func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
 	}, nil
 }
 
-// Run is a method that reformats the given glaze definition file to match a canonical
-// format and style, ensuring consistency.
+// Run rewrites the profile in the canonical HCL format, or prints it with --stdout.
 func (a *ActionFormat) Run(_ context.Context) error {
 	formatted := string(hclwrite.Format(a.Parser.File.Bytes))
 

@@ -10,10 +10,7 @@ import (
 	"github.com/zclconf/go-cty/cty/function/stdlib"
 )
 
-// BuildEvalContext returns the EvalContext every profile expression is
-// evaluated in: the given variable namespaces (var.*, local.*, env.*,
-// path.*) plus the shared string/collection function library. The namespace
-// map is assembled by VariableContext; this only wraps it.
+// BuildEvalContext returns the context for every profile expression: the namespaces from VariableContext and the functions.
 func BuildEvalContext(variables map[string]cty.Value) *hcl.EvalContext {
 	return &hcl.EvalContext{
 		Variables: variables,
@@ -50,11 +47,8 @@ func Functions() map[string]function.Function {
 	}
 }
 
-// randomFunc returns a uniformly random element of the given list, coerced
-// to a string. The list is typically built inline - a locals list or a
-// for-comprehension - so pairing it with those is the point. math/rand/v2's
-// top-level source is seeded from the runtime at process start, so results
-// vary between runs without any manual seeding. An empty list is an error.
+// randomFunc returns a random element of a list as a string, and an error for an empty list.
+// math/rand/v2 seeds itself at start, so the result differs between runs.
 var randomFunc = function.New(&function.Spec{
 	Description: "Returns a uniformly random element of the given list, as a string.",
 	Params: []function.Parameter{{

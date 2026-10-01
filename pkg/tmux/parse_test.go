@@ -307,9 +307,8 @@ func TestGetPartsFromTmuxLine(t *testing.T) {
 	}
 }
 
-// TestGetPartsFromTmuxLineDollarEscape uses q: output from real tmux servers.
-// tmux 3.4 escapes a $ that starts a variable name a second time; 3.2a, 3.3a
-// and 3.5a do not. Each stored name must decode the same way on every version.
+// TestGetPartsFromTmuxLineDollarEscape uses q: output from real tmux servers. Only 3.4 escapes a $ that starts a variable name twice.
+// Each stored name must decode the same way on every version.
 func TestGetPartsFromTmuxLineDollarEscape(t *testing.T) {
 	tests := []struct {
 		name   string // Name of the test case

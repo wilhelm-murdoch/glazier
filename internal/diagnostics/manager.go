@@ -9,9 +9,7 @@ import (
 
 const diagnosticTextWriterWidth = 78
 
-// ErrHasDiagnostics is returned by Write when the accumulated set contains
-// error-level diagnostics. The detailed diagnostics have already been rendered
-// to the writer, so callers can halt execution without re-printing them.
+// ErrHasDiagnostics means that the diagnostics hold an error. Write has already printed them, so the caller only stops.
 var ErrHasDiagnostics = errors.New("the glaze profile contains errors")
 
 // DiagnosticsManager embeds the structure of hcl.Diagnostics and combines it
@@ -21,9 +19,7 @@ type DiagnosticsManager struct {
 	Writer hcl.DiagnosticWriter
 }
 
-// Extend appends the given diagnostics to the accumulated set. It shadows the
-// embedded hcl.Diagnostics.Extend (which returns a new slice the caller must
-// reassign) so that accumulation mutates the manager in place.
+// Extend adds diags to the manager in place, unlike hcl.Diagnostics.Extend, which returns a new slice.
 func (dm *DiagnosticsManager) Extend(diags hcl.Diagnostics) {
 	dm.Diagnostics = dm.Diagnostics.Extend(diags)
 }
@@ -47,8 +43,7 @@ func (dm *DiagnosticsManager) Write() error {
 	return nil
 }
 
-// NewDiagnosticsManager is responsible for creating a new DiagnosticsManager instance.
-// Diagnostics go to stderr, so stdout carries only command output.
+// New returns a manager that writes the diagnostics of the file at filePath to stderr, so stdout carries only command output.
 func New(filePath string, file *hcl.File) *DiagnosticsManager {
 	return &DiagnosticsManager{
 		Diagnostics: hcl.Diagnostics{},

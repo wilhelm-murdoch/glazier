@@ -6,11 +6,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 )
 
-// This file collects the diagnostics raised while resolving `variable` and
-// `locals` blocks, the --var flags, and the --var-file that feed them. They
-// are grouped here, apart from the schema validators in custom.go, because
-// they concern the variable contract (declaration, typing, required-ness)
-// rather than a single attribute's value.
+// This file holds the diagnostics for variable and locals blocks, --var flags and --var-file.
 
 // DuplicateVariable flags two variable blocks sharing a name.
 func DuplicateVariable(name string, previous, subject hcl.Range) *hcl.Diagnostic {
@@ -22,9 +18,7 @@ func DuplicateVariable(name string, previous, subject hcl.Range) *hcl.Diagnostic
 	}
 }
 
-// InvalidVariableType flags a variable block with an unsupported type. The
-// keyword is the offending text, or empty when `type` was not a bare keyword
-// at all (e.g. a quoted string).
+// InvalidVariableType flags an unsupported variable type. keyword is the bad keyword, or "" when `type` is not a keyword.
 func InvalidVariableType(name, keyword string, subject hcl.Range) *hcl.Diagnostic {
 	detail := fmt.Sprintf("Variable %q must declare its type as one of the bare keywords string, number or bool.", name)
 	if keyword != "" {

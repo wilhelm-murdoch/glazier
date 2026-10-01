@@ -103,9 +103,7 @@ func tmuxFailure(output string) fakeResult {
 	return fakeResult{Err: NewCommandErrorWithOutput([]string{"tmux"}, errors.New("exit status 1"), output)}
 }
 
-// fakeCommand is a programmable Commander representing one tmux invocation.
-// Unlike MockCommander it is value-driven, so a CommandRecorder can hand out a
-// distinct result for every command a method issues.
+// fakeCommand is one faked tmux command with a fixed result, so a CommandRecorder can give each command its own result.
 type fakeCommand struct {
 	args     []string
 	result   fakeResult
@@ -142,10 +140,8 @@ func (f *fakeCommand) run() {
 	}
 }
 
-// CommandRecorder records every tmux invocation made through newCommand and
-// routes canned results based on the tmux subcommand (e.g. "ls", "neww",
-// "splitw"). This lets a single test exercise methods that chain several
-// different tmux commands, which the shared MockCommander cannot do.
+// CommandRecorder records every tmux command and returns canned results for each subcommand, in the order they were queued.
+// It tests methods that run several different tmux commands, which MockCommander cannot.
 type CommandRecorder struct {
 	mu     sync.Mutex
 	Calls  [][]string

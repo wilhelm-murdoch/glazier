@@ -29,25 +29,21 @@ type savedWindow struct {
 	Panes  []savedPane
 }
 
-// savedSession is an intermediate representation of a tmux session captured for
-// output. It deliberately decouples HCL generation from the live tmux types so
-// the generator can be unit tested without a tmux server.
+// savedSession is the captured session, kept apart from the tmux types so the generator can be tested without tmux.
 type savedSession struct {
 	Name              string
 	StartingDirectory string
 	Windows           []savedWindow
 }
 
-// ActionSave is a struct that represents a Glazier "action".
+// ActionSave captures a running session and writes it as a profile.
 type ActionSave struct {
 	Command *cli.Command
 	Logger  *logger.Logger
 	tmux    tmux.Client
 }
 
-// NewSave is responsible for creating a new ActionSave struct value. Unlike the
-// other actions, save writes a profile rather than reading one, so it does not
-// resolve or parse an existing profile file.
+// NewSave returns the save action, which writes a profile and so reads none.
 func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
 	log := newLogger(cmd, logLevel)
 
@@ -156,13 +152,8 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 		sw := savedWindow{
 			Name: window.Name,
 
-			// tmux reports a window's layout as a coordinate string (e.g.
-			// "bb62,80x24,0,0"), not one of glaze's named presets, so a preset
-			// cannot be faithfully recovered. We capture the raw coordinate
-			// string verbatim as a fallback: `up` replays it via select-layout
-			// (which accepts a raw string), and glaze's layout validation
-			// accepts a well-formed coordinate string in addition to the named
-			// presets.
+			// tmux reports a layout only as a coordinate string, so save keeps the string as it is.
+			// `up` replays it with select-layout, and validation accepts a well-formed layout string.
 			Layout: window.RawLayout,
 			Focus:  window.IsActive, // The active window is the one tmux would focus on attach.
 		}
@@ -187,14 +178,8 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 	return captured, nil
 }
 
-// generateProfile renders the captured session as a formatted glaze (HCL)
-// definition file.
-//
-// Note: save deliberately emits a structural snapshot only (names, layout,
-// starting directories). It does NOT export commands, envs, hooks, or
-// options: tmux introspection returns effective state (leaking secrets and
-// out-of-band config), and commands/hooks are arbitrary code that would
-// re-execute on the next `up`. Do NOT add those fields here.
+// generateProfile renders the captured session as a formatted profile, with names, directories, focus and layout only.
+// Do not add commands, envs, hooks or options: tmux reports effective state that can hold secrets, and commands run again on `up`.
 func generateProfile(session savedSession) []byte {
 	file := hclwrite.NewEmptyFile()
 

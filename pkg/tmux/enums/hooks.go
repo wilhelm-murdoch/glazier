@@ -82,7 +82,7 @@ var HookList = []string{
 	HookWindowUnlinkedString,
 }
 
-// String is responsible for returning the string representation of a Hook.
+// String returns the tmux name of the hook.
 func (h Hook) String() string {
 	switch h {
 	case HookAlertActivity:
@@ -136,7 +136,7 @@ func (h Hook) String() string {
 	return HookUnknownString
 }
 
-// HookFromString is responsible for converting a string to a Hook enum.
+// HookFromString returns the hook with the tmux name s.
 func HookFromString(s string) Hook {
 	switch s {
 	case HookAlertActivityString:

@@ -10,18 +10,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
-// resolveLocals evaluates every `locals { name = expr }` block at the
-// profile root into the `local.*` value map. Locals may reference env.*,
-// path.*, var.*, the function library, and each other (in any declaration
-// order): resolution iterates, evaluating whatever it can each pass, until a
-// pass makes no progress. Whatever still fails then reports its real
-// evaluation diagnostics, so a genuine error (a typo'd var, a bad function
-// call) is never masked by the ordering machinery.
-//
-// requireAll mirrors the variable-resolution flag: when false (`down`, which
-// only needs the session name) locals that cannot resolve are dropped
-// silently rather than reported, so a broken local nobody references does not
-// block the teardown.
+// resolveLocals evaluates all `locals` blocks, which can refer to env, path, var, the functions and each other in any order.
+// It repeats passes until one makes no progress, then reports the real errors. With requireAll false, it drops unresolved locals.
 func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[string]cty.Value, hcl.Diagnostics) {
 	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
@@ -70,9 +60,7 @@ func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[
 		}
 	}
 
-	// Whatever is left is genuinely unresolvable: surface each attribute's
-	// own evaluation diagnostics. A lenient pass skips this; an unresolved
-	// local simply never appears in the returned map.
+	// What is left cannot resolve, so report the errors of each attribute, unless the pass is lenient.
 	if requireAll {
 		for _, name := range slices.Sorted(maps.Keys(unresolved)) {
 			_, valueDiags := unresolved[name].Expr.Value(evalContext())

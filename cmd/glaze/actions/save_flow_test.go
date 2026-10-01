@@ -105,9 +105,7 @@ func TestActionSaveRun(t *testing.T) {
 		// The active window and pane (trailing `1`) are captured as focused.
 		assert.Contains(t, string(contents), "focus")
 		assert.Contains(t, string(contents), "= true")
-		// A named preset can't be recovered from tmux's coordinate string, so
-		// the raw layout string is captured verbatim as a fallback and must
-		// still validate on replay.
+		// tmux reports no preset, so the raw layout string is captured as it is and must still validate on replay.
 		assert.Contains(t, string(contents), `layout = "bb62,80x24,0,0"`)
 	})
 
