@@ -67,6 +67,15 @@ X
   if [[ -n $OUT && $OUT == *Error* ]]; then ko "diagnostics go to stderr" "diagnostics written to stdout"; else ok "diagnostics go to stderr"; fi
   info "up diagnostics" "$OUT$ERR"
   end
+
+  begin color_terminal
+  # script runs glaze on a pseudo-terminal, where diagnostics are coloured unless NO_COLOR is set.
+  layout_fixture ct foo 1
+  local tty_out; tty_out=$(script -qec "$G format --validate" /dev/null 2>&1)
+  match "a terminal gets colour" $'\e\\[' "$tty_out"
+  tty_out=$(NO_COLOR=1 script -qec "$G format --validate" /dev/null 2>&1)
+  nomatch "NO_COLOR turns colour off on a terminal" $'\e\\[' "$tty_out"
+  end
 }
 
 t_extra2() {

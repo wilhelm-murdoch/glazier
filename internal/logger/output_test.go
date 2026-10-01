@@ -1,9 +1,14 @@
 package logger
 
 import (
+	"bytes"
+	"context"
 	"io"
+	"log/slog"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -15,6 +20,23 @@ func TestNewWritesToStderr(t *testing.T) {
 
 	assert.Contains(t, stderr, "provisioning")
 	assert.Empty(t, stdout)
+
+	// stderr is a pipe here, not a terminal, so the log line has no colour codes.
+	assert.NotContains(t, stderr, "\x1b[")
+}
+
+func TestHandlerColor(t *testing.T) {
+	for _, enabled := range []bool{true, false} {
+		var buf bytes.Buffer
+		h := newTestHandler(&buf, LevelInfo)
+		h.color = enabled
+
+		rec := slog.NewRecord(time.Now(), slog.LevelWarn, "careful", 0)
+		assert.NoError(t, h.Handle(context.Background(), rec))
+
+		assert.Equal(t, enabled, strings.Contains(buf.String(), "\x1b["), "colour enabled = %v", enabled)
+		assert.Contains(t, buf.String(), LevelWarningLabel)
+	}
 }
 
 // captureStreams returns what fn writes to os.Stdout and os.Stderr.

@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/hashicorp/hcl/v2"
+
+	"github.com/wilhelm-murdoch/glazier/internal/term"
 )
 
 const diagnosticTextWriterWidth = 78
@@ -59,7 +61,7 @@ func New(filePath string, file *hcl.File) *DiagnosticsManager {
 			os.Stderr,
 			map[string]*hcl.File{filePath: file},
 			diagnosticTextWriterWidth,
-			true,
+			term.ColorEnabled(os.Stderr),
 		),
 	}
 }
