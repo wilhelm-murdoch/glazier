@@ -18,6 +18,9 @@ func TestNewWritesToStderr(t *testing.T) {
 
 	assert.Contains(t, stderr, "Session name will be changed")
 	assert.Empty(t, stdout)
+
+	// stderr is a pipe here, not a terminal, so the diagnostic has no colour codes.
+	assert.NotContains(t, stderr, "\x1b[")
 }
 
 // captureStreams returns what fn writes to os.Stdout and os.Stderr.

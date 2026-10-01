@@ -5,6 +5,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+
+	"github.com/wilhelm-murdoch/glazier/internal/term"
 )
 
 // Logger embeds the slog.Logger so that we can add support for
@@ -33,7 +35,8 @@ func New(level slog.Level) *Logger {
 			Handler: slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 				Level: level,
 			}),
-			l: log.New(os.Stderr, "", 0),
+			l:     log.New(os.Stderr, "", 0),
+			color: term.ColorEnabled(os.Stderr),
 		}),
 		Level: level,
 	}
