@@ -1,7 +1,9 @@
 package actions
 
 import (
+	"bytes"
 	"errors"
+	"log/slog"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -108,7 +110,7 @@ func TestActionUpGenerateWindows(t *testing.T) {
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;ice-breaker;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;breach;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;breach;1;/tmp"})
 
 	pane := &decoders.Pane{
 		Base:     &decoders.Base{Name: "breach", StartingDirectory: "/tmp"},
@@ -140,12 +142,57 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	assert.NotContains(t, sends[1][len(sends[1])-2], "wait-for")
 }
 
+func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w-z;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p-z;1;/tmp"})
+
+	window := windowWithPane(`w\z`, enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p\tz"}})
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+
+	assert.Contains(t, logs.String(), "this window name")
+	assert.Contains(t, logs.String(), "tmux_name=w-z")
+	assert.Contains(t, logs.String(), "this pane name")
+	assert.Contains(t, logs.String(), "tmux_name=p-z")
+}
+
+func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;runner;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;2;shell;1;/tmp"})
+
+	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{
+		Base:     &decoders.Base{Name: "runner"},
+		Commands: []string{"true; exit"},
+	})
+	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "shell"}})
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+
+	// A pane that exits at once must not be the parent of a later split.
+	var order []string
+	for _, call := range rec.Calls {
+		if call[0] == "splitw" || call[0] == "send" {
+			order = append(order, call[0])
+		}
+	}
+	assert.Equal(t, []string{"splitw", "splitw", "send"}, order)
+}
+
 func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	up, rec := newTestUp(t)
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
 	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"echo pane"}}
@@ -173,7 +220,7 @@ func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T
 
 	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
 	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}}

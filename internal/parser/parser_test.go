@@ -58,6 +58,37 @@ func decode(t *testing.T, content string) (*decoders.Session, bool) {
 	return session, diags.HasErrors()
 }
 
+func TestDecodeWarnsAboutWindowAndPaneNames(t *testing.T) {
+	path := writeGlaze(t, "session {\n  name = \"demo\"\n  window {\n    name = \"w\\\\z\"\n    pane {\n      name = \"p\\\\z\"\n    }\n  }\n}\n")
+	p, diags := New(path)
+	assert.False(t, diags.HasErrors())
+
+	_, diags = p.Decode(spec.Session, BuildEvalContext(map[string]cty.Value{}))
+	assert.False(t, diags.HasErrors())
+
+	var summaries []string
+	for _, d := range diags {
+		summaries = append(summaries, d.Summary)
+	}
+	assert.ElementsMatch(t, []string{"Window name will be changed", "Pane name will be changed"}, summaries)
+}
+
+func TestDecodeReturnsWarnings(t *testing.T) {
+	path := writeGlaze(t, "session {\n  name = \"a.b\"\n  window {\n    pane {}\n  }\n}\n")
+	p, diags := New(path)
+	assert.False(t, diags.HasErrors())
+
+	session, diags := p.Decode(spec.Session, BuildEvalContext(map[string]cty.Value{}))
+	assert.NotNil(t, session)
+	assert.False(t, diags.HasErrors())
+	if assert.Len(t, diags, 1) {
+		assert.Equal(t, "Session name will be changed", diags[0].Summary)
+		if assert.NotNil(t, diags[0].Subject) {
+			assert.Equal(t, 2, diags[0].Subject.Start.Line)
+		}
+	}
+}
+
 func TestDecodeFullProfile(t *testing.T) {
 	dir := t.TempDir()
 	content := `

@@ -70,7 +70,7 @@ func TestActionDownRun(t *testing.T) {
 		assert.NoError(t, down.Run())
 
 		assert.True(t, rec.Called("kill-session"))
-		assert.Contains(t, rec.ArgsFor("kill-session"), "demo")
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
 	})
 
 	t.Run("kills the session named by --session without a profile", func(t *testing.T) {
@@ -81,7 +81,7 @@ func TestActionDownRun(t *testing.T) {
 		assert.NoError(t, down.Run())
 
 		assert.True(t, rec.Called("kill-session"))
-		assert.Contains(t, rec.ArgsFor("kill-session"), "other")
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
 	})
 
 	t.Run("--session wins over the profile", func(t *testing.T) {
@@ -91,7 +91,7 @@ func TestActionDownRun(t *testing.T) {
 
 		assert.NoError(t, down.Run())
 
-		assert.Contains(t, rec.ArgsFor("kill-session"), "other")
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
 	})
 
 	t.Run("is a no-op when the session is not running", func(t *testing.T) {
@@ -122,7 +122,7 @@ session {
 
 		assert.NoError(t, down.Run())
 
-		assert.Contains(t, rec.ArgsFor("kill-session"), "gig-watson")
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=gig-watson")
 	})
 
 	t.Run("ignores variables used only deeper in the profile", func(t *testing.T) {
@@ -149,7 +149,7 @@ session {
 
 		assert.NoError(t, down.Run())
 
-		assert.Contains(t, rec.ArgsFor("kill-session"), "demo")
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
 	})
 
 	t.Run("propagates kill failures", func(t *testing.T) {

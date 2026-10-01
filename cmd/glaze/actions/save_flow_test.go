@@ -69,12 +69,15 @@ func TestActionSaveRun(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"profile-path": path})
 
 		rec.On("list-sessions", tmuxtest.Result{Status: 0})
-		rec.On("display-message", tmuxtest.Result{Output: "demo"})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
 
 		assert.NoError(t, save.Run())
+
+		// The current session comes from display-message, with no second
+		// lookup by name.
+		assert.False(t, rec.Called("ls"))
 
 		// The path points at this test's own temp directory.
 		contents, err := os.ReadFile(path) //nolint:gosec // G304
@@ -95,7 +98,7 @@ func TestActionSaveRun(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"stdout": "true"})
 
 		rec.On("list-sessions", tmuxtest.Result{Status: 0})
-		rec.On("display-message", tmuxtest.Result{Output: "demo"})
+		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;0"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;0;/tmp"})

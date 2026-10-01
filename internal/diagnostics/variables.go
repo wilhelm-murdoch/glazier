@@ -114,15 +114,6 @@ func VarFileUnreadable(path string, err error) *hcl.Diagnostic {
 	}
 }
 
-// VarFileInvalid flags a --var-file whose contents failed to parse.
-func VarFileInvalid(path, detail string) *hcl.Diagnostic {
-	return &hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  "Invalid var file",
-		Detail:   fmt.Sprintf("The var file at %q could not be parsed: %s.", path, detail),
-	}
-}
-
 // UndeclaredVarFileVariable flags a --var-file that sets a variable no block
 // declares.
 func UndeclaredVarFileVariable(name, path string, subject hcl.Range) *hcl.Diagnostic {

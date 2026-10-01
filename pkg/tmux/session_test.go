@@ -14,10 +14,30 @@ func TestSessionIdString(t *testing.T) {
 
 func TestSessionTarget(t *testing.T) {
 	client := testClient()
-	assert.Equal(t, "demo", testSession(client).Target())
+	assert.Equal(t, "$0", testSession(client).Target())
 }
 
 func TestSessionNewWindow(t *testing.T) {
+	t.Run("sanitises a backslash and control characters in the name", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("neww", fakeResult{Output: "@1;1;w-z-q;tiled;1"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
+		_, err := testSession(testClient()).NewWindow("w\\z\tq", "")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "w-z-q"})
+	})
+
+	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("neww", fakeResult{Output: "@1;1;w#{session_name};tiled;1"})
+		rec.On("show", fakeResult{Output: "base-index 1"})
+
+		_, err := testSession(testClient()).NewWindow("w#{session_name}", "/d#S")
+		assert.NoError(t, err)
+		assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "w##{session_name}", "-c", "/d##S"})
+	})
+
 	t.Run("successfully creates a window", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
@@ -28,7 +48,7 @@ func TestSessionNewWindow(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.NotNil(t, window)
-		assert.Equal(t, 1, window.Id)
+		assert.Equal(t, "@1", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, enums.LayoutTiled, window.Layout)
@@ -81,7 +101,7 @@ func TestSessionNewWindow(t *testing.T) {
 		window, err := testSession(client).NewWindow("editor", "")
 		assert.Error(t, err)
 		assert.Nil(t, window)
-		assert.Contains(t, err.Error(), "expected 5 fields")
+		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
 	})
 
 	t.Run("errors on non-numeric window index", func(t *testing.T) {
@@ -115,25 +135,6 @@ func TestSessionNewWindow(t *testing.T) {
 	})
 }
 
-func TestSessionKill(t *testing.T) {
-	t.Run("successfully kills the session", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("kill-session", fakeResult{})
-
-		client := testClient()
-		assert.NoError(t, testSession(client).Kill())
-		assert.True(t, rec.Called("kill-session"))
-	})
-
-	t.Run("propagates errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("kill-session", fakeResult{Err: errors.New("boom")})
-
-		client := testClient()
-		assert.Error(t, testSession(client).Kill())
-	})
-}
-
 func TestSessionSetEnv(t *testing.T) {
 	t.Run("sets an environment variable on the session", func(t *testing.T) {
 		rec := setupRecorder(t)
@@ -143,7 +144,7 @@ func TestSessionSetEnv(t *testing.T) {
 		assert.NoError(t, testSession(client).SetEnv("EDITOR", "vim"))
 
 		args := rec.ArgsFor("setenv")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "EDITOR")
 		assert.Contains(t, args, "vim")
 	})
@@ -166,7 +167,7 @@ func TestSessionSetHook(t *testing.T) {
 		assert.NoError(t, testSession(client).SetHook("session-created", "echo hi"))
 
 		args := rec.ArgsFor("set-hook")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "session-created")
 		assert.Contains(t, args, "echo hi")
 	})
@@ -189,7 +190,7 @@ func TestSessionSetOption(t *testing.T) {
 		assert.NoError(t, testSession(client).SetOption("base-index", "1"))
 
 		args := rec.ArgsFor("set-option")
-		assert.Contains(t, args, "demo")
+		assert.Contains(t, args, "$0")
 		assert.Contains(t, args, "base-index")
 		assert.Contains(t, args, "1")
 	})
@@ -212,7 +213,7 @@ func TestSessionSendKeys(t *testing.T) {
 		assert.NoError(t, testSession(client).SendKeys("nvim"))
 
 		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "demo")
+		assert.Contains(t, sendArgs, "$0")
 		assert.Contains(t, sendArgs, "nvim")
 		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
 		assert.False(t, rec.Called("wait-for"))
@@ -237,7 +238,7 @@ func TestSessionSendKeysAndWait(t *testing.T) {
 		assert.NoError(t, testSession(client).SendKeysAndWait("make build", "glaze-session-demo-0"))
 
 		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "demo")
+		assert.Contains(t, sendArgs, "$0")
 		assert.Contains(t, sendArgs, "make build ; tmux wait-for -S glaze-session-demo-0")
 		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
 		assert.Contains(t, rec.ArgsFor("wait-for"), "glaze-session-demo-0")

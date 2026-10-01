@@ -24,9 +24,9 @@ type Pane struct {
 	Id                PaneId
 }
 
-// Target returns the target pane by its composite id of session name, window id, and pane id.
+// Target returns the target pane by its string representation of the PaneId.
 func (p Pane) Target() string {
-	return fmt.Sprintf(`%s:%d.%d`, p.Window.Session.Name, p.Window.Index, p.Index)
+	return p.Id.String()
 }
 
 // SendKeys sends the given keystrokes to the current pane.
@@ -60,25 +60,6 @@ func (p Pane) SendKeysAndWait(keys, channel string) error {
 	}
 
 	return p.Window.Session.Client.WaitFor(channel)
-}
-
-// SetEnv sets the given environment variable to the given value on the session
-// that owns this pane. tmux scopes environment variables to sessions, so the
-// target is the owning session rather than the pane itself.
-func (p Pane) SetEnv(key, value string) error {
-	args := []string{
-		"setenv",
-		"-t",
-		p.Window.Session.Target(),
-		fmt.Sprint(key),
-		fmt.Sprint(value),
-	}
-
-	cmd := newCommand(p.Window.Session.Client, args...)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
 }
 
 // SetHook registers a pane-scoped hook command which tmux will run when the

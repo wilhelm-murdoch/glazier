@@ -13,7 +13,12 @@ var Pane = &hcldec.BlockListSpec{
 	TypeName: "pane",
 	MinItems: 1,
 	Nested: &hcldec.ObjectSpec{
-		"name":               Name,
+		"name": &hcldec.ValidateSpec{
+			Wrapped: Name,
+			Func: func(value cty.Value) hcl.Diagnostics {
+				return diagnostics.NameDiagnostic("pane", value)
+			},
+		},
 		"starting_directory": StartingDirectory,
 		"hooks":              Hooks,
 		"options":            Options,

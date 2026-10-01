@@ -91,6 +91,40 @@ func TestLayoutDiagnostic(t *testing.T) {
 	})
 }
 
+func TestNameDiagnostic(t *testing.T) {
+	t.Run("warns when tmux would rewrite a window name", func(t *testing.T) {
+		diags := NameDiagnostic("window", cty.StringVal(`w\z`))
+		if assert.Len(t, diags, 1) {
+			assert.Equal(t, hcl.DiagWarning, diags[0].Severity)
+			assert.Equal(t, "Window name will be changed", diags[0].Summary)
+			assert.Contains(t, diags[0].Detail, `"w-z"`)
+		}
+	})
+
+	t.Run("accepts characters that only session names cannot use", func(t *testing.T) {
+		assert.Empty(t, NameDiagnostic("pane", cty.StringVal("p.$x:1")))
+	})
+}
+
+func TestSessionNameDiagnostic(t *testing.T) {
+	t.Run("warns when tmux would rewrite the name", func(t *testing.T) {
+		diags := SessionNameDiagnostic(cty.StringVal("a.b"))
+		if assert.Len(t, diags, 1) {
+			assert.Equal(t, hcl.DiagWarning, diags[0].Severity)
+			assert.Contains(t, diags[0].Detail, `"a-b"`)
+		}
+	})
+
+	t.Run("accepts a name tmux keeps", func(t *testing.T) {
+		assert.Empty(t, SessionNameDiagnostic(cty.StringVal("my session;1")))
+	})
+
+	t.Run("ignores null and unknown values", func(t *testing.T) {
+		assert.Empty(t, SessionNameDiagnostic(cty.NullVal(cty.String)))
+		assert.Empty(t, SessionNameDiagnostic(cty.UnknownVal(cty.String)))
+	})
+}
+
 func TestDirectoryDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
@@ -113,37 +147,6 @@ func TestDirectoryDiagnostic(t *testing.T) {
 		diags := DirectoryDiagnostic("starting_directory", cty.StringVal(filepath.Join(dir, "nope")))
 		assert.True(t, diags.HasErrors())
 	})
-}
-
-func TestFileDiagnostic(t *testing.T) {
-	dir := t.TempDir()
-	file := filepath.Join(dir, "f.txt")
-	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
-
-	t.Run("no diagnostic for an existing file", func(t *testing.T) {
-		assert.Empty(t, FileDiagnostic("path", cty.StringVal(file)))
-	})
-
-	t.Run("no diagnostic for a null value", func(t *testing.T) {
-		assert.Empty(t, FileDiagnostic("path", cty.NullVal(cty.String)))
-	})
-
-	t.Run("diagnostic when the path is a directory", func(t *testing.T) {
-		diags := FileDiagnostic("path", cty.StringVal(dir))
-		assert.True(t, diags.HasErrors())
-	})
-
-	t.Run("diagnostic when the file does not exist", func(t *testing.T) {
-		diags := FileDiagnostic("path", cty.StringVal(filepath.Join(dir, "nope")))
-		assert.True(t, diags.HasErrors())
-	})
-}
-
-func TestWrongAttributeDiagnostic(t *testing.T) {
-	diag := WrongAttributeDiagnostic("type", "foo", "bar")
-	assert.Equal(t, hcl.DiagError, diag.Severity)
-	assert.Contains(t, diag.Detail, "foo")
-	assert.Contains(t, diag.Detail, "bar")
 }
 
 func TestWrongSizeDiagnostic(t *testing.T) {

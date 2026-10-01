@@ -15,7 +15,7 @@ func TestPaneIdString(t *testing.T) {
 func TestPaneTarget(t *testing.T) {
 	client := testClient()
 	pane := testPane(testWindow(testSession(client)))
-	assert.Equal(t, "demo:1.1", pane.Target())
+	assert.Equal(t, "%0", pane.Target())
 }
 
 func TestPaneSendKeys(t *testing.T) {
@@ -80,21 +80,6 @@ func TestPaneSendKeysAndWait(t *testing.T) {
 	})
 }
 
-func TestPaneSetEnv(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("setenv", fakeResult{})
-
-	client := testClient()
-	pane := testPane(testWindow(testSession(client)))
-	assert.NoError(t, pane.SetEnv("FOO", "bar"))
-
-	args := rec.ArgsFor("setenv")
-	// env is scoped to the owning session, so the target is the session name.
-	assert.Contains(t, args, "demo")
-	assert.Contains(t, args, "FOO")
-	assert.Contains(t, args, "bar")
-}
-
 func TestPaneSetHook(t *testing.T) {
 	t.Run("registers a pane-scoped hook", func(t *testing.T) {
 		rec := setupRecorder(t)
@@ -106,7 +91,7 @@ func TestPaneSetHook(t *testing.T) {
 
 		args := rec.ArgsFor("set-hook")
 		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, "demo:1.1")
+		assert.Contains(t, args, "%0")
 		assert.Contains(t, args, "pane-focus-in")
 		assert.Contains(t, args, "echo focus")
 	})
@@ -145,7 +130,7 @@ func TestPaneSetOption(t *testing.T) {
 
 		args := rec.ArgsFor("set-option")
 		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, "demo:1.1")
+		assert.Contains(t, args, "%0")
 		assert.Contains(t, args, "remain-on-exit")
 		assert.Contains(t, args, "on")
 	})
@@ -170,7 +155,7 @@ func TestPaneAdjust(t *testing.T) {
 		assert.NoError(t, pane.Adjust(enums.AdjustmentLeft, "10"))
 
 		args := rec.ArgsFor("resizep")
-		assert.Contains(t, args, "demo:1.1")
+		assert.Contains(t, args, "%0")
 		assert.Contains(t, args, "-L")
 		assert.Contains(t, args, "10")
 	})

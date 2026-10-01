@@ -14,6 +14,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
@@ -66,6 +67,42 @@ func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnost
 	}}
 }
 
+// SessionNameDiagnostic warns when tmux would rewrite characters in a session name.
+func SessionNameDiagnostic(value cty.Value) hcl.Diagnostics {
+	return renamedDiagnostic("session", `".", ":", "\", "$" or a control character`, value, tmux.SanitizeSessionName)
+}
+
+// NameDiagnostic warns when tmux would rewrite characters in a window or pane name.
+func NameDiagnostic(kind string, value cty.Value) hcl.Diagnostics {
+	return renamedDiagnostic(kind, `"\" or a control character`, value, tmux.SanitizeName)
+}
+
+// renamedDiagnostic warns when sanitize changes the name, because glaze then uses a different name.
+func renamedDiagnostic(kind, chars string, value cty.Value, sanitize func(string) string) hcl.Diagnostics {
+	if value.IsNull() || !value.IsKnown() {
+		return nil
+	}
+
+	name := value.AsString()
+	sanitized := sanitize(name)
+	if sanitized == name {
+		return nil
+	}
+
+	return hcl.Diagnostics{{
+		Severity: hcl.DiagWarning,
+		Summary:  fmt.Sprintf("%s name will be changed", strings.ToUpper(kind[:1])+kind[1:]),
+		Detail: fmt.Sprintf(
+			`tmux does not accept %s in a %s name, so glaze replaces them with "-". The %s %q will have the name %q.`,
+			chars,
+			kind,
+			kind,
+			name,
+			sanitized,
+		),
+	}}
+}
+
 // DirectoryDiagnostic is responsible for checking if a given value is a valid directory and returning a diagnostic if not.
 func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	var out hcl.Diagnostics
@@ -86,37 +123,6 @@ func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	}
 
 	return out
-}
-
-// FileDiagnostic is responsible for checking if a given value is a valid file and returning a diagnostic if not.
-func FileDiagnostic(field string, value cty.Value) hcl.Diagnostics {
-	var out hcl.Diagnostics
-
-	if !value.IsNull() {
-		fileInfo, err := os.Stat(files.ExpandPath(value.AsString()))
-		if err != nil || errors.Is(err, fs.ErrNotExist) || fileInfo.IsDir() {
-			return hcl.Diagnostics{{
-				Severity: hcl.DiagError,
-				Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-				Detail: fmt.Sprintf(
-					`The %s of "%s" does not exist, cannot be accessed or is a directory.`,
-					field,
-					value.AsString(),
-				),
-			}}
-		}
-	}
-
-	return out
-}
-
-// WrongAttributeDiagnostic is responsible for returning a diagnostic for an incorrect attribute value.
-func WrongAttributeDiagnostic(field, have, want string) hcl.Diagnostic {
-	return hcl.Diagnostic{
-		Severity: hcl.DiagError,
-		Summary:  fmt.Sprintf(`Invalid %s specified`, field),
-		Detail:   fmt.Sprintf(`The %s value "%s" should be "%s".`, field, have, want),
-	}
 }
 
 // WrongSizeDiagnostic is used to determine whether a size value resolves to either a positive integer or a valid percentage string.

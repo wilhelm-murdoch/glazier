@@ -9,25 +9,19 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
-)
-
-const (
-	formatActiveSessions = "#{session_id};#{session_name};#{session_path}"
-	formatActiveWindows  = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
-	formatActivePanes    = "#{pane_id};#{pane_index};#{pane_title};#{pane_active};#{pane_current_path}"
 )
 
 var defaultTmuxExecutablePath = "tmux"
 
 // Client represents a tmux client.
 type Client struct {
-	CurrentSession *Session
-	socketPath     string
-	socketName     string
-	logger         *slog.Logger
-	tmuxPath       string
+	socketPath string
+	socketName string
+	logger     *slog.Logger
+	tmuxPath   string
 }
 
 // NewClient returns a new client.
@@ -66,22 +60,10 @@ func (c Client) IsRunning() bool {
 // Attach attaches to the given session. If we are inside a tmux session,
 // we switch to the given session.
 func (c *Client) Attach(session *Session) error {
-	var args []string
-
-	// Technically, you can specify both -L and -S parameters when creating
-	// a tmux client session, but the last of the two will take precedence.
-	if c.socketName != "" {
-		args = append(args, "-L", c.socketName)
-	}
-
-	if c.socketPath != "" {
-		args = append(args, "-S", c.socketPath)
-	}
-
+	// NewCommand adds the socket flags.
+	args := []string{"attach", "-t", session.Target()}
 	if os.Getenv("TMUX") != "" {
-		args = append(args, "switchc", "-t", session.Target())
-	} else {
-		args = append(args, "attach", "-t", session.Target())
+		args = []string{"switchc", "-t", session.Target()}
 	}
 
 	cmd := newCommand(*c, args...)
@@ -96,22 +78,27 @@ func (c *Client) Attach(session *Session) error {
 		)
 	}
 
-	c.CurrentSession = session
-
 	return nil
 }
 
-// sessionNameReplacer normalises characters that tmux silently rewrites in
-// session names (`.` and `:`) into hyphens. tmux swaps these for underscores
-// itself, so a session created with one of them would immediately be unfindable
-// under the name we asked for. Replacing them up front keeps the name we use to
-// create, look up, and kill a session consistent with what tmux stores.
-var sessionNameReplacer = strings.NewReplacer(".", "-", ":", "-")
+// sessionNameReplacer replaces the characters that tmux rewrites only in session names.
+// `$` is replaced on every version so that one profile gives the same name everywhere.
+var sessionNameReplacer = strings.NewReplacer(".", "-", ":", "-", "$", "-")
 
-// SanitizeSessionName returns a session name safe to use with tmux, replacing
-// the characters tmux would otherwise rewrite (`.` and `:`) with hyphens.
+// SanitizeName replaces each backslash and control character with a hyphen, because tmux 3.7 and later store them escaped.
+func SanitizeName(name string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\\' || unicode.IsControl(r) {
+			return '-'
+		}
+
+		return r
+	}, name)
+}
+
+// SanitizeSessionName returns a session name that tmux stores unchanged.
 func SanitizeSessionName(sessionName string) string {
-	return sessionNameReplacer.Replace(sessionName)
+	return SanitizeName(sessionNameReplacer.Replace(sessionName))
 }
 
 // findSessionByName returns the first session with the given name, or nil.
@@ -159,14 +146,14 @@ func (c Client) Sessions() ([]*Session, error) {
 }
 
 func (c Client) NewSessionFromLine(line string) (*Session, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "$", 3)
+	parts, id, err := getPartsFromTmuxLine(line, "$", 3)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Session{
 		Client:            c,
-		Id:                id,
+		Id:                SessionId(id),
 		Name:              strings.TrimSpace(parts[1]),
 		StartingDirectory: strings.TrimSpace(parts[2]),
 		logger:            c.logger,
@@ -205,7 +192,7 @@ func (c Client) Windows(session *Session) ([]*Window, error) {
 }
 
 func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "@", 5)
+	parts, id, err := getPartsFromTmuxLine(line, "@", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -225,7 +212,7 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 	}
 
 	return &Window{
-		Id:        id,
+		Id:        WindowId(id),
 		Index:     index,
 		Name:      parts[2],
 		Layout:    enums.LayoutFromString(parts[3]),
@@ -277,7 +264,7 @@ func (c Client) Panes(window *Window) ([]*Pane, error) {
 }
 
 func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, error) {
-	parts, id, err := c.getPartsFromTmuxLine(line, "%", 5)
+	parts, id, err := getPartsFromTmuxLine(line, "%", 5)
 	if err != nil {
 		return nil, err
 	}
@@ -308,56 +295,37 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 		"new",
 		"-d",
 		"-s",
-		fmt.Sprint(sessionName),
+		escapeFormat(sessionName),
 		"-c",
-		fmt.Sprint(startingDirectory),
+		escapeFormat(startingDirectory),
+		"-F", formatActiveSessions,
+		"-P",
 	}
 
 	cmd := newCommand(c, args...)
 
 	c.logger.Debug(cmd.String())
 
-	if err := cmd.Exec(); err != nil {
-		return session, err
-	}
-
-	sessions, err := c.Sessions()
+	output, err := cmd.ExecWithOutput()
 	if err != nil {
 		return session, err
 	}
 
-	session = findSessionByName(sessions, sessionName)
-
-	if session == nil {
-		return nil, fmt.Errorf(
-			"session `%s` was created but could not be found afterwards",
-			sessionName,
-		)
+	session, err = c.NewSessionFromLine(output)
+	if err != nil {
+		return session, err
 	}
 
 	return session, nil
 }
 
-// NewSessionIfNotExists creates a new session with the given name and starting
-// directory if it does not already exist.
-func (c Client) NewSessionIfNotExists(sessionName, startingDirectory string) (*Session, error) {
-	sessionName = SanitizeSessionName(sessionName)
-
-	sessions, _ := c.Sessions()
-	exists := findSessionByName(sessions, sessionName)
-
-	if exists == nil {
-		return c.NewSession(sessionName, startingDirectory)
-	}
-
-	return exists, nil
-}
-
-// KillSession kills the given session.
+// KillSessionByName kills the given session by the specified session name.
+// Performs an attempt at an exact match by prepending the given sanitized
+// session name with "=" otherwise tmux will attempt to match on prefix.
 func (c Client) KillSessionByName(sessionName string) error {
 	sessionName = SanitizeSessionName(sessionName)
 
-	cmd := newCommand(c, "kill-session", "-t", fmt.Sprint(sessionName))
+	cmd := newCommand(c, "kill-session", "-t", fmt.Sprintf(`=%s`, sessionName))
 
 	c.logger.Debug(cmd.String())
 
@@ -383,9 +351,11 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	return nil, fmt.Errorf(`session "%s" not found`, sessionName)
 }
 
-// HasSession returns true if a session with the given name exists.
+// HasSession returns true if a session with the given name exists. Performs an attempt
+// at an exact match by prepending the given sanitized session name with "=" otherwise
+// tmux will attempt to match on prefix.
 func (c Client) HasSession(sessionName string) bool {
-	cmd := newCommand(c, "has-session", "-t", fmt.Sprint(SanitizeSessionName(sessionName)))
+	cmd := newCommand(c, "has-session", "-t", fmt.Sprintf(`=%s`, SanitizeSessionName(sessionName)))
 
 	c.logger.Debug(cmd.String())
 
@@ -396,20 +366,18 @@ func (c Client) HasSession(sessionName string) bool {
 	return true
 }
 
-// CurrentSessionName returns the name of the session attached to the current
-// client. This is intended to be called from within a running tmux session
-// (e.g. by the `save` command) to determine which session to capture.
-func (c Client) CurrentSessionName() (string, error) {
-	cmd := newCommand(c, "display-message", "-p", "#{session_name}")
+// CurrentSession returns the session attached to the current client.
+func (c Client) CurrentSession() (*Session, error) {
+	cmd := newCommand(c, "display-message", "-p", formatActiveSessions)
 
 	c.logger.Debug(cmd.String())
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
-		return "", fmt.Errorf("could not determine current session: %w", err)
+		return nil, fmt.Errorf("could not determine current session: %w", err)
 	}
 
-	return strings.TrimSpace(output), nil
+	return c.NewSessionFromLine(output)
 }
 
 // GetOption returns the specified option for the target of the attached client session.
@@ -478,27 +446,4 @@ func (c Client) GetBaseIndex(target, option string) ([]string, error) {
 	}
 
 	return strings.Split(result, " "), nil
-}
-
-func (c Client) getPartsFromTmuxLine(
-	line, prefix string,
-	expectedLength int,
-) ([]string, int, error) {
-	parts := strings.SplitN(line, ";", expectedLength)
-
-	if len(parts) != expectedLength {
-		return parts, 0, fmt.Errorf(
-			"expected %d parts for tmux line, but got %d instead: %s",
-			expectedLength,
-			len(parts),
-			line,
-		)
-	}
-
-	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], prefix, ""))
-	if err != nil {
-		return parts, 0, err
-	}
-
-	return parts, id, nil
 }

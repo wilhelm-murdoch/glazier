@@ -165,20 +165,6 @@ func (r *CommandRecorder) ArgsFor(subcommand string) []string {
 	return nil
 }
 
-// subcommandOf returns the tmux subcommand, skipping any leading socket flags
-// (-L name / -S path) so routing works regardless of how args were assembled.
-func subcommandOf(args []string) string {
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "-L", "-S":
-			i++
-			continue
-		}
-		return args[i]
-	}
-	return ""
-}
-
 // setupRecorder installs a CommandRecorder-backed newCommand factory and
 // restores the original factory when the test finishes.
 func setupRecorder(t *testing.T) *CommandRecorder {

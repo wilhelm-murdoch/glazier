@@ -1,16 +1,9 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
-	"strconv"
-	"strings"
-
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
-
-const formatNewWindowResponse = "#{window_id};#{window_index};#{window_name};#{window_layout};#{window_active}"
 
 type SessionId int
 
@@ -24,13 +17,13 @@ type Session struct {
 	Client            Client
 	Name              string
 	StartingDirectory string
-	Id                int
+	Id                SessionId
 	logger            *slog.Logger
 }
 
-// Target returns the target session by its name.
+// Target returns the target session by its string representation of the SessionId.
 func (s Session) Target() string {
-	return s.Name
+	return s.Id.String()
 }
 
 // NewWindow creates a new window in the current session and returns it.
@@ -40,14 +33,14 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 	args := []string{
 		"neww",
 		"-d",
-		"-t", s.Name,
-		"-n", fmt.Sprint(windowName),
-		"-F", formatNewWindowResponse,
+		"-t", s.Target(),
+		"-n", escapeFormat(SanitizeName(windowName)),
+		"-F", formatActiveWindows,
 		"-P",
 	}
 
 	if startingDirectory != "" {
-		args = append(args, "-c", startingDirectory)
+		args = append(args, "-c", escapeFormat(startingDirectory))
 	}
 
 	cmd := newCommand(s.Client, args...)
@@ -59,49 +52,16 @@ func (s *Session) NewWindow(windowName, startingDirectory string) (*Window, erro
 		return window, err
 	}
 
-	parts := strings.Split(output, ";")
-
-	if len(parts) != 5 {
-		return window, fmt.Errorf(
-			"expected 5 fields from tmux when creating window `%s`, but got %d: %q",
-			windowName,
-			len(parts),
-			output,
-		)
-	}
-
-	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "@", ""))
+	window, err = s.Client.NewWindowFromLine(output, s)
 	if err != nil {
 		return window, err
 	}
 
-	index, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return window, err
-	}
-
-	baseIndexCmdParts, err := s.Client.GetBaseIndex(s.Target(), "base-index")
-	if err != nil {
-		return window, err
-	}
-
-	if len(baseIndexCmdParts) != 2 {
-		return window, errors.New("could not determine window base index")
-	}
-
-	return &Window{
-		Id:        id,
-		Index:     index,
-		Name:      parts[2],
-		Layout:    enums.LayoutFromString(parts[3]),
-		RawLayout: parts[3],
-		IsActive:  parts[4] == "1",
-		IsFirst:   parts[1] == baseIndexCmdParts[1],
-		Session:   s,
-	}, nil
+	return window, nil
 }
 
 // Kill closes the current session.
+// NOTE: Not yet in use, but on the roadmap.
 func (s Session) Kill() error {
 	cmd := newCommand(s.Client, "kill-session", "-t", s.Target())
 

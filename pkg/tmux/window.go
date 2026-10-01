@@ -3,13 +3,9 @@ package tmux
 import (
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
-
-const formatNewPaneResponse = "#{pane_id};#{pane_index};#{pane_title};#{pane_active}"
 
 type WindowId int
 
@@ -24,7 +20,7 @@ type Window struct {
 	Name     string
 	IsActive bool
 	IsFirst  bool
-	Id       int
+	Id       WindowId
 	Index    int
 	Layout   enums.Layout
 	// RawLayout is the verbatim tmux window layout coordinate string (the
@@ -33,22 +29,23 @@ type Window struct {
 	RawLayout string
 }
 
-// Target returns the target window by its composite id of session name
-// and window id.
+// Target returns the target window by its string representation of the WindowId.
 func (w Window) Target() string {
-	return fmt.Sprintf(`%s:%d`, w.Session.Name, w.Index)
+	return w.Id.String()
 }
 
 // Split splits the current window into two panes.
-func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
-	var pane Pane
+func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) {
+	var pane *Pane
+
+	name = SanitizeName(name)
 
 	args := []string{
 		"splitw",
 		"-Pd",
 		"-t", parentId,
-		"-c", startingDirectory,
-		"-F", formatNewPaneResponse,
+		"-c", escapeFormat(startingDirectory),
+		"-F", formatActivePanes,
 	}
 
 	cmd := newCommand(w.Session.Client, args...)
@@ -57,35 +54,6 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
-		return pane, err
-	}
-
-	parts := strings.Split(output, ";")
-
-	if len(parts) != 4 {
-		return pane, fmt.Errorf(
-			"expected 4 fields from tmux when splitting pane `%s`, but got %d: %q",
-			name,
-			len(parts),
-			output,
-		)
-	}
-
-	id, err := strconv.Atoi(strings.ReplaceAll(parts[0], "%", ""))
-	if err != nil {
-		return pane, err
-	}
-
-	index, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return pane, err
-	}
-
-	cmd = newCommand(w.Session.Client, "selectp", "-T", fmt.Sprint(name), "-t", parts[0])
-
-	w.Session.logger.Debug(cmd.String())
-
-	if err = cmd.Exec(); err != nil {
 		return pane, err
 	}
 
@@ -98,15 +66,29 @@ func (w *Window) Split(parentId, name, startingDirectory string) (Pane, error) {
 		return pane, errors.New("could not determine pane base index")
 	}
 
-	return Pane{
-		Id:                PaneId(id),
-		Index:             index,
-		Name:              fmt.Sprint(name),
-		StartingDirectory: fmt.Sprint(startingDirectory),
-		IsActive:          parts[3] == "1",
-		IsFirst:           parts[1] == baseIndexCmdParts[1],
-		Window:            w,
-	}, nil
+	pane, err = w.Session.Client.NewPaneFromLine(output, baseIndexCmdParts[1], w)
+	if err != nil {
+		return pane, err
+	}
+
+	// tmux can report an empty path for a pane that has only just started.
+	if pane.StartingDirectory == "" {
+		pane.StartingDirectory = startingDirectory
+	}
+
+	cmd = newCommand(w.Session.Client, "selectp", "-T", escapeFormat(name), "-t", pane.Id.String())
+
+	w.Session.logger.Debug(cmd.String())
+
+	if err = cmd.Exec(); err != nil {
+		return pane, err
+	}
+
+	// The name tmux gives us immediately after the split is the name of the host.
+	// Explicitly reset the name to the one derived from the associated glaze file.
+	pane.Name = name
+
+	return pane, nil
 }
 
 // Kill is responsible for closing the current window.
@@ -137,13 +119,6 @@ func (w Window) SelectLayout(layout string) error {
 	w.Session.logger.Debug(cmd.String())
 
 	return cmd.Exec()
-}
-
-// SetEnv sets an environment variable on the session that owns this window.
-// tmux scopes environment variables to sessions, so window-level variables are
-// applied to the parent session.
-func (w Window) SetEnv(key, value string) error {
-	return w.Session.SetEnv(key, value)
 }
 
 // SetHook registers a window-scoped hook command which tmux will run when the

@@ -75,14 +75,17 @@ func TestActionLsRun(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Result{Status: 0})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("display-message", tmuxtest.Result{Output: "demo"})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
+		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
+		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 
 		assert.NoError(t, ls.Run())
 
-		assert.Regexp(t, `demo\*\s+1\s+/tmp`, out.String())
+		assert.Regexp(t, `other\*\s+1\s+/srv`, out.String())
+		assert.NotRegexp(t, `demo\*`, out.String())
 	})
 
 	t.Run("errors when no tmux server is running", func(t *testing.T) {
@@ -104,5 +107,17 @@ func TestActionLsRun(t *testing.T) {
 		err := ls.Run()
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not list windows")
+	})
+
+	t.Run("errors when the current session cannot be determined", func(t *testing.T) {
+		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
+		ls, rec, out := buildLs(t)
+		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("display-message", tmuxtest.Result{Err: assert.AnError})
+
+		err := ls.Run()
+		assert.ErrorIs(t, err, assert.AnError)
+		assert.Empty(t, out.String())
 	})
 }
