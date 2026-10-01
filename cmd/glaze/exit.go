@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"syscall"
 
 	"github.com/urfave/cli/v3"
 
@@ -19,16 +20,37 @@ const (
 	exitUsage          = 2
 	exitInvalidProfile = 3
 	exitUnreachable    = 4
+
+	// A run that a signal stops exits with 128 plus the signal number, like a shell: 130 for SIGINT and 143 for SIGTERM.
+	exitSignalBase = 128
 )
+
+// signalError is the cause of a run that SIGINT or SIGTERM stopped.
+type signalError struct {
+	signal syscall.Signal
+}
+
+func (e signalError) Error() string {
+	name := "SIGTERM"
+	if e.signal == syscall.SIGINT {
+		name = "SIGINT"
+	}
+
+	return "glaze stopped on " + name
+}
 
 // errUsage marks an error in the command line itself, for example an unknown flag.
 var errUsage = errors.New("usage error")
 
 // exitCode returns the exit code for the error that a command returned.
 func exitCode(err error) int {
+	var stopped signalError
+
 	switch {
 	case err == nil:
 		return exitOK
+	case errors.As(err, &stopped):
+		return exitSignalBase + int(stopped.signal)
 	case errors.Is(err, errUsage):
 		return exitUsage
 	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound):

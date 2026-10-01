@@ -8,7 +8,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -31,6 +33,8 @@ func TestExitCode(t *testing.T) {
 		{"an invalid profile", fmt.Errorf("could not decode: %w", diagnostics.ErrHasDiagnostics), exitInvalidProfile},
 		{"a missing profile", fmt.Errorf("%w: `x.glaze`", files.ErrProfileNotFound), exitInvalidProfile},
 		{"tmux is unreachable", fmt.Errorf("%w: permission denied", tmux.ErrUnreachable), exitUnreachable},
+		{"stopped by SIGINT", fmt.Errorf("%w: exit status 1", signalError{signal: syscall.SIGINT}), 130},
+		{"stopped by SIGTERM", fmt.Errorf("%w: %w", signalError{signal: syscall.SIGTERM}, tmux.ErrUnreachable), 143},
 	}
 
 	for _, c := range cases {
@@ -38,6 +42,31 @@ func TestExitCode(t *testing.T) {
 			assert.Equal(t, c.want, exitCode(c.err))
 		})
 	}
+}
+
+func TestCancelOnSignal(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	stop := cancelOnSignal(cancel)
+	t.Cleanup(stop)
+
+	assert.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))
+
+	select {
+	case <-ctx.Done():
+		assert.Equal(t, signalError{signal: syscall.SIGTERM}, context.Cause(ctx))
+		assert.EqualError(t, context.Cause(ctx), "glaze stopped on SIGTERM")
+	case <-time.After(5 * time.Second):
+		t.Fatal("SIGTERM did not cancel the run")
+	}
+}
+
+func TestRunNamesTheSignal(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	cancel(signalError{signal: syscall.SIGINT})
+
+	var stderr bytes.Buffer
+	assert.Equal(t, 130, run(ctx, []string{"glaze", "ls", "--socket-name", "glaze-test-no-server"}, &stderr))
+	assert.Contains(t, stderr.String(), "glaze stopped on SIGINT")
 }
 
 func TestRun(t *testing.T) {

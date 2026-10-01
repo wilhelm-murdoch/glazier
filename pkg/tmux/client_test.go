@@ -171,6 +171,15 @@ func TestClientNewSession(t *testing.T) {
 		assert.Equal(t, "/foo/bar", session.StartingDirectory)
 	})
 
+	t.Run("reports a session that another client created first", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("new", tmuxFailure("duplicate session: test"))
+
+		session, err := testClient().NewSession("test", "/foo/bar")
+		assert.ErrorIs(t, err, ErrDuplicateSession)
+		assert.Nil(t, session)
+	})
+
 	t.Run("fails when the primary new-session command errors", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("new", fakeResult{Err: errors.New("generic error message")})

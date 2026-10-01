@@ -1,7 +1,9 @@
 package tmux
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -73,6 +75,31 @@ func TestCommandExec(t *testing.T) {
 	t.Run("does not print the output of a command that succeeds", func(t *testing.T) {
 		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo noise")
 		assert.NoError(t, cmd.Exec())
+	})
+}
+
+func TestCommandContext(t *testing.T) {
+	t.Run("a cancelled context stops the command with SIGTERM", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		client := Client{tmuxPath: "sh"}.WithContext(ctx)
+		cmd := NewCommand(client, "-c", "trap 'echo got TERM; kill $!; exit 7' TERM; sleep 5 & wait")
+
+		time.AfterFunc(200*time.Millisecond, cancel)
+		err := cmd.Exec()
+
+		var withOutput CommandErrorWithOutput
+		assert.ErrorAs(t, err, &withOutput)
+		assert.Equal(t, "got TERM", withOutput.Output)
+		assert.Equal(t, 7, withOutput.ExitStatus)
+	})
+
+	t.Run("WithoutCancel runs commands after a cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		client := Client{tmuxPath: "true"}.WithContext(ctx)
+		assert.Error(t, NewCommand(client).Exec())
+		assert.NoError(t, NewCommand(client.WithoutCancel()).Exec())
 	})
 }
 

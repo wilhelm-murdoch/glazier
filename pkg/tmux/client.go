@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -23,6 +24,9 @@ var (
 
 	// ErrOtherServer means that glaze runs inside a different tmux server, so attaching would nest a client in a pane.
 	ErrOtherServer = errors.New("glaze runs inside a different tmux server")
+
+	// ErrDuplicateSession means that another client created a session with the same name first.
+	ErrDuplicateSession = errors.New("a session with this name already exists")
 )
 
 // Client represents a tmux client.
@@ -31,6 +35,30 @@ type Client struct {
 	socketName string
 	logger     *slog.Logger
 	tmuxPath   string
+
+	// ctx stops running tmux commands when it is cancelled. A nil ctx never cancels.
+	ctx context.Context
+}
+
+// WithContext returns a copy of the client whose tmux commands stop when ctx is cancelled.
+func (c Client) WithContext(ctx context.Context) Client {
+	c.ctx = ctx
+	return c
+}
+
+// WithoutCancel returns a copy of the client whose commands still run after a cancellation, for clean-up.
+func (c Client) WithoutCancel() Client {
+	c.ctx = context.WithoutCancel(c.context())
+	return c
+}
+
+// context returns the context of the client, or a context that never cancels.
+func (c Client) context() context.Context {
+	if c.ctx == nil {
+		return context.Background()
+	}
+
+	return c.ctx
 }
 
 // NewClient returns a new client.
@@ -320,6 +348,11 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
+		var withOutput CommandErrorWithOutput
+		if errors.As(err, &withOutput) && strings.Contains(withOutput.Output, "duplicate session") {
+			return nil, fmt.Errorf("%w: %w", ErrDuplicateSession, err)
+		}
+
 		return session, err
 	}
 

@@ -62,7 +62,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 
-		assert.NoError(t, ls.Run())
+		assert.NoError(t, ls.Run(context.Background()))
 
 		rendered := out.String()
 		assert.Contains(t, rendered, "NAME")
@@ -87,7 +87,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 		rec.On("show", tmuxtest.Result{Output: "base-index 1"})
 
-		assert.NoError(t, ls.Run())
+		assert.NoError(t, ls.Run(context.Background()))
 
 		assert.Regexp(t, `other\*\s+1\s+/srv`, out.String())
 		assert.NotRegexp(t, `demo\*`, out.String())
@@ -100,7 +100,7 @@ func TestActionLsRun(t *testing.T) {
 		var logs bytes.Buffer
 		ls.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
-		assert.NoError(t, ls.Run())
+		assert.NoError(t, ls.Run(context.Background()))
 		assert.Empty(t, out.String())
 		assert.Contains(t, logs.String(), "no tmux server is running")
 		assert.False(t, rec.Called("ls"))
@@ -110,7 +110,7 @@ func TestActionLsRun(t *testing.T) {
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
 
-		assert.ErrorIs(t, ls.Run(), tmux.ErrUnreachable)
+		assert.ErrorIs(t, ls.Run(context.Background()), tmux.ErrUnreachable)
 		assert.Empty(t, out.String())
 	})
 
@@ -121,7 +121,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Err: assert.AnError})
 
-		err := ls.Run()
+		err := ls.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not list windows")
 	})
@@ -136,7 +136,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
 		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
 
-		assert.NoError(t, ls.Run())
+		assert.NoError(t, ls.Run(context.Background()))
 		assert.NotContains(t, out.String(), "*")
 		assert.Equal(t, 1, rec.CountOf("display-message"))
 	})
@@ -150,7 +150,7 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Err: assert.AnError})
 
-		err := ls.Run()
+		err := ls.Run(context.Background())
 		assert.ErrorIs(t, err, assert.AnError)
 		assert.Empty(t, out.String())
 	})

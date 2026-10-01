@@ -66,7 +66,7 @@ func TestActionSaveRun(t *testing.T) {
 		save, rec := buildSave(t, nil)
 		rec.On("list-sessions", tmuxtest.Failure("no server running on /tmp/tmux-1000/default"))
 
-		err := save.Run()
+		err := save.Run(context.Background())
 		assert.ErrorContains(t, err, "no tmux server is running")
 		assert.NotErrorIs(t, err, tmux.ErrUnreachable)
 	})
@@ -75,7 +75,7 @@ func TestActionSaveRun(t *testing.T) {
 		save, rec := buildSave(t, nil)
 		rec.On("list-sessions", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
 
-		assert.ErrorIs(t, save.Run(), tmux.ErrUnreachable)
+		assert.ErrorIs(t, save.Run(context.Background()), tmux.ErrUnreachable)
 	})
 
 	t.Run("captures the current session and writes a profile", func(t *testing.T) {
@@ -90,7 +90,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
 
-		assert.NoError(t, save.Run())
+		assert.NoError(t, save.Run(context.Background()))
 
 		// The current session comes from display-message, with no second
 		// lookup by name.
@@ -137,7 +137,7 @@ func TestActionSaveRun(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"stdout": "true"})
 		rec.On("list-sessions", tmuxtest.Result{})
 
-		assert.ErrorContains(t, save.Run(), "--session")
+		assert.ErrorContains(t, save.Run(context.Background()), "--session")
 		assert.False(t, rec.Called("display-message"))
 		assert.False(t, rec.Called("lsw"))
 	})
@@ -148,7 +148,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/work"})
 
-		assert.ErrorContains(t, save.Run(), "--session")
+		assert.ErrorContains(t, save.Run(context.Background()), "--session")
 		assert.False(t, rec.Called("lsw"))
 	})
 
@@ -160,7 +160,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;p;1;/srv"})
 
-		assert.NoError(t, save.Run())
+		assert.NoError(t, save.Run(context.Background()))
 		// --session bypasses the current-session lookup.
 		assert.False(t, rec.Called("display-message"))
 	})
@@ -171,7 +171,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
-		err := save.Run()
+		err := save.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
 	})

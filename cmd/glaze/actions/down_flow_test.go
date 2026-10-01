@@ -68,7 +68,7 @@ func TestActionDownRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.True(t, rec.Called("kill-session"))
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
@@ -79,7 +79,7 @@ func TestActionDownRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.True(t, rec.Called("kill-session"))
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
@@ -90,7 +90,7 @@ func TestActionDownRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
 	})
@@ -99,7 +99,7 @@ func TestActionDownRun(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
 
-		err := down.Run()
+		err := down.Run(context.Background())
 		assert.ErrorIs(t, err, tmux.ErrUnreachable)
 		assert.ErrorContains(t, err, "could not check for session `demo`")
 		assert.False(t, rec.Called("kill-session"))
@@ -109,7 +109,7 @@ func TestActionDownRun(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.False(t, rec.Called("kill-session"))
 	})
@@ -131,7 +131,7 @@ session {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=gig-watson")
 	})
@@ -158,7 +158,7 @@ session {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
 	})
@@ -168,7 +168,7 @@ session {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{Err: assert.AnError})
 
-		err := down.Run()
+		err := down.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not bring down session")
 	})

@@ -27,6 +27,12 @@ func Failure(output string) Result {
 	return Result{Err: tmux.NewCommandErrorWithOutput([]string{"tmux"}, errors.New("exit status 1"), output)}
 }
 
+// With returns a copy of the result that runs onExec before the command returns. A nil onExec does nothing.
+func (r Result) With(onExec func()) Result {
+	r.OnExec = onExec
+	return r
+}
+
 // command is a programmable tmux.Commander representing one tmux invocation.
 type command struct {
 	args     []string

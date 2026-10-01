@@ -143,6 +143,10 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 | `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
 | `3` | The profile has errors, or Glazier cannot find the profile. |
 | `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH` or the socket does not give access. Glazier does not treat this as "no server". |
+| `130` | SIGINT, for example Ctrl-C, stopped Glazier. |
+| `143` | SIGTERM stopped Glazier. |
+
+When `up` fails or a signal stops it, Glazier removes the session that this run created, so the next `up` starts again from nothing. Glazier never removes a session that existed before the run. A second signal stops Glazier at once, with no clean-up.
 
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
@@ -158,6 +162,7 @@ $ glaze up --var district=watson --var fixer=wakako
 |------|-------------|
 | `--detached` | Create the session and do not attach to it. |
 | `--clear` | First kill an existing session that has the same name. Glazier refuses when it runs inside that session, because the kill would also end Glazier. |
+| `--keep-on-failure` | Keep the partly built session when `up` fails, so that you can examine it. Run `glaze up --clear` to build it again. |
 | `--debug` | Print each command that Glazier sends to the tmux socket. |
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |

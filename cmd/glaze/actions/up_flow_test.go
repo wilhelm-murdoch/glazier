@@ -57,6 +57,7 @@ func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, 
 			&cli.BoolFlag{Name: "detached"},
 			&cli.BoolFlag{Name: "clear"},
 			&cli.BoolFlag{Name: "debug"},
+			&cli.BoolFlag{Name: "keep-on-failure"},
 			&cli.StringFlag{Name: "socket-path"},
 			&cli.StringFlag{Name: "socket-name"},
 			&cli.StringFlag{Name: "profile-path"},
@@ -360,7 +361,7 @@ func TestActionUpRun(t *testing.T) {
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
 		rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
 
-		assert.NoError(t, up.Run())
+		assert.NoError(t, up.Run(context.Background()))
 
 		// The window that tmux creates with the session becomes the first declared window.
 		assert.True(t, rec.Called("new"))
@@ -372,6 +373,59 @@ func TestActionUpRun(t *testing.T) {
 		assert.False(t, rec.Called("attach"))
 		assert.False(t, rec.Called("ls"))
 		assert.False(t, rec.Called("switchc"))
+		assert.False(t, rec.Called("kill-session"))
+	})
+
+	// failingProvision queues the replies for a new session whose first split fails.
+	failingProvision := func(rec *tmuxtest.Recorder, onSplit func()) {
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Failure("no space for new pane").With(onSplit))
+	}
+
+	t.Run("removes the session it created when provisioning fails", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		failingProvision(rec, nil)
+
+		err := up.Run(context.Background())
+		assert.ErrorContains(t, err, "failed to provision session `demo`")
+		assert.ErrorContains(t, err, "no space for new pane")
+		assert.Equal(t, []string{"kill-session", "-t", "$1"}, rec.ArgsFor("kill-session"))
+	})
+
+	t.Run("keeps the session with --keep-on-failure", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true", "keep-on-failure": "true"})
+		failingProvision(rec, nil)
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		assert.Error(t, up.Run(context.Background()))
+		assert.False(t, rec.Called("kill-session"))
+		assert.Contains(t, logs.String(), "kept the partly built session")
+	})
+
+	t.Run("removes the session it created when the run is cancelled", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		ctx, cancel := context.WithCancel(context.Background())
+		failingProvision(rec, cancel)
+
+		assert.Error(t, up.Run(ctx))
+		assert.Equal(t, []string{"kill-session", "-t", "$1"}, rec.ArgsFor("kill-session"))
+	})
+
+	t.Run("uses a session that another run created first", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+		rec.On("new", tmuxtest.Failure("duplicate session: demo"))
+		rec.On("ls", tmuxtest.Result{Output: "$4;demo;/tmp"})
+
+		assert.NoError(t, up.Run(context.Background()))
+		assert.Equal(t, tmux.SessionId(4), up.session.Id)
+		assert.False(t, rec.Called("splitw"))
+		assert.False(t, rec.Called("kill-session"))
 	})
 
 	t.Run("returns early without provisioning when already attached", func(t *testing.T) {
@@ -381,7 +435,7 @@ func TestActionUpRun(t *testing.T) {
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("attach", tmuxtest.Result{})
 
-		assert.NoError(t, up.Run())
+		assert.NoError(t, up.Run(context.Background()))
 		// An existing session must not be re-provisioned (no new windows/panes).
 		assert.False(t, rec.Called("neww"))
 		assert.False(t, rec.Called("splitw"))
@@ -393,7 +447,7 @@ func TestActionUpRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
-		assert.NoError(t, up.Run())
+		assert.NoError(t, up.Run(context.Background()))
 		assert.False(t, rec.Called("neww"))
 		assert.False(t, rec.Called("attach"))
 		assert.False(t, rec.Called("switchc"))
@@ -410,6 +464,6 @@ func TestActionUpRun(t *testing.T) {
 }
 `
 		up, _ := buildUp(t, bad, map[string]string{"detached": "true"})
-		assert.ErrorIs(t, up.Run(), diagnostics.ErrHasDiagnostics)
+		assert.ErrorIs(t, up.Run(context.Background()), diagnostics.ErrHasDiagnostics)
 	})
 }

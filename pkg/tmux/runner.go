@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -224,6 +225,8 @@ func (r *CommandRunner) wait(pane, name string) error {
 	ticker := time.NewTicker(paneCheckInterval)
 	defer ticker.Stop()
 
+	ctx := r.client.context()
+
 	for {
 		select {
 		case err := <-done:
@@ -232,6 +235,13 @@ func (r *CommandRunner) wait(pane, name string) error {
 			}
 
 			return nil
+		case <-ctx.Done():
+			// The cancelled context also stops the waiting client, so only the buffer is left to remove.
+			cleanup := *r
+			cleanup.client = r.client.WithoutCancel()
+			cleanup.deleteBuffer(name)
+
+			return context.Cause(ctx)
 		case <-deadline:
 			return r.giveUp(name, done, ErrCommandTimeout)
 		case <-ticker.C:

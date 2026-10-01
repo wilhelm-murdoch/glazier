@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"log/slog"
 	"strings"
@@ -374,6 +375,22 @@ func TestCommandRunnerWait(t *testing.T) {
 		rec.On("display-message", fakeResult{Output: "%1 0", OnExec: func() { close(release) }})
 
 		assert.NoError(t, waitFor(t, testRunner(0)))
+	})
+
+	t.Run("stops when the run is cancelled and removes the buffer", func(t *testing.T) {
+		rec := setupRecorder(t)
+		release := make(chan struct{})
+		rec.On("wait-for", fakeResult{OnExec: func() { <-release }})
+		t.Cleanup(func() { close(release) })
+
+		cause := errors.New("stopped on SIGTERM")
+		ctx, cancel := context.WithCancelCause(context.Background())
+		runner := testRunner(0)
+		runner.client = runner.client.WithContext(ctx)
+		time.AfterFunc(10*time.Millisecond, func() { cancel(cause) })
+
+		assert.ErrorIs(t, waitFor(t, runner), cause)
+		assert.Equal(t, []string{"delete-buffer", "-b", "glaze-x"}, rec.ArgsFor("delete-buffer"))
 	})
 
 	t.Run("stops after the timeout", func(t *testing.T) {

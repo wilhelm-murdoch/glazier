@@ -6,8 +6,10 @@ import (
 	"io"
 	"net/mail"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -96,17 +98,49 @@ func profilePathFlag() cli.Flag {
 }
 
 func main() {
-	os.Exit(run(context.Background(), os.Args, os.Stderr))
+	ctx, cancel := context.WithCancelCause(context.Background())
+	stop := cancelOnSignal(cancel)
+
+	code := run(ctx, os.Args, os.Stderr)
+
+	stop()
+	os.Exit(code)
 }
 
 // run executes glaze with args, writes any error to stderr and returns the exit code.
 func run(ctx context.Context, args []string, stderr io.Writer) int {
-	if err := newApp().Run(ctx, args); err != nil {
+	err := newApp().Run(ctx, args)
+
+	// A signal ends the run with whatever error the stopped tmux command gives, so name the signal instead.
+	if err != nil && ctx.Err() != nil {
+		err = fmt.Errorf("%w: %w", context.Cause(ctx), err)
+	}
+
+	if err != nil {
 		_, _ = fmt.Fprintf(stderr, "%s\n", err)
 		return exitCode(err)
 	}
 
 	return exitOK
+}
+
+// cancelOnSignal cancels the run on the first SIGINT or SIGTERM, with the signal as the cause.
+// A second signal gets the default action, so it stops glaze at once.
+func cancelOnSignal(cancel context.CancelCauseFunc) (stop func()) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if received, ok := <-signals; ok {
+			signal.Reset(os.Interrupt, syscall.SIGTERM)
+			cancel(signalError{signal: received.(syscall.Signal)})
+		}
+	}()
+
+	return func() {
+		signal.Stop(signals)
+		close(signals)
+	}
 }
 
 // newApp returns the glaze command with all of its subcommands.
@@ -169,6 +203,10 @@ func newApp() *cli.Command {
 						Name:  "debug",
 						Usage: "prints a list of all commands sent to the specified tmux socket",
 					},
+					&cli.BoolFlag{
+						Name:  "keep-on-failure",
+						Usage: "keep a partly built session when up fails, for debugging",
+					},
 					&cli.DurationFlag{
 						Name:  "command-timeout",
 						Usage: "stop waiting for the commands of a pane after this duration, for example 5m (0 waits with no limit)",
@@ -181,7 +219,7 @@ func newApp() *cli.Command {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -200,7 +238,7 @@ func newApp() *cli.Command {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -213,7 +251,7 @@ func newApp() *cli.Command {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -262,7 +300,7 @@ func newApp() *cli.Command {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 		},

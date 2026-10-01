@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // Commander is an interface that represents what kind of actions a Command, and
@@ -65,13 +67,19 @@ func NewCommand(client Client, args ...string) *Command {
 
 	args = append([]string{client.tmuxPath}, args...)
 
-	return &Command{
-		args: args,
-		// Spawning tmux with caller-supplied arguments is this package's
-		// entire purpose; args[0] is the resolved tmux binary path.
-		cmd: exec.Command(args[0], args[1:]...), //nolint:gosec // G204
-	}
+	// Spawning tmux with caller-supplied arguments is this package's
+	// entire purpose; args[0] is the resolved tmux binary path.
+	cmd := exec.CommandContext(client.context(), args[0], args[1:]...) //nolint:gosec // G204
+
+	// A tmux client restores the terminal on SIGTERM, but not on the SIGKILL that a cancelled context sends by default.
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = cancelGrace
+
+	return &Command{args: args, cmd: cmd}
 }
+
+// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
+var cancelGrace = 5 * time.Second
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
 func subcommandOf(args []string) string {

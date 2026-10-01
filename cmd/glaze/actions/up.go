@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -57,9 +58,12 @@ func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 	}, nil
 }
 
-// Run is responsible for executing the up action, which includes parsing variables,
-// decoding the profile, resolving the session, and generating windows.
-func (a *ActionUp) Run() error {
+// Run decodes the profile, then creates and provisions its session, or attaches to the session when it already runs.
+// A run that fails or that ctx cancels removes the session that it created.
+func (a *ActionUp) Run(ctx context.Context) error {
+	client := a.tmux.WithContext(ctx)
+	a.tmux = &client
+
 	profile, err := a.loadProfile()
 	if err != nil {
 		return err
@@ -79,10 +83,30 @@ func (a *ActionUp) Run() error {
 	}
 
 	if err := a.provisionSession(profile); err != nil {
-		return fmt.Errorf("failed to provision session: %w", err)
+		a.rollBack()
+		return fmt.Errorf("failed to provision session `%s`: %w", a.session.Name, err)
 	}
 
 	return a.attachToSession()
+}
+
+// rollBack removes the session that this run created, unless --keep-on-failure keeps it for debugging.
+func (a *ActionUp) rollBack() {
+	if a.Command.Bool("keep-on-failure") {
+		a.Logger.Warn("kept the partly built session; `glaze up --clear` rebuilds it", "session", a.session.Name)
+		return
+	}
+
+	// The run can end because of a signal, so the clean-up must not use the cancelled context.
+	session := *a.session
+	session.Client = session.Client.WithoutCancel()
+
+	if err := session.Kill(); err != nil {
+		a.Logger.Warn("could not remove the partly built session", "session", session.Name, "error", err)
+		return
+	}
+
+	a.Logger.Info("removed the partly built session", "session", session.Name)
 }
 
 // attachToSession handles attaching the tmux client to the newly created session.
@@ -540,26 +564,17 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	}
 
 	if exists {
-		session, err := a.tmux.FindSessionByName(profile.Name)
-		if err != nil {
-			return true, fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
-		}
-
-		a.session = session
-
-		if !a.Command.Bool("detached") {
-			a.Logger.Info("attaching to existing session", "name", profile.Name)
-		}
-
-		if err := a.attachToSession(); err != nil {
-			return true, fmt.Errorf("could not attach to session `%s`: %w", session.Name, err)
-		}
-
-		return true, nil
+		return true, a.useExistingSession(profile)
 	}
 
 	a.Logger.Info("creating new session", "name", profile.Name)
 	session, err := a.tmux.NewSession(profile.Name, profile.StartingDirectory)
+	if errors.Is(err, tmux.ErrDuplicateSession) {
+		// Another run created the session after has-session, so this run does not own it.
+		a.Logger.Info("another run created the session first", "name", profile.Name)
+		return true, a.useExistingSession(profile)
+	}
+
 	if err != nil {
 		return false, fmt.Errorf("could not create new session `%s`: %w", profile.Name, err)
 	}
@@ -567,4 +582,24 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	a.session = session
 
 	return false, nil
+}
+
+// useExistingSession finds the running session for the profile and attaches to it, unless --detached is set.
+func (a *ActionUp) useExistingSession(profile *decoders.Session) error {
+	session, err := a.tmux.FindSessionByName(profile.Name)
+	if err != nil {
+		return fmt.Errorf("could not find session `%s`: %w", profile.Name, err)
+	}
+
+	a.session = session
+
+	if !a.Command.Bool("detached") {
+		a.Logger.Info("attaching to existing session", "name", profile.Name)
+	}
+
+	if err := a.attachToSession(); err != nil {
+		return fmt.Errorf("could not attach to session `%s`: %w", session.Name, err)
+	}
+
+	return nil
 }

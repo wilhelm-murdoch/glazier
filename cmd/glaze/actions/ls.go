@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -49,7 +50,10 @@ func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
 // Run lists every session on the target tmux server with its window count
 // and starting directory. The session the current client is attached to, if
 // any, is marked with an asterisk.
-func (a *ActionLs) Run() error {
+func (a *ActionLs) Run(ctx context.Context) error {
+	client := a.tmux.WithContext(ctx)
+	a.tmux = &client
+
 	running, err := a.tmux.IsRunning()
 	if err != nil {
 		return err

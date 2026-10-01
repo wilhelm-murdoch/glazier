@@ -272,8 +272,17 @@ EOF
 
   begin up_concurrent
   simple cc
-  (gz up --detached --socket-name "$SOCK") & (sleep 0.01; "$G" up --detached --socket-name "$SOCK" >"$WD/o2" 2>&1); wait
-  sleep 0.5; info "two concurrent ups" "sessions=[$(tm ls -F '#S' | paste -sd, -)] windows=$(wnames cc)"
+  local rc1 rc2 p1 p2 i
+  for ((i = 0; i < 4; i++)); do
+    tm kill-server
+    "$G" up --detached --socket-name "$SOCK" >"$WD/o1" 2>&1 & p1=$!
+    "$G" up --detached --socket-name "$SOCK" >"$WD/o2" 2>&1 & p2=$!
+    wait "$p1"; rc1=$?; wait "$p2"; rc2=$?
+    [[ "$rc1,$rc2" == 0,0 ]] || break
+  done
+  eq "two concurrent ups both succeed" "0,0" "$rc1,$rc2"
+  eq "two concurrent ups leave one session" "cc" "$(tm ls -F '#S' | paste -sd, -)"
+  eq "two concurrent ups build the session once" "w" "$(wnames cc)"
   end
 }
 
