@@ -11,16 +11,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
-// Variable is a declared `variable "name" {}` block. Variables give the
-// otherwise free-form --var flags a self-documenting contract: a flag is
-// only accepted when a matching block declares it, its value is coerced to
-// the declared type, and a block without a default becomes a required input.
-// Resolved variables are exposed to the rest of the profile under the `var.`
-// namespace and nowhere else.
-//
-// The `type` attribute is optional and defaults to string, so a profile that
-// only injects text can stay terse (`variable "district" {}`) while one that
-// needs a number or bool can say so.
+// Variable is a declared `variable "name" {}` block, read as var.name. A --var must match a declared variable.
+// The type is string unless `type` says number or bool, and a variable without a default is required.
 type Variable struct {
 	Name        string
 	Description string
@@ -30,9 +22,7 @@ type Variable struct {
 	DeclRange   hcl.Range
 }
 
-// variableBlockSchema is the body schema of a single variable block. Using
-// Content (not PartialContent) against it means any other attribute or
-// nested block inside a variable declaration is rejected.
+// variableBlockSchema is the body of a variable block. Content rejects any other attribute or block in it.
 var variableBlockSchema = &hcl.BodySchema{
 	Attributes: []hcl.AttributeSchema{
 		{Name: "description"},
@@ -41,20 +31,15 @@ var variableBlockSchema = &hcl.BodySchema{
 	},
 }
 
-// variableTypes maps the bare type keywords a variable may declare to their
-// cty equivalents. Only primitives are supported; reading the keyword form
-// (rather than a string) is what lets `type = string` read naturally.
+// variableTypes maps the type keywords of a variable to cty types, so `type = string` needs no quotes.
 var variableTypes = map[string]cty.Type{
 	"string": cty.String,
 	"number": cty.Number,
 	"bool":   cty.Bool,
 }
 
-// DecodeVariableBlocks extracts and validates every `variable` block declared
-// at the profile root. It uses PartialContent so it ignores the session block
-// and its tree, letting it run as a standalone first pass before the full
-// decode. Duplicate names and malformed blocks are reported but never abort
-// the scan, so a single run surfaces every declaration problem at once.
+// DecodeVariableBlocks validates every `variable` block at the root, before the full decode.
+// It reports every problem instead of stopping at the first.
 func (p *Parser) DecodeVariableBlocks() ([]*Variable, hcl.Diagnostics) {
 	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
@@ -90,9 +75,7 @@ func (p *Parser) DecodeVariableBlocks() ([]*Variable, hcl.Diagnostics) {
 	return variables, diags
 }
 
-// decodeVariableBlock validates a single variable block into a Variable. It
-// returns nil (and the accumulated diagnostics) when the block is invalid,
-// so callers never resolve against a half-formed declaration.
+// decodeVariableBlock validates one variable block, and returns nil when the block is not valid.
 func decodeVariableBlock(name string, block *hcl.Block) (*Variable, hcl.Diagnostics) {
 	attrs, diags := block.Body.Content(variableBlockSchema)
 	if diags.HasErrors() {
@@ -114,9 +97,7 @@ func decodeVariableBlock(name string, block *hcl.Block) (*Variable, hcl.Diagnost
 		variable.Type = declaredType
 	}
 
-	// description (optional): a literal string. Evaluated with a nil context
-	// so it cannot reference variables or call functions; it is a static
-	// label.
+	// description (optional): a literal string, evaluated with no context, so it cannot use variables or functions.
 	if attr, ok := attrs.Attributes["description"]; ok {
 		value, valueDiags := attr.Expr.Value(nil)
 		diags = diags.Extend(valueDiags)
@@ -169,14 +150,8 @@ func collectFlagVariables(vars []string) map[string]cty.Value {
 	return out
 }
 
-// ResolveVariables turns the declared variables, an optional --var-file, and
-// the raw --var flags into the concrete `var.*` value map. Precedence is,
-// last write wins: declared defaults, then the var-file, then the flags. Each
-// supplied value is coerced to the variable's declared type. A flag or
-// var-file entry naming an undeclared variable is always an error; a declared
-// variable left with neither value nor default is reported as required only
-// when requireAll is set. requireAll is false for `down`, which evaluates
-// only the session name.
+// ResolveVariables returns the var.* values: defaults, then --var-file, then --var, each converted to its declared type.
+// A value for an undeclared variable is an error. With requireAll, so is a required variable without a value.
 func ResolveVariables(declared []*Variable, flags []string, varFile string, requireAll bool) (map[string]cty.Value, hcl.Diagnostics) {
 	var diags hcl.Diagnostics
 

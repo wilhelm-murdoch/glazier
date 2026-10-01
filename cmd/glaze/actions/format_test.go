@@ -59,7 +59,7 @@ func TestActionFormatRun(t *testing.T) {
 		messy := "session   {\n  name=\"demo\"\n}\n"
 		action := buildFormat(t, messy, nil)
 
-		assert.NoError(t, action.Run())
+		assert.NoError(t, action.Run(context.Background()))
 
 		contents, err := os.ReadFile(action.ProfilePath)
 		assert.NoError(t, err)
@@ -78,7 +78,7 @@ func TestActionFormatRun(t *testing.T) {
 `
 		action := buildFormat(t, bad, map[string]string{"validate": "true"})
 
-		assert.ErrorIs(t, action.Run(), diagnostics.ErrHasDiagnostics)
+		assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
 	})
 
 	t.Run("validation shows a warning and still formats the profile", func(t *testing.T) {
@@ -93,7 +93,7 @@ func TestActionFormatRun(t *testing.T) {
 			false,
 		)
 
-		assert.NoError(t, action.Run())
+		assert.NoError(t, action.Run(context.Background()))
 		assert.Contains(t, out.String(), "Warning: Session name will be changed")
 
 		contents, err := os.ReadFile(action.ProfilePath)
@@ -114,7 +114,7 @@ func TestActionFormatRun(t *testing.T) {
 		)
 
 		stdout := captureStdout(t, func() {
-			assert.NoError(t, action.Run())
+			assert.NoError(t, action.Run(context.Background()))
 		})
 
 		assert.Equal(t, profile, stdout)
@@ -123,7 +123,7 @@ func TestActionFormatRun(t *testing.T) {
 
 	t.Run("validation passes for a valid profile", func(t *testing.T) {
 		action := buildFormat(t, validProfile, map[string]string{"validate": "true", "stdout": "true"})
-		assert.NoError(t, action.Run())
+		assert.NoError(t, action.Run(context.Background()))
 	})
 
 	t.Run("validation enforces a required variable", func(t *testing.T) {
@@ -140,7 +140,7 @@ session {
 }
 `
 		action := buildFormat(t, profile, map[string]string{"validate": "true", "stdout": "true"})
-		assert.ErrorIs(t, action.Run(), diagnostics.ErrHasDiagnostics)
+		assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
 	})
 
 	t.Run("validation passes when the required variable is supplied", func(t *testing.T) {
@@ -159,7 +159,7 @@ session {
 		action := buildFormat(t, profile, map[string]string{
 			"validate": "true", "stdout": "true", "var": "region=us-east-1",
 		})
-		assert.NoError(t, action.Run())
+		assert.NoError(t, action.Run(context.Background()))
 	})
 }
 

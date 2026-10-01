@@ -31,15 +31,15 @@ func TestCommandErrorWithOutputWithoutOutput(t *testing.T) {
 	assert.Equal(t, "exit status 1 (command: tmux ls)", cewo.Error())
 }
 
-func TestReturnExitStatusFromError(t *testing.T) {
+func TestExitStatus(t *testing.T) {
 	t.Run("returns zero for a non-exit error", func(t *testing.T) {
-		assert.Equal(t, 0, returnExitStatusFromError(errors.New("plain")))
+		assert.Equal(t, 0, exitStatus(errors.New("plain")))
 	})
 
 	t.Run("returns the exit status for an exec.ExitError", func(t *testing.T) {
 		err := exec.Command("false").Run()
 		var exitErr *exec.ExitError
 		assert.True(t, errors.As(err, &exitErr))
-		assert.Equal(t, 1, returnExitStatusFromError(err))
+		assert.Equal(t, 1, exitStatus(err))
 	})
 }

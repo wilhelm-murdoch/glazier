@@ -24,7 +24,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("successfully splits the window", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 		rec.On("selectp", fakeResult{})
 
 		client := testClient()
@@ -43,7 +42,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("uses the requested directory when tmux reports none", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 		rec.On("selectp", fakeResult{})
 
 		pane, err := testWindow(testSession(testClient())).Split("%1", "shell", "/srv")
@@ -54,7 +52,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("sanitises a backslash and control characters in the title", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 		rec.On("selectp", fakeResult{})
 
 		pane, err := testWindow(testSession(testClient())).Split("%1", "p\\z\tq", "/srv")
@@ -66,7 +63,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("escapes format sequences in the directory and title", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/d#S"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 		rec.On("selectp", fakeResult{})
 
 		window := testWindow(testSession(testClient()))
@@ -91,7 +87,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("errors on malformed pane response", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 
 		client := testClient()
 		window := testWindow(testSession(client))
@@ -102,7 +97,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("errors on non-numeric pane id", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%x;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 
 		client := testClient()
 		window := testWindow(testSession(client))
@@ -113,7 +107,6 @@ func TestWindowSplit(t *testing.T) {
 	t.Run("errors on non-numeric pane index", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;x;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 
 		client := testClient()
 		window := testWindow(testSession(client))
@@ -126,7 +119,6 @@ func TestWindowSplit(t *testing.T) {
 
 		rec := setupRecorder(t)
 		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 		rec.On("selectp", fakeResult{Err: selectErr})
 
 		client := testClient()

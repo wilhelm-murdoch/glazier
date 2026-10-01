@@ -21,7 +21,6 @@ func TestSessionNewWindow(t *testing.T) {
 	t.Run("sanitises a backslash and control characters in the name", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;w-z-q;tiled;1"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		_, err := testSession(testClient()).NewWindow("w\\z\tq", "")
 		assert.NoError(t, err)
@@ -31,7 +30,6 @@ func TestSessionNewWindow(t *testing.T) {
 	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;w#{session_name};tiled;1"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		_, err := testSession(testClient()).NewWindow("w#{session_name}", "/d#S")
 		assert.NoError(t, err)
@@ -41,7 +39,6 @@ func TestSessionNewWindow(t *testing.T) {
 	t.Run("successfully creates a window", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		client := testClient()
 		window, err := testSession(client).NewWindow("editor", "")
@@ -61,7 +58,6 @@ func TestSessionNewWindow(t *testing.T) {
 	t.Run("passes the starting directory with -c", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		client := testClient()
 		_, err := testSession(client).NewWindow("editor", "/srv/app")

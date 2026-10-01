@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
@@ -14,10 +15,10 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-// ActionUp is a struct that represents a Glazier "action".
+// ActionUp creates and provisions the session of a profile.
 type ActionUp struct {
 	ActionBase
-	tmux    *tmux.Client
+	tmux    tmux.Client
 	session *tmux.Session
 
 	// optionTables tells glaze which scope tmux keeps each option in.
@@ -33,20 +34,14 @@ type ActionUp struct {
 	commandTimeout time.Duration
 }
 
-// NewUp is responsible for creating a new ActionFormat struct value pre-populated
-// with fields that are common across all other action structs as well as a tmux
-// client.
+// NewUp returns the up action, with the profile parsed and a tmux client.
 func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
 		return nil, err
 	}
 
-	tmuxClient, err := tmux.NewClient(
-		cmd.String("socket-path"),
-		cmd.String("socket-name"),
-		base.Logger.Logger,
-	)
+	tmuxClient, err := newTmuxClient(cmd, base.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -61,8 +56,7 @@ func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 // Run decodes the profile, then creates and provisions its session, or attaches to the session when it already runs.
 // A run that fails or that ctx cancels removes the session that it created.
 func (a *ActionUp) Run(ctx context.Context) error {
-	client := a.tmux.WithContext(ctx)
-	a.tmux = &client
+	a.tmux = a.tmux.WithContext(ctx)
 
 	profile, err := a.loadProfile()
 	if err != nil {
@@ -74,10 +68,7 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		return err
 	}
 
-	// A pre-existing session is left untouched: resolveSession has already
-	// attached to it when not detached. Re-provisioning would duplicate
-	// windows and panes, so rebuilding an existing session is opt-in via
-	// --clear (which kills it first, so it is treated as new here).
+	// An existing session stays as it is, and resolveSession has attached to it. `--clear` kills it first to rebuild it.
 	if existed {
 		return nil
 	}
@@ -173,53 +164,20 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 		return nil
 	}
 
-	for key, value := range profile.Envs {
-		a.Logger.Info("setting session env", "key", key, "session", a.session.Name)
-		if err := a.session.SetEnv(key, value); err != nil {
-			return fmt.Errorf(
-				"could not set env `%s` on session `%s`: %w",
-				key,
-				a.session.Name,
-				err,
-			)
-		}
+	target := fmt.Sprintf("session `%s`", a.session.Name)
+	if err := a.apply("env", target, profile.Envs, a.session.SetEnv); err != nil {
+		return err
 	}
 
-	for hook, command := range profile.Hooks {
-		a.Logger.Info("setting session hook", "hook", hook, "session", a.session.Name)
-		if err := a.session.SetHook(hook, command); err != nil {
-			return fmt.Errorf(
-				"could not set hook `%s` on session `%s`: %w",
-				hook,
-				a.session.Name,
-				err,
-			)
-		}
+	if err := a.apply("hook", target, profile.Hooks, a.session.SetHook); err != nil {
+		return err
 	}
 
-	for option, value := range profile.Options {
-		// A window or pane option declared on the session applies to every window that glaze creates.
-		if a.optionTables.IsWindowOnly(option) {
-			if a.windowDefaults == nil {
-				a.windowDefaults = make(map[string]string)
-			}
+	// A window or pane option declared on the session applies to every window that glaze creates.
+	var sessionOptions map[string]string
+	a.windowDefaults, sessionOptions = partition(profile.Options, a.optionTables.IsWindowOnly)
 
-			a.windowDefaults[option] = value
-			continue
-		}
-
-		a.Logger.Info("setting session option", "option", option, "session", a.session.Name)
-		if err := a.session.SetOption(option, value); err != nil {
-			return fmt.Errorf(
-				"could not set option `%s` on session `%s`: %w",
-				option,
-				a.session.Name,
-				err,
-			)
-		}
-	}
-
-	return nil
+	return a.apply("option", target, sessionOptions, a.session.SetOption)
 }
 
 // generateWindows iterates through the windows and panes defined within the
@@ -253,16 +211,8 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 			}
 		}
 
-		for hook, command := range ws.Hooks {
-			a.Logger.Info("setting window hook", "hook", hook, "window", wtmx.Name)
-			if err := wtmx.SetHook(hook, command); err != nil {
-				return fmt.Errorf(
-					"could not set hook `%s` on window `%s`: %w",
-					hook,
-					wtmx.Name,
-					err,
-				)
-			}
+		if err := a.apply("hook", fmt.Sprintf("window `%s`", wtmx.Name), ws.Hooks, wtmx.SetHook); err != nil {
+			return err
 		}
 
 		if err := wtmx.SelectLayout(ws.LayoutValue()); err != nil {
@@ -287,44 +237,52 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 
 // applyWindowOptions sets the window options from the session block, then the window's own options, before any pane exists.
 func (a *ActionUp) applyWindowOptions(ws *decoders.Window, wtmx *tmux.Window) error {
-	for option, value := range a.windowDefaults {
-		a.Logger.Info("setting session window option", "option", option, "window", wtmx.Name)
-		if err := wtmx.SetOption(option, value); err != nil {
-			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
-		}
+	target := fmt.Sprintf("window `%s`", wtmx.Name)
+	if err := a.apply("option", target, a.windowDefaults, wtmx.SetOption); err != nil {
+		return err
 	}
 
-	for option, value := range ws.Options {
-		if a.optionTables.IsSessionOnly(option) {
-			if err := a.setSessionOption("window", wtmx.Name, option, value); err != nil {
-				return err
-			}
+	onSession, onWindow := partition(ws.Options, a.optionTables.IsSessionOnly)
+	if err := a.setSessionOptions(target, onSession); err != nil {
+		return err
+	}
 
-			continue
-		}
+	return a.apply("option", target, onWindow, wtmx.SetOption)
+}
 
-		a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
-		if err := wtmx.SetOption(option, value); err != nil {
-			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
+// setSessionOptions warns that session options declared on a window or a pane apply to the whole session, then sets them.
+func (a *ActionUp) setSessionOptions(declaredOn string, options map[string]string) error {
+	for _, option := range slices.Sorted(maps.Keys(options)) {
+		a.Logger.Warn("tmux keeps this option on the session, so it applies to the whole session", "option", option, "declared_on", declaredOn)
+	}
+
+	return a.apply("option", fmt.Sprintf("session `%s`", a.session.Name), options, a.session.SetOption)
+}
+
+// apply sets each value in key order with set and names the key and the target when tmux rejects one.
+func (a *ActionUp) apply(what, target string, values map[string]string, set func(key, value string) error) error {
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		a.Logger.Info("setting "+what, what, key, "on", target)
+		if err := set(key, values[key]); err != nil {
+			return fmt.Errorf("could not set %s `%s` on %s: %w", what, key, target, err)
 		}
 	}
 
 	return nil
 }
 
-// setSessionOption warns that a session option declared on a window or pane applies to the whole session, then sets it.
-func (a *ActionUp) setSessionOption(kind, name, option, value string) error {
-	a.Logger.Warn(
-		fmt.Sprintf("tmux keeps this option on the session, so it applies to the whole session and not only to this %s", kind),
-		"option", option,
-		kind, name,
-	)
-
-	if err := a.session.SetOption(option, value); err != nil {
-		return fmt.Errorf("could not set option `%s` on session `%s`: %w", option, a.session.Name, err)
+// partition splits values into the keys for which belongs reports true and the other keys.
+func partition(values map[string]string, belongs func(key string) bool) (in, out map[string]string) {
+	in, out = map[string]string{}, map[string]string{}
+	for key, value := range values {
+		if belongs(key) {
+			in[key] = value
+		} else {
+			out[key] = value
+		}
 	}
 
-	return nil
+	return in, out
 }
 
 func (a *ActionUp) generatePanes(
@@ -368,38 +326,18 @@ func (a *ActionUp) generatePanes(
 
 // configurePane applies the hooks, options, commands, size, adjustments and focus of a pane.
 func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.Window) error {
-	for hook, command := range ps.Hooks {
-		a.Logger.Info("setting pane hook", "hook", hook, "pane", ptmx.Name)
-		if err := ptmx.SetHook(hook, command); err != nil {
-			return fmt.Errorf(
-				"could not set hook `%s` on pane `%s` in window `%s`: %w",
-				hook,
-				ptmx.Name,
-				wtmx.Name,
-				err,
-			)
-		}
+	target := fmt.Sprintf("pane `%s` in window `%s`", ptmx.Name, wtmx.Name)
+	if err := a.apply("hook", target, ps.Hooks, ptmx.SetHook); err != nil {
+		return err
 	}
 
-	for option, value := range ps.Options {
-		if a.optionTables.IsSessionOnly(option) {
-			if err := a.setSessionOption("pane", ptmx.Name, option, value); err != nil {
-				return err
-			}
+	onSession, onPane := partition(ps.Options, a.optionTables.IsSessionOnly)
+	if err := a.setSessionOptions(target, onSession); err != nil {
+		return err
+	}
 
-			continue
-		}
-
-		a.Logger.Info("setting pane option", "option", option, "pane", ptmx.Name)
-		if err := ptmx.SetOption(option, value); err != nil {
-			return fmt.Errorf(
-				"could not set option `%s` on pane `%s` in window `%s`: %w",
-				option,
-				ptmx.Name,
-				wtmx.Name,
-				err,
-			)
-		}
+	if err := a.apply("option", target, onPane, ptmx.SetOption); err != nil {
+		return err
 	}
 
 	if err := a.runCommands("pane", ptmx.Name, ptmx.Target(), ps.Commands); err != nil {
@@ -471,7 +409,7 @@ func (a *ActionUp) runCommands(kind, name, target string, commands []string) err
 	return err
 }
 
-// getDefaultPane is responsible for retrieving the default pane for a given tmux window.
+// getDefaultPane returns the pane that tmux creates with the window, which has the lowest id.
 func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 	panes, err := a.tmux.Panes(window)
 	if err != nil {
@@ -535,10 +473,8 @@ func (a *ActionUp) warnRename(kind, name, sanitized string) {
 	}
 }
 
-// resolveSession resolves the tmux session for this run. It returns true when
-// the session already existed (in which case it has also attached to it, unless
-// detached) and false when a brand new session was created and still needs to be
-// provisioned by the caller.
+// resolveSession returns true for a session that already runs, after it attaches to it unless --detached is set.
+// Otherwise it creates the session, which the caller then provisions.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	a.warnRename("session", profile.Name, tmux.SanitizeSessionName(profile.Name))
 
@@ -597,9 +533,5 @@ func (a *ActionUp) useExistingSession(profile *decoders.Session) error {
 		a.Logger.Info("attaching to existing session", "name", profile.Name)
 	}
 
-	if err := a.attachToSession(); err != nil {
-		return fmt.Errorf("could not attach to session `%s`: %w", session.Name, err)
-	}
-
-	return nil
+	return a.attachToSession()
 }

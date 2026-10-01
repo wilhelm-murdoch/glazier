@@ -10,28 +10,22 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-// ActionDown is a struct that represents a Glazier "action".
+// ActionDown kills the session of a profile.
 type ActionDown struct {
 	Command *cli.Command
 	Logger  *logger.Logger
-	tmux    *tmux.Client
+	tmux    tmux.Client
 
 	// base is only populated when the session name has to come from a
 	// profile; `down --session <name>` needs no profile at all.
 	base *ActionBase
 }
 
-// NewDown is responsible for creating a new ActionDown struct value. The
-// profile is only resolved and parsed when no --session override is given,
-// since it is then the sole source of the session name.
+// NewDown returns the down action. It reads the profile only without --session, because then the profile names the session.
 func NewDown(cmd *cli.Command, logLevel string) (*ActionDown, error) {
-	log := logger.New(logger.FriendlyToInternal[logLevel])
+	log := newLogger(cmd, logLevel)
 
-	tmuxClient, err := tmux.NewClient(
-		cmd.String("socket-path"),
-		cmd.String("socket-name"),
-		log.Logger,
-	)
+	tmuxClient, err := newTmuxClient(cmd, log)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +48,10 @@ func NewDown(cmd *cli.Command, logLevel string) (*ActionDown, error) {
 	return action, nil
 }
 
-// Run kills the session named by --session or, failing that, by the resolved
-// profile. Tearing down a session that is not running is a no-op rather than
-// an error so `down` stays idempotent for scripts, mirroring how `up` treats
-// an already-running session.
+// Run kills the session that --session or the profile names.
+// A session that does not run is not an error, so `down` is safe to repeat in a script.
 func (a *ActionDown) Run(ctx context.Context) error {
-	client := a.tmux.WithContext(ctx)
-	a.tmux = &client
+	a.tmux = a.tmux.WithContext(ctx)
 
 	name, err := a.sessionName()
 	if err != nil {
@@ -86,30 +77,22 @@ func (a *ActionDown) Run(ctx context.Context) error {
 	return nil
 }
 
-// sessionName resolves the name of the session to tear down: the --session
-// flag wins, otherwise only the profile's `name` attribute is evaluated so
-// interpolated names (e.g. `name = "gig-${district}"`) resolve exactly as they
-// did for `up`. The rest of the profile (windows, panes, their commands) is
-// never evaluated, so variables used only deeper in the tree are not required
-// to bring a session down.
+// sessionName returns --session, or else the evaluated `name` of the profile.
+// Only `name` is evaluated, so a variable that only windows and panes use needs no value.
 func (a *ActionDown) sessionName() (string, error) {
 	if name := a.Command.String("session"); name != "" {
 		return name, nil
 	}
 
-	// requireAll is false: `down` evaluates only the session name, so a
-	// variable that is required deeper in the profile but never referenced by
-	// `name` must not block a teardown (see DecodeSessionName).
+	// requireAll is false, so a variable that only windows and panes use does not block `down`.
 	ctx, ctxDiags := a.base.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), false)
 	if ctxDiags.HasErrors() {
-		a.base.DiagnosticsManager.Extend(ctxDiags)
-		return "", a.base.DiagnosticsManager.Write()
+		return "", a.base.DiagnosticsManager.Report(ctxDiags)
 	}
 
 	name, diags := a.base.Parser.DecodeSessionName(ctx)
 	if diags.HasErrors() {
-		a.base.DiagnosticsManager.Extend(diags)
-		return "", a.base.DiagnosticsManager.Write()
+		return "", a.base.DiagnosticsManager.Report(diags)
 	}
 
 	return name, nil

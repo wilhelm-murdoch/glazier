@@ -13,11 +13,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
-// loadVarFile reads a --var-file and coerces each entry to its declared
-// variable's type. Native HCL (`district = "x"`) files are supported.
-// Entries that name an undeclared variable, or values that cannot convert
-// to the declared type, are reported but never abort the load, so a run surfaces
-// every var file problem at once.
+// loadVarFile reads an HCL --var-file of `name = value` lines and converts each value to the type of its variable.
+// It reports every undeclared name and every bad value, and does not stop at the first one.
 func loadVarFile(path string, byName map[string]*Variable) (map[string]cty.Value, hcl.Diagnostics) {
 	// The path is the user's own --var-file input to a local CLI; there is
 	// no privilege boundary to traverse.
@@ -26,11 +23,6 @@ func loadVarFile(path string, byName map[string]*Variable) (map[string]cty.Value
 		return nil, hcl.Diagnostics{diagnostics.VarFileUnreadable(path, err)}
 	}
 
-	return loadHCLVarFile(path, src, byName)
-}
-
-// loadHCLVarFile decodes a native-HCL file of `name = value` attributes.
-func loadHCLVarFile(path string, src []byte, byName map[string]*Variable) (map[string]cty.Value, hcl.Diagnostics) {
 	file, diags := hclparse.NewParser().ParseHCL(src, path)
 	if diags.HasErrors() {
 		return nil, diags

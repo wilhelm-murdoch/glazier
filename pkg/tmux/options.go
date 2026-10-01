@@ -35,11 +35,7 @@ func (c Client) OptionTables() (OptionTables, error) {
 
 // optionNames returns the option names that show-options lists for the given flags.
 func (c Client) optionNames(flags string) (map[string]bool, error) {
-	cmd := newCommand(c, "show-options", flags)
-
-	c.logger.Debug(cmd.String())
-
-	output, err := cmd.ExecWithOutput()
+	output, err := c.output("show-options", flags)
 	if err != nil {
 		return nil, err
 	}

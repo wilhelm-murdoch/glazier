@@ -32,14 +32,12 @@ const validProfile = `session {
 }
 `
 
-// buildUp constructs a fully wired ActionUp from the given profile contents and
-// up-command flags, with a tmuxtest recorder installed. It mirrors how main.go
-// builds the action so the real parser, diagnostics manager and tmux client are
-// exercised end to end (minus a live tmux server).
+// buildUp builds ActionUp from a profile and up flags as main does, with a recorder for tmux.
+// The real parser, diagnostics manager and tmux client run, but no tmux server.
 func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, *tmuxtest.Recorder) {
 	t.Helper()
 
-	rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+	rec := tmuxtest.New().Default(tmuxtest.Result{})
 	rec.Install(t)
 
 	dir := t.TempDir()
@@ -86,7 +84,7 @@ func TestActionUpDebugFlag(t *testing.T) {
 	build := func(t *testing.T, args []string) *ActionUp {
 		t.Helper()
 
-		rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+		rec := tmuxtest.New().Default(tmuxtest.Result{})
 		rec.Install(t)
 
 		dir := t.TempDir()

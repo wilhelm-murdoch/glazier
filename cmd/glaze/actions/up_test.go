@@ -17,10 +17,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
-// newTestUp builds an ActionUp wired to a fake-command-backed tmux client and a
-// session named "demo". The recorder routes canned tmux output per subcommand;
-// the default result returns two space-separated tokens so base-index lookups
-// (`tmux show ...`) parse, and is harmless for commands that ignore output.
+// newTestUp builds an ActionUp for the session "demo" whose tmux commands go to a recorder.
 func newTestUp(t *testing.T) (*ActionUp, *tmuxtest.Recorder) {
 	t.Helper()
 
@@ -31,7 +28,7 @@ func newTestUp(t *testing.T) (*ActionUp, *tmuxtest.Recorder) {
 		t.Skipf("tmux binary not available: %v", err)
 	}
 
-	rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+	rec := tmuxtest.New().Default(tmuxtest.Result{})
 	rec.Install(t)
 
 	rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
@@ -351,8 +348,8 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 			}
 		}
 		assert.Equal(t, []string{"history-limit", "status"}, sessionOptions)
-		assert.Contains(t, logs.String(), "not only to this window")
-		assert.Contains(t, logs.String(), "not only to this pane")
+		assert.Contains(t, logs.String(), "declared_on=\"window `w`\"")
+		assert.Contains(t, logs.String(), "declared_on=\"pane `p` in window `w`\"")
 	})
 }
 

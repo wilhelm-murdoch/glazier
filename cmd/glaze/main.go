@@ -56,10 +56,8 @@ func validateVarFlags(value []string) error {
 	return nil
 }
 
-// variableFlags returns fresh instances of the flags shared by every command
-// that resolves a profile's variables: repeatable --var overrides and a
-// --var-file of values. Fresh instances per command, since parsed flag state
-// lives on the flag value itself.
+// variableFlags returns new --var and --var-file flags for a command.
+// Each command needs its own instances, because a flag keeps its parsed value.
 func variableFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
@@ -143,6 +141,24 @@ func cancelOnSignal(cancel context.CancelCauseFunc) (stop func()) {
 	}
 }
 
+// action is a glaze subcommand, built from the flags and then run.
+type action interface {
+	Run(ctx context.Context) error
+}
+
+// actionFor returns the CLI action that builds a subcommand with build and runs it.
+// logLevel is a pointer, because the global flag is parsed after newApp returns.
+func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string) cli.ActionFunc {
+	return func(ctx context.Context, cmd *cli.Command) error {
+		a, err := build(cmd, *logLevel)
+		if err != nil {
+			return err
+		}
+
+		return a.Run(ctx)
+	}
+}
+
 // newApp returns the glaze command with all of its subcommands.
 func newApp() *cli.Command {
 	var logLevel string
@@ -213,14 +229,7 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewUp(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewUp, &logLevel),
 			},
 			{
 				Name:  "down",
@@ -232,27 +241,13 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewDown(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewDown, &logLevel),
 			},
 			{
-				Name:  "ls",
-				Usage: "list the sessions running on the target tmux server",
-				Flags: socketFlags(),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewLs(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Name:   "ls",
+				Usage:  "list the sessions running on the target tmux server",
+				Flags:  socketFlags(),
+				Action: actionFor(actions.NewLs, &logLevel),
 			},
 			{
 				Name:  "format",
@@ -268,14 +263,7 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, variableFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewFormat(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run()
-				},
+				Action: actionFor(actions.NewFormat, &logLevel),
 			},
 			{
 				Name:  "save",
@@ -294,22 +282,12 @@ func newApp() *cli.Command {
 						Usage: "writes the saved glaze output to your terminal instead of a file",
 					},
 				}, socketFlags()),
-				Action: func(ctx context.Context, cmd *cli.Command) error {
-					action, err := actions.NewSave(cmd, logLevel)
-					if err != nil {
-						return err
-					}
-
-					return action.Run(ctx)
-				},
+				Action: actionFor(actions.NewSave, &logLevel),
 			},
 		},
 	}
 
-	// --var / --var-file values are arbitrary strings (tags, titles) that
-	// routinely contain commas; disable the slice-flag comma split so a
-	// value like `tags=one,two,three` arrives as one string, not three. The
-	// separator config is read per owning command, so set it on each.
+	// A --var value such as `tags=one,two` can contain commas, so turn off the comma split on every command.
 	for _, sub := range app.Commands {
 		sub.DisableSliceFlagSeparator = true
 		sub.OnUsageError = usageError

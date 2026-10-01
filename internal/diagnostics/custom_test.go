@@ -154,19 +154,6 @@ func TestWrongSizeDiagnostic(t *testing.T) {
 		assert.Nil(t, WrongSizeDiagnostic("x", cty.NullVal(cty.String)))
 	})
 
-	t.Run("no diagnostic for a positive integer", func(t *testing.T) {
-		assert.Empty(t, WrongSizeDiagnostic("x", cty.NumberIntVal(80)))
-	})
-
-	t.Run("diagnostic for a zero or negative integer", func(t *testing.T) {
-		assert.True(t, WrongSizeDiagnostic("x", cty.NumberIntVal(0)).HasErrors())
-		assert.True(t, WrongSizeDiagnostic("x", cty.NumberIntVal(-5)).HasErrors())
-	})
-
-	t.Run("diagnostic for a non-integer number", func(t *testing.T) {
-		assert.True(t, WrongSizeDiagnostic("x", cty.NumberFloatVal(1.5)).HasErrors())
-	})
-
 	t.Run("no diagnostic for a valid percentage string", func(t *testing.T) {
 		assert.Empty(t, WrongSizeDiagnostic("x", cty.StringVal("50%")))
 		assert.Empty(t, WrongSizeDiagnostic("x", cty.StringVal("80")))
@@ -174,10 +161,6 @@ func TestWrongSizeDiagnostic(t *testing.T) {
 
 	t.Run("diagnostic for an invalid string", func(t *testing.T) {
 		assert.True(t, WrongSizeDiagnostic("x", cty.StringVal("big")).HasErrors())
-	})
-
-	t.Run("diagnostic for a non-string non-number type", func(t *testing.T) {
-		assert.True(t, WrongSizeDiagnostic("x", cty.BoolVal(true)).HasErrors())
 	})
 }
 

@@ -13,9 +13,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
-// buildDown constructs a fully wired ActionDown with a tmuxtest recorder
-// installed, mirroring how main.go builds the action. An empty profile means
-// no profile file is written, exercising the --session-only path.
+// buildDown builds ActionDown as main does, with a recorder for tmux. An empty profile writes no file, to test --session alone.
 func buildDown(t *testing.T, profile string, flags map[string]string) (*ActionDown, *tmuxtest.Recorder) {
 	t.Helper()
 
@@ -137,9 +135,7 @@ session {
 	})
 
 	t.Run("ignores variables used only deeper in the profile", func(t *testing.T) {
-		// greeting is required (no default) and never supplied, yet `down` must
-		// still resolve the static name: it evaluates only `name`, so a variable
-		// used solely in a pane command is neither required nor evaluated.
+		// greeting has no default and no value, but `down` evaluates only `name`, so a variable that only a pane uses is not needed.
 		profile := `variable "greeting" {
   type = string
 }

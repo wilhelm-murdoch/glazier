@@ -10,9 +10,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-// runWithProfile runs NewActionBase against the given profile contents through a
-// real cli.Command so the profile-path flag is populated as it would be in
-// production, and returns the resulting base and error.
+// runWithProfile runs NewActionBase on a profile with these contents, through a real cli.Command so --profile-path is set.
 func runWithProfile(t *testing.T, contents string) (*ActionBase, error) {
 	t.Helper()
 

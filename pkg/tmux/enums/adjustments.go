@@ -26,7 +26,7 @@ var AdjustmentList = []string{
 	AdjustmentUnknownString,
 }
 
-// String is responsible for returning the string representation of an Adjustment.
+// String returns the name of the direction.
 func (a Adjustment) String() string {
 	switch a {
 	case AdjustmentUp:
@@ -42,7 +42,7 @@ func (a Adjustment) String() string {
 	return AdjustmentUnknownString
 }
 
-// LayoutFromString is responsible for converting a string to a Layout enum.
+// AdjustmentFromString returns the direction with the name s.
 func AdjustmentFromString(s string) Adjustment {
 	switch s {
 	case AdjustmentUpString:
@@ -58,9 +58,7 @@ func AdjustmentFromString(s string) Adjustment {
 	return AdjustmentUnknown
 }
 
-// ResizeFlag returns the `tmux resize-pane` flag corresponding to the
-// adjustment direction (-U, -D, -L, -R). The second return value is false for
-// unknown directions, for which no flag exists.
+// ResizeFlag returns the resize-pane flag for the direction (-U, -D, -L or -R), and false for an unknown direction.
 func (a Adjustment) ResizeFlag() (string, bool) {
 	switch a {
 	case AdjustmentUp:

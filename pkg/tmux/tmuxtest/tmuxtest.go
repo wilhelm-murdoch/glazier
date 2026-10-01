@@ -1,7 +1,4 @@
-// Package tmuxtest provides test doubles for driving a tmux.Client without
-// spawning a real tmux process. It is intended for use by packages that build
-// on top of tmux.Client (for example the CLI actions) so they can assert the
-// sequence of tmux commands a higher-level operation issues.
+// Package tmuxtest fakes tmux for packages that drive a tmux.Client, so their tests can check the commands that they send.
 package tmuxtest
 
 import (
@@ -68,9 +65,7 @@ func (c *command) run() {
 	}
 }
 
-// Recorder records every tmux invocation routed through it and returns canned
-// results keyed by tmux subcommand (e.g. "ls", "neww", "splitw"). This lets a
-// single test exercise an operation that chains several different tmux commands.
+// Recorder records every tmux command and returns canned results for each subcommand, in the order they were queued.
 type Recorder struct {
 	mu       sync.Mutex
 	Calls    [][]string

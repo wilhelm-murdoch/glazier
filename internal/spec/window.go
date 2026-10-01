@@ -13,20 +13,12 @@ var Window = &hcldec.BlockListSpec{
 	TypeName: "window",
 	MinItems: 1,
 	Nested: &hcldec.ObjectSpec{
-		"name": &hcldec.ValidateSpec{
-			Wrapped: Name,
-			Func: func(value cty.Value) hcl.Diagnostics {
-				return diagnostics.NameDiagnostic("window", value)
-			},
-		},
+		"name":               nameSpec("window"),
 		"starting_directory": StartingDirectory,
 		"hooks":              Hooks,
 		"options":            Options,
 		"panes":              Pane,
-		"focus": &hcldec.AttrSpec{
-			Name: "focus",
-			Type: cty.Bool,
-		},
+		"focus":              Focus,
 		"layout": &hcldec.ValidateSpec{
 			Wrapped: &hcldec.AttrSpec{
 				Name: "layout",

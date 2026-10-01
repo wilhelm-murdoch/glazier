@@ -10,9 +10,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
-// localsContext builds the full VariableContext for an in-memory profile, the
-// same entry point the CLI actions use, so locals are exercised alongside the
-// var/env/path namespaces they may reference.
+// localsContext builds the full VariableContext for a profile in memory, as the CLI actions do, so locals can use var, env and path.
 func localsContext(t *testing.T, content string, flags []string, requireAll bool) (map[string]cty.Value, bool, string) {
 	t.Helper()
 

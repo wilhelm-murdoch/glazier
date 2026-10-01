@@ -11,7 +11,7 @@ import (
 
 type TestDepsClient struct {
 	*TestDepsBase
-	Client *Client
+	Client Client
 }
 
 func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
@@ -115,7 +115,7 @@ func TestClientNew(t *testing.T) {
 		client, err := NewClient(testSocketPath, testSocketPath, discardLogger)
 
 		assert.ErrorIs(t, err, ErrUnreachable)
-		assert.Nil(t, client)
+		assert.Equal(t, Client{}, client)
 	})
 
 	t.Run("successfully finds tmux executable", func(t *testing.T) {
@@ -136,6 +136,7 @@ var lookupCases = []struct {
 	{name: "session missing", result: tmuxFailure("can't find session: demos")},
 	{name: "no socket file", result: tmuxFailure("error connecting to /tmp/tmux-1000/default (No such file or directory)")},
 	{name: "stale socket", result: tmuxFailure("no server running on /tmp/tmux-1000/default")},
+	{name: "server exits while another client starts it", result: tmuxFailure("server exited unexpectedly")},
 	{name: "permission denied", result: tmuxFailure("error connecting to /tmp/tmux-0/default (Permission denied)"), unreachable: true},
 	{name: "tmux cannot run", result: fakeResult{Err: errors.New("fork/exec /usr/bin/tmux: exec format error")}, unreachable: true},
 }
@@ -261,7 +262,7 @@ func TestClientKillSessionByName(t *testing.T) {
 
 		err := testClient().KillSessionByName("demo")
 		assert.Error(t, err)
-		assert.Equal(t, `session "demo" could not be killed: boom`, err.Error())
+		assert.Equal(t, "session `demo` could not be killed: boom", err.Error())
 
 		args := rec.ArgsFor("kill-session")
 		assert.Contains(t, args, "=demo")
@@ -279,6 +280,15 @@ func TestClientFindSessionByName(t *testing.T) {
 		assert.Equal(t, "demo", session.Name)
 	})
 
+	t.Run("reports a listing failure instead of a missing session", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("ls", tmuxFailure("error connecting to /tmp/tmux-0/default (Permission denied)"))
+
+		_, err := testClient().FindSessionByName("demo")
+		assert.ErrorContains(t, err, "Permission denied")
+		assert.NotContains(t, err.Error(), "not found")
+	})
+
 	t.Run("errors when the session is missing", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("ls", fakeResult{Output: "$1;other;/tmp"})
@@ -286,7 +296,7 @@ func TestClientFindSessionByName(t *testing.T) {
 		session, err := testClient().FindSessionByName("demo")
 		assert.Error(t, err)
 		assert.Nil(t, session)
-		assert.Equal(t, `session "demo" not found`, err.Error())
+		assert.Equal(t, "session `demo` not found", err.Error())
 	})
 }
 
@@ -437,8 +447,6 @@ func TestClientWindows(t *testing.T) {
 	t.Run("returns windows for a session", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("lsw", fakeResult{Output: "@1;1;win-a;tiled;1\n@2;2;win-b;even-vertical;0"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		client := testClient()
 		windows, err := client.Windows(testSession(client))
@@ -475,7 +483,6 @@ func TestClientPanes(t *testing.T) {
 	t.Run("returns panes for a window", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("lsp", fakeResult{Output: "%1;1;pane-a;1;/tmp\n%2;2;pane-b;0;/var"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 
 		client := testClient()
 		window := testWindow(testSession(client))
@@ -502,7 +509,6 @@ func TestClientPanes(t *testing.T) {
 	t.Run("errors on a malformed pane line", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("lsp", fakeResult{Output: "%x;1;pane-a;1;/tmp"})
-		rec.On("show", fakeResult{Output: "pane-base-index 1"})
 
 		client := testClient()
 		_, err := client.Panes(testWindow(testSession(client)))
@@ -515,9 +521,6 @@ func TestClientNewWindowFromLine(t *testing.T) {
 	t.Run("parses a valid window line", func(t *testing.T) {
 		client := testClient()
 		session := testSession(client)
-
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
 
 		window, err := client.NewWindowFromLine("@3;1;editor;main-vertical;1", session)
 		assert.NoError(t, err)
@@ -546,9 +549,6 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		client := testClient()
 		window := testWindow(testSession(client))
 
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
-
 		pane, err := client.NewPaneFromLine("%4;1;shell;1;/srv", window)
 		assert.NoError(t, err)
 		assert.Equal(t, PaneId(4), pane.Id)
@@ -562,9 +562,6 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		client := testClient()
 		window := testWindow(testSession(client))
 
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
-
 		_, err := client.NewPaneFromLine("%4;x;shell;1;/srv", window)
 		assert.Error(t, err)
 	})
@@ -573,45 +570,7 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		client := testClient()
 		window := testWindow(testSession(client))
 
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
-
 		_, err := client.NewPaneFromLine("%4;1;shell", window)
-		assert.Error(t, err)
-	})
-}
-
-func TestClientGetOption(t *testing.T) {
-	t.Run("resolves a known scope", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
-
-		out, err := testClient().GetOption("demo", "base-index", "global")
-		assert.NoError(t, err)
-		assert.Equal(t, "base-index 1", out)
-		assert.Contains(t, rec.ArgsFor("show"), "-g")
-	})
-
-	t.Run("falls back to global scope for unknown scope", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 0"})
-
-		out, err := testClient().GetOption("demo", "base-index", "bogus")
-		assert.NoError(t, err)
-		assert.Equal(t, "base-index 0", out)
-
-		// Regression guard: an unknown scope must resolve to -g, never an empty
-		// argument (tmux rejects an empty positional with "too many arguments").
-		args := rec.ArgsFor("show")
-		assert.Contains(t, args, "-g")
-		assert.NotContains(t, args, "")
-	})
-
-	t.Run("propagates command errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Err: errors.New("show failed")})
-
-		_, err := testClient().GetOption("demo", "base-index", "global")
 		assert.Error(t, err)
 	})
 }

@@ -4,17 +4,11 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"path/filepath"
 	"slices"
 	"strings"
 	"time"
-)
-
-var (
-	ErrPaneExited     = errors.New("the pane's shell exited before its commands finished")
-	ErrCommandTimeout = errors.New("the pane's commands did not finish in time")
 )
 
 // paneCheckInterval is how often a CommandRunner checks that the pane is still alive while it waits.
@@ -64,11 +58,7 @@ func (c Client) NewCommandRunner(timeout time.Duration) (*CommandRunner, error) 
 // defaultShell returns the command that tmux starts in a new pane: default-command, or default-shell when that is empty.
 func (c Client) defaultShell() (string, error) {
 	for _, option := range []string{"default-command", "default-shell"} {
-		cmd := newCommand(c, "show-options", "-gqv", option)
-
-		c.logger.Debug(cmd.String())
-
-		value, err := cmd.ExecWithOutput()
+		value, err := c.output("show-options", "-gqv", option)
 		if err != nil {
 			return "", fmt.Errorf("could not read the tmux option `%s`: %w", option, err)
 		}
@@ -113,8 +103,6 @@ func (r *CommandRunner) Run(pane string, commands []string) error {
 	name := "glaze-" + hex.EncodeToString(token)
 
 	load := newCommand(r.client, "load-buffer", "-b", name, "-")
-
-	r.client.logger.Debug(load.String())
 
 	if err := load.ExecWithInput(r.script(name, commands)); err != nil {
 		return fmt.Errorf("could not load the commands into a tmux buffer: %w", err)
@@ -180,22 +168,13 @@ func (r *CommandRunner) quote(s string) string {
 	return posixQuote(s)
 }
 
-// posixQuote returns s as one single-quoted word for a POSIX shell.
-func posixQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
-
 // typeLine types line into the pane as literal text, then presses Enter.
 func (r *CommandRunner) typeLine(pane, line string) error {
 	for _, args := range [][]string{
 		{"send-keys", "-l", "-t", pane, "--", line},
 		{"send-keys", "-t", pane, "Enter"},
 	} {
-		cmd := newCommand(r.client, args...)
-
-		r.client.logger.Debug(cmd.String())
-
-		if err := cmd.Exec(); err != nil {
+		if err := r.client.run(args...); err != nil {
 			return fmt.Errorf("could not type the command line into pane `%s`: %w", pane, err)
 		}
 	}
@@ -207,8 +186,6 @@ func (r *CommandRunner) typeLine(pane, line string) error {
 // The buffer name is also the channel name.
 func (r *CommandRunner) wait(pane, name string) error {
 	cmd := newCommand(r.client, "wait-for", name)
-
-	r.client.logger.Debug(cmd.String())
 
 	done := make(chan error, 1)
 	go func() {
@@ -267,11 +244,7 @@ func (r *CommandRunner) wait(pane, name string) error {
 
 // giveUp releases the waiting client and removes the buffer in case the shell never read it.
 func (r *CommandRunner) giveUp(name string, done <-chan error, reason error) error {
-	cmd := newCommand(r.client, "wait-for", "-S", name)
-
-	r.client.logger.Debug(cmd.String())
-
-	if err := cmd.Exec(); err == nil {
+	if err := r.client.run("wait-for", "-S", name); err == nil {
 		<-done
 	}
 
@@ -283,18 +256,12 @@ func (r *CommandRunner) giveUp(name string, done <-chan error, reason error) err
 // paneAlive reports whether the pane exists and its program still runs.
 // display-message prints nothing and succeeds for a missing pane, so the output must name the pane.
 func (r *CommandRunner) paneAlive(pane string) bool {
-	cmd := newCommand(r.client, "display-message", "-p", "-t", pane, "#{pane_id} #{pane_dead}")
-
-	output, err := cmd.ExecWithOutput()
+	output, err := r.client.output("display-message", "-p", "-t", pane, "#{pane_id} #{pane_dead}")
 
 	return err == nil && output == pane+" 0"
 }
 
 // deleteBuffer removes the buffer. An error means the shell already removed it.
 func (r *CommandRunner) deleteBuffer(name string) {
-	cmd := newCommand(r.client, "delete-buffer", "-b", name)
-
-	r.client.logger.Debug(cmd.String())
-
-	_, _ = cmd.ExecWithOutput()
+	_, _ = r.client.output("delete-buffer", "-b", name)
 }

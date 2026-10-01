@@ -13,12 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestEndToEndProvisioning exercises the tmux client against a real tmux server
-// on a throwaway socket. It is skipped when tmux is not installed. Unlike the
-// rest of the suite (which fakes the command factory), this test issues real
-// tmux commands and parses real tmux output, guarding the parts most likely to
-// drift against new tmux versions: output formats, base-index logic, and the
-// wait-for synchronisation.
+// TestEndToEndProvisioning drives a real tmux server on a throwaway socket, to catch changes in tmux output and wait-for.
+// It skips when tmux is not installed.
 func TestEndToEndProvisioning(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed; skipping end-to-end test")
@@ -51,9 +47,9 @@ func TestEndToEndProvisioning(t *testing.T) {
 
 	// Session-scoped option round-trips through tmux.
 	assert.NoError(t, session.SetOption("history-limit", "4242"))
-	option, err := client.GetOption(session.Target(), "history-limit", "session")
+	option, err := client.output("show-options", "-v", "-t", session.Target(), "history-limit")
 	assert.NoError(t, err)
-	assert.Contains(t, option, "4242")
+	assert.Equal(t, "4242", option)
 
 	// Create a window with its own starting directory and split it.
 	windowDir := t.TempDir()
@@ -99,10 +95,8 @@ func TestEndToEndProvisioning(t *testing.T) {
 	assert.False(t, hasSession(t, client, "e2e"))
 }
 
-// TestEndToEndHostileNames creates a session, window and pane with names that
-// tmux escapes in -F output and reads each name back. It guards the q: formats
-// and the splitter against the tmux version under test. tmux 3.4 escapes a $
-// that starts a variable name a second time, so run it on 3.4 as well.
+// TestEndToEndHostileNames reads back session, window and pane names that tmux escapes in -F output, to test q: and the splitter.
+// tmux 3.4 escapes a $ that starts a variable name a second time, so run it on 3.4 too.
 func TestEndToEndHostileNames(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed; skipping end-to-end test")
@@ -524,7 +518,7 @@ func TestEndToEndUnreachableServer(t *testing.T) {
 }
 
 // hasSession reports whether the session exists and fails the test when tmux cannot answer.
-func hasSession(t *testing.T, client *Client, name string) bool {
+func hasSession(t *testing.T, client Client, name string) bool {
 	t.Helper()
 
 	exists, err := client.HasSession(name)
@@ -533,8 +527,8 @@ func hasSession(t *testing.T, client *Client, name string) bool {
 	return exists
 }
 
-// firstPaneOf returns the base-index pane of the given window.
-func firstPaneOf(client *Client, window *Window) (*Pane, error) {
+// firstPaneOf returns the pane that tmux created with the window, which has the lowest id.
+func firstPaneOf(client Client, window *Window) (*Pane, error) {
 	panes, err := client.Panes(window)
 	if err != nil {
 		return nil, err

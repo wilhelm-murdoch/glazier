@@ -8,13 +8,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
-// FuzzDecode drives arbitrary bytes through the full profile pipeline — HCL
-// parsing, spec validation (including the layout-string and size validators),
-// and decoding into typed structs. A profile is the one attacker-controllable
-// input glaze consumes, so the invariant is strict: any input either yields
-// diagnostics or a decoded session, and never a panic or a hang. The seed
-// corpus covers every block type, both layout forms, variable interpolation,
-// and the template functions; `make test` replays it as a plain test.
+// FuzzDecode sends arbitrary bytes through parsing, validation and decoding. Any input must give diagnostics or a session, never a panic or a hang.
+// The seeds cover every block type, both layout forms, interpolation and the functions, and `make test` replays them.
 func FuzzDecode(f *testing.F) {
 	seeds := []string{
 		``,
@@ -55,10 +50,7 @@ func FuzzDecode(f *testing.F) {
 		f.Add(seed)
 	}
 
-	// A fixed eval context: enough variables for the interpolation seeds to
-	// resolve, without the per-run environment noise of collectBaseVariables.
-	// Each source has its own namespace: declared variables under `var`,
-	// environment entries under `env`, and the built-in `path` object.
+	// A fixed context with enough variables for the interpolation seeds, without the environment of collectBaseVariables.
 	variables := map[string]cty.Value{
 		"var": cty.ObjectVal(map[string]cty.Value{
 			"district": cty.StringVal("watson"),
@@ -89,10 +81,8 @@ func FuzzDecode(f *testing.F) {
 	})
 }
 
-// FuzzCollectVariables exercises both variable-collection paths with the same
-// arbitrary input: a `--var` flag value and a `GLAZE_ENV_`-prefixed
-// environment entry. Collected values must always be cty strings keyed by the
-// text before the first `=`.
+// FuzzCollectVariables sends the same input as a --var value and as a GLAZE_ENV_ entry.
+// Each value must be a string, keyed by the text before the first `=`.
 func FuzzCollectVariables(f *testing.F) {
 	seeds := []string{
 		"key=value",
