@@ -28,39 +28,6 @@ func (p Pane) Target() string {
 	return p.Id.String()
 }
 
-// SendKeys sends the given keystrokes to the current pane.
-func (p Pane) SendKeys(keys string) error {
-	args := []string{
-		"send",
-		"-t",
-		p.Target(),
-		fmt.Sprint(keys),
-		"Enter",
-	}
-
-	cmd := newCommand(p.Window.Session.Client, args...)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
-}
-
-// SendKeysAndWait sends the given keystrokes to the current pane and blocks
-// until the command completes. It appends a `tmux wait-for -S <channel>` signal
-// to the command and then waits on the same channel, replacing fixed sleeps
-// with reliable synchronisation. The signal is recorded by the tmux server even
-// if it arrives before the wait begins, so there is no race between sending the
-// command and waiting on its completion.
-func (p Pane) SendKeysAndWait(keys, channel string) error {
-	signalled := fmt.Sprintf("%s ; tmux wait-for -S %s", keys, channel)
-
-	if err := p.SendKeys(signalled); err != nil {
-		return err
-	}
-
-	return p.Window.Session.Client.WaitFor(channel)
-}
-
 // SetHook registers a pane-scoped hook command which tmux will run when the
 // named hook fires for this pane.
 func (p Pane) SetHook(hook, command string) error {

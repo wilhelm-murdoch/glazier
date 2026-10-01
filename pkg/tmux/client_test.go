@@ -524,27 +524,6 @@ func TestClientGetOption(t *testing.T) {
 	})
 }
 
-func TestClientWaitFor(t *testing.T) {
-	t.Run("blocks on the given channel", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("wait-for", fakeResult{})
-
-		assert.NoError(t, testClient().WaitFor("glaze-1-0"))
-
-		args := rec.ArgsFor("wait-for")
-		assert.Contains(t, args, "glaze-1-0")
-	})
-
-	t.Run("wraps the underlying error", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("wait-for", fakeResult{Err: errors.New("boom")})
-
-		err := testClient().WaitFor("glaze-1-0")
-		assert.Error(t, err)
-		assert.Equal(t, "waiting on channel `glaze-1-0` failed: boom", err.Error())
-	})
-}
-
 func TestClientAttach(t *testing.T) {
 	t.Run("uses switchc when inside tmux", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-1000/default,1,0")

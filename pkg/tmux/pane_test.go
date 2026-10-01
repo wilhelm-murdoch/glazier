@@ -18,68 +18,6 @@ func TestPaneTarget(t *testing.T) {
 	assert.Equal(t, "%0", pane.Target())
 }
 
-func TestPaneSendKeys(t *testing.T) {
-	t.Run("sends keys followed by Enter", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
-
-		client := testClient()
-		pane := testPane(testWindow(testSession(client)))
-		assert.NoError(t, pane.SendKeys("ls -la"))
-
-		args := rec.ArgsFor("send")
-		assert.Contains(t, args, "ls -la")
-		assert.Equal(t, "Enter", args[len(args)-1])
-	})
-
-	t.Run("propagates errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{Err: errors.New("send failed")})
-
-		client := testClient()
-		pane := testPane(testWindow(testSession(client)))
-		assert.Error(t, pane.SendKeys("ls"))
-	})
-}
-
-func TestPaneSendKeysAndWait(t *testing.T) {
-	t.Run("appends a wait-for signal and blocks on the channel", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
-		rec.On("wait-for", fakeResult{})
-
-		client := testClient()
-		pane := testPane(testWindow(testSession(client)))
-		assert.NoError(t, pane.SendKeysAndWait("make build", "glaze-1-0"))
-
-		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "make build ; tmux wait-for -S glaze-1-0")
-		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
-
-		assert.Contains(t, rec.ArgsFor("wait-for"), "glaze-1-0")
-	})
-
-	t.Run("propagates send errors without waiting", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{Err: errors.New("send failed")})
-
-		client := testClient()
-		pane := testPane(testWindow(testSession(client)))
-		assert.Error(t, pane.SendKeysAndWait("make build", "glaze-1-0"))
-		assert.False(t, rec.Called("wait-for"))
-	})
-
-	t.Run("propagates wait errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
-		rec.On("wait-for", fakeResult{Err: errors.New("wait failed")})
-
-		client := testClient()
-		pane := testPane(testWindow(testSession(client)))
-		assert.Error(t, pane.SendKeysAndWait("make build", "glaze-1-0"))
-	})
-}
-
 func TestPaneSetHook(t *testing.T) {
 	t.Run("registers a pane-scoped hook", func(t *testing.T) {
 		rec := setupRecorder(t)

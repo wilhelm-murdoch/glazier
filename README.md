@@ -48,6 +48,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 - Profiles declare typed `variable` blocks in the Terraform style. You read them through `var.`. Built-in `GLAZE_ENV_*` variables are also available.
 - Template functions give string manipulation.
 - Profiles set environment variables, hooks and tmux options.
+- Glazier runs pane commands exactly as you write them, in a POSIX shell or in fish.
 - `tmux wait-for` sequences the commands. There are no fixed sleeps.
 - The `glaze format` command formats and validates a profile.
 - The `glaze save` command captures a live session into a profile.
@@ -148,6 +149,7 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--detached` | Create the session and do not attach to it. |
 | `--clear` | First kill an existing session that has the same name. |
 | `--debug` | Print each command that Glazier sends to the tmux socket. |
+| `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |
 | `--socket-name` | The name of a custom tmux socket. |
 | `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
@@ -283,6 +285,7 @@ session {
 | `envs` | map(string) | Environment variables for the session. |
 | `hooks` | map(string) | A map of a tmux hook name to a command. |
 | `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
+| `commands` | list(string) | Commands that run in the active pane after Glazier creates all windows and panes. See [Commands](#commands). |
 | `window` | block(s) | One or more windows. At least one window is required. |
 
 tmux rewrites some characters in names. Thus Glazier replaces these characters with `-` before it starts tmux, and it shows a warning with the new name:
@@ -335,7 +338,28 @@ pane {
 }
 ```
 
-Glazier sends the `commands` in order and serialises them with `tmux wait-for`. Each command completes before Glazier sends the next command. Glazier sends the **final** command without a wait. Thus a long-running or interactive command, for example `nvim` or a dev server, does not block the creation of the session. Glazier applies the `size` block first. The `adjust` blocks then refine the dimensions in order.
+Glazier applies the `size` block first. The `adjust` blocks then refine the dimensions in order.
+
+### Commands
+
+Glazier runs the `commands` of a pane in order. Before it configures the next pane, it waits until all commands except the last are complete. It does not wait for the **final** command. Thus a long-running or interactive command, for example `nvim` or a dev server, does not stop the creation of the session.
+
+Glazier does not type the commands into the pane. It loads them into a tmux paste buffer. Then it types one line that tells the shell of the pane to run the buffer:
+
+```sh
+ eval "$('/usr/bin/tmux' -S '/tmp/tmux-1000/default' show-buffer -b glaze-3f9c0e1a7b2d4c68)"
+```
+
+The shell runs each command exactly as you wrote it. The line editor of the shell does not see the commands, so `!`, a tab, a leading `-` and a long line do not change. The commands run in the shell of the pane, so `cd` and `export` stay in effect. A command with a syntax error fails alone, and the commands after it still run. The line starts with a space, so a shell that ignores such lines does not keep it in the history.
+
+Glazier uses this form for every shell except fish. fish gets `eval (... | string collect)`. Glazier finds the shell from the tmux options `default-command` and `default-shell`. For a shell that it does not recognise, Glazier uses the POSIX form and shows a warning.
+
+By default, Glazier waits with no time limit, because a setup command such as `npm install` can be slow. If the shell of the pane exits, Glazier stops the wait. Use `--command-timeout` to set a limit. In both cases, Glazier shows a warning and continues with the next pane.
+
+> [!NOTE]
+> The `eval` runs only the `commands` from your profile. Earlier versions of Glazier typed the same commands into the pane. Thus the trust model does not change: a person who can change your profile can run commands in your panes.
+>
+> Glazier sends the buffer to tmux on stdin, so the commands do not appear in the process list. The first line of the buffer deletes the buffer. Each buffer has a random name. Only a client with access to your tmux socket can read or change a buffer, and such a client can already type into your panes.
 
 ## Variables & string functions
 

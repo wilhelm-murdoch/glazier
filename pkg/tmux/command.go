@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 )
 
@@ -14,6 +15,7 @@ type Commander interface {
 	fmt.Stringer
 	Exec() error
 	ExecWithOutput() (string, error)
+	ExecWithInput(input string) error
 	ExecWithStatus() int
 }
 
@@ -49,6 +51,8 @@ type Command struct {
 
 // NewCommand returns a new command with the given arguments.
 func NewCommand(client Client, args ...string) *Command {
+	args = escapeSeparators(args)
+
 	// Glaze reads output as UTF-8, so stop tmux printing non-ASCII as "_" under a non-UTF-8 locale.
 	// An attached client is the user's terminal, so its locale decides.
 	if subcommandOf(args) != "attach" {
@@ -73,16 +77,34 @@ func NewCommand(client Client, args ...string) *Command {
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
 func subcommandOf(args []string) string {
-	for i := 0; i < len(args); i++ {
-		if args[i] == "-L" || args[i] == "-S" {
-			i++
-			continue
-		}
-
+	if i := subcommandIndex(args); i < len(args) {
 		return args[i]
 	}
 
 	return ""
+}
+
+// subcommandIndex returns the position of the tmux command in args, skipping any socket flags.
+func subcommandIndex(args []string) int {
+	i := 0
+	for i < len(args) && (args[i] == "-L" || args[i] == "-S") {
+		i += 2
+	}
+
+	return min(i, len(args))
+}
+
+// escapeSeparators puts a backslash before a trailing ; in each argument of the tmux command.
+// tmux reads an unescaped trailing ; as the end of the command, even in a name or a path.
+func escapeSeparators(args []string) []string {
+	escaped := slices.Clone(args)
+	for i := subcommandIndex(args); i < len(escaped); i++ {
+		if strings.HasSuffix(escaped[i], ";") {
+			escaped[i] = strings.TrimSuffix(escaped[i], ";") + `\;`
+		}
+	}
+
+	return escaped
 }
 
 // String returns the full command with arguments as a string.
@@ -122,4 +144,16 @@ func (c Command) ExecWithOutput() (string, error) {
 	}
 
 	return strings.TrimSuffix(string(output), "\n"), nil
+}
+
+// ExecWithInput executes the command with input on its stdin, so the input never appears in the argument list.
+func (c Command) ExecWithInput(input string) error {
+	c.cmd.Stdin = strings.NewReader(input)
+
+	output, err := c.cmd.CombinedOutput()
+	if err != nil {
+		return NewCommandErrorWithOutput(c.args, err, string(output))
+	}
+
+	return nil
 }

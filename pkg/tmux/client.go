@@ -394,19 +394,3 @@ func (c Client) GetOption(target, option, scope string) (string, error) {
 
 	return output, nil
 }
-
-// WaitFor blocks until the given channel is signalled with `tmux wait-for -S`,
-// which is used to serialise command execution within a pane. The tmux server
-// records the signal even if it is sent before the wait begins, so there is no
-// race between dispatching a command and waiting on its completion.
-func (c Client) WaitFor(channel string) error {
-	cmd := newCommand(c, "wait-for", channel)
-
-	c.logger.Debug(cmd.String())
-
-	if err := cmd.Exec(); err != nil {
-		return fmt.Errorf("waiting on channel `%s` failed: %w", channel, err)
-	}
-
-	return nil
-}

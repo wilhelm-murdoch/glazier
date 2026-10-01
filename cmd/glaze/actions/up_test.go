@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -126,20 +128,13 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	assert.True(t, rec.Called("killp"))
 	assert.True(t, rec.Called("selectl"))
 
-	// Two commands: the first is serialised with wait-for, the final command
-	// is sent fire-and-forget so a long-running command cannot hang.
-	assert.Equal(t, 2, rec.CountOf("send"))
+	// Both commands go into one buffer, and glaze waits for every command but the last.
+	assert.Equal(t, 1, rec.CountOf("load-buffer"))
 	assert.Equal(t, 1, rec.CountOf("wait-for"))
+	assert.Equal(t, "%2", rec.ArgsFor("send-keys")[3])
 
-	var sends [][]string
-	for _, c := range rec.Calls {
-		if len(c) > 0 && c[0] == "send" {
-			sends = append(sends, c)
-		}
-	}
-	assert.Contains(t, sends[0][len(sends[0])-2], "cd /tmp ; tmux wait-for -S")
-	assert.Contains(t, sends[1][len(sends[1])-2], "htop")
-	assert.NotContains(t, sends[1][len(sends[1])-2], "wait-for")
+	input := rec.InputsFor("load-buffer")[0]
+	assert.Regexp(t, `\ncommand eval ' cd /tmp'\n.* wait-for -S glaze-[0-9a-f]+\ncommand eval ' htop'\n$`, input)
 }
 
 func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
@@ -215,11 +210,11 @@ func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 	// A pane that exits at once must not be the parent of a later split.
 	var order []string
 	for _, call := range rec.Calls {
-		if call[0] == "splitw" || call[0] == "send" {
+		if call[0] == "splitw" || call[0] == "load-buffer" {
 			order = append(order, call[0])
 		}
 	}
-	assert.Equal(t, []string{"splitw", "splitw", "send"}, order)
+	assert.Equal(t, []string{"splitw", "splitw", "load-buffer"}, order)
 }
 
 func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
@@ -230,12 +225,17 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
 	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
-	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"echo pane"}}
+	rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-1000/default"})
+	rec.On("show-options", tmuxtest.Result{Output: ""})
+	rec.On("show-options", tmuxtest.Result{Output: "/bin/bash"})
+	rec.On("display-message", tmuxtest.Result{Output: "%9"})
+
+	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"pane"}}
 	window := windowWithPane("w", enums.LayoutTiled, pane)
 
 	profile := &decoders.Session{
 		Base:     &decoders.Base{Name: "demo"},
-		Commands: []string{"echo session"},
+		Commands: []string{"session"},
 	}
 	profile.Windows = []*decoders.Window{window}
 
@@ -245,10 +245,10 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	assert.True(t, rec.Called("renamew"))
 	assert.False(t, rec.Called("killw"))
 
-	// Each command list has a single, final command, so both are sent
-	// fire-and-forget with no wait-for synchronisation.
-	assert.Equal(t, 2, rec.CountOf("send"))
+	// Each list has one command, so glaze does not wait. The session command runs in the active pane.
+	assert.Equal(t, []string{"command eval ' pane'", "command eval ' session'"}, commandsIn(rec))
 	assert.Equal(t, 0, rec.CountOf("wait-for"))
+	assert.Equal(t, []string{"send-keys", "-t", "%9", "Enter"}, lastCall(rec, "send-keys"))
 }
 
 func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
@@ -375,7 +375,104 @@ func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T
 
 	assert.NoError(t, up.provisionSession(profile))
 
-	// First session command waits, the final long-running command does not.
-	assert.Equal(t, 2, rec.CountOf("send"))
+	// glaze waits for the first session command, but not for the final long-running command.
+	assert.Equal(t, 1, rec.CountOf("load-buffer"))
 	assert.Equal(t, 1, rec.CountOf("wait-for"))
+}
+
+func TestActionUpContinuesAfterCommandsTimeOut(t *testing.T) {
+	up, rec := newTestUp(t)
+	up.commandTimeout = 10 * time.Millisecond
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;slow;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;2;next;1;/tmp"})
+	rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-1000/default"})
+	rec.On("show-options", tmuxtest.Result{Output: "/bin/bash"})
+
+	// The wait returns only when glaze gives up and signals the channel itself.
+	release := make(chan struct{})
+	rec.On("wait-for", tmuxtest.Result{OnExec: func() { <-release }})
+	rec.On("wait-for", tmuxtest.Result{OnExec: func() { close(release) }})
+
+	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{
+		Base:     &decoders.Base{Name: "slow"},
+		Commands: []string{"sleep 600", "nvim"},
+	})
+	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "next"}, Commands: []string{"htop"}})
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
+
+	assert.Contains(t, logs.String(), "glaze stopped waiting for the pane commands")
+	assert.Contains(t, logs.String(), "name=slow")
+	assert.Equal(t, 2, rec.CountOf("load-buffer"))
+}
+
+func TestActionUpStopsWhenCommandsCannotBeLoaded(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("load-buffer", tmuxtest.Result{Err: errors.New("no server")})
+
+	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"htop"}})
+
+	err := up.generateWindows([]*decoders.Window{window}, nil)
+	assert.ErrorContains(t, err, "could not run the commands for pane `p` in window `w`")
+}
+
+func TestActionUpStopsWhenTheShellCannotBeRead(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("display-message", tmuxtest.Result{Err: errors.New("no server")})
+
+	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"htop"}})
+
+	assert.Error(t, up.generateWindows([]*decoders.Window{window}, nil))
+	assert.False(t, rec.Called("load-buffer"))
+}
+
+func TestActionUpStopsWhenTheActivePaneCannotBeFound(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("display-message", tmuxtest.Result{Err: errors.New("no server")})
+
+	profile := &decoders.Session{Base: &decoders.Base{Name: "demo"}, Commands: []string{"htop"}}
+	profile.Windows = []*decoders.Window{windowWithPane("w", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}})}
+
+	err := up.provisionSession(profile)
+	assert.ErrorContains(t, err, "could not find the active pane of session `demo`")
+	assert.False(t, rec.Called("load-buffer"))
+}
+
+// commandsIn returns the last line of each loaded buffer, which runs the last command of each list.
+func commandsIn(rec *tmuxtest.Recorder) []string {
+	var last []string
+	for _, input := range rec.InputsFor("load-buffer") {
+		lines := strings.Split(strings.TrimSuffix(input, "\n"), "\n")
+		last = append(last, lines[len(lines)-1])
+	}
+	return last
+}
+
+// lastCall returns the arguments of the last invocation of the given subcommand.
+func lastCall(rec *tmuxtest.Recorder, subcommand string) []string {
+	var last []string
+	for _, call := range rec.Calls {
+		if call[0] == subcommand {
+			last = call
+		}
+	}
+	return last
 }
