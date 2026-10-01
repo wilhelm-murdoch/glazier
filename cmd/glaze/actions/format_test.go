@@ -3,6 +3,7 @@ package actions
 import (
 	"bytes"
 	"context"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -100,19 +101,24 @@ func TestActionFormatRun(t *testing.T) {
 		assert.Contains(t, string(contents), "    name = \"w\"")
 	})
 
-	t.Run("validation does not write warnings into --stdout output", func(t *testing.T) {
-		action := buildFormat(t, "session {\n  name = \"a.b\"\n  window {\n    pane {}\n  }\n}\n", map[string]string{"validate": "true", "stdout": "true"})
+	t.Run("validation with --stdout keeps warnings out of the formatted output", func(t *testing.T) {
+		profile := "session {\n  name = \"a.b\"\n  window {\n    pane {}\n  }\n}\n"
+		action := buildFormat(t, profile, map[string]string{"validate": "true", "stdout": "true"})
 
-		var out bytes.Buffer
+		var diags bytes.Buffer
 		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
-			&out,
+			&diags,
 			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
 			0,
 			false,
 		)
 
-		assert.NoError(t, action.Run())
-		assert.Empty(t, out.String())
+		stdout := captureStdout(t, func() {
+			assert.NoError(t, action.Run())
+		})
+
+		assert.Equal(t, profile, stdout)
+		assert.Contains(t, diags.String(), "Warning: Session name will be changed")
 	})
 
 	t.Run("validation passes for a valid profile", func(t *testing.T) {
@@ -155,4 +161,28 @@ session {
 		})
 		assert.NoError(t, action.Run())
 	})
+}
+
+// captureStdout returns what fn writes to os.Stdout.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("could not create a pipe: %v", err)
+	}
+
+	previous := os.Stdout
+	os.Stdout = w
+	defer func() { os.Stdout = previous }()
+
+	fn()
+	_ = w.Close()
+
+	out, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("could not read stdout: %v", err)
+	}
+
+	return string(out)
 }

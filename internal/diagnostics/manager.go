@@ -51,11 +51,12 @@ func (dm *DiagnosticsManager) Write() error {
 }
 
 // NewDiagnosticsManager is responsible for creating a new DiagnosticsManager instance.
+// Diagnostics go to stderr, so stdout carries only command output.
 func New(filePath string, file *hcl.File) *DiagnosticsManager {
 	return &DiagnosticsManager{
 		Diagnostics: hcl.Diagnostics{},
 		Writer: hcl.NewDiagnosticTextWriter(
-			os.Stdout,
+			os.Stderr,
 			map[string]*hcl.File{filePath: file},
 			diagnosticTextWriterWidth,
 			true,

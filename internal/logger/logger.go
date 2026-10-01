@@ -26,14 +26,14 @@ func (l *Logger) Trace(msg string, args ...any) {
 	l.Log(context.Background(), LevelTrace, msg, args...)
 }
 
-// New returns a new logger set to the desired log level.
+// New returns a new logger set to the desired log level. It writes to stderr, so stdout carries only command output.
 func New(level slog.Level) *Logger {
 	return &Logger{
 		Logger: slog.New(&Handler{
-			Handler: slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Handler: slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
 				Level: level,
 			}),
-			l: log.New(os.Stdout, "", 0),
+			l: log.New(os.Stderr, "", 0),
 		}),
 		Level: level,
 	}

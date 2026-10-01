@@ -84,7 +84,11 @@ func (a *ActionSave) Run() error {
 		return err
 	}
 
-	a.Logger.Info("saving session", "session", session.Name, "path", path)
+	if a.Command.Bool("stdout") {
+		a.Logger.Info("saving session", "session", session.Name, "output", "stdout")
+	} else {
+		a.Logger.Info("saving session", "session", session.Name, "path", path)
+	}
 
 	captured, err := a.captureSession(session)
 	if err != nil {
