@@ -149,6 +149,10 @@ func main() {
 						Name:  "debug",
 						Usage: "prints a list of all commands sent to the specified tmux socket",
 					},
+					&cli.DurationFlag{
+						Name:  "command-timeout",
+						Usage: "stop waiting for the commands of a pane after this duration, for example 5m (0 waits with no limit)",
+					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
 				Action: func(ctx context.Context, cmd *cli.Command) error {

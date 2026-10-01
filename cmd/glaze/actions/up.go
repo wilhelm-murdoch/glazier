@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/urfave/cli/v3"
 
@@ -22,6 +24,12 @@ type ActionUp struct {
 
 	// windowDefaults holds the window options declared on the session, which apply to every window.
 	windowDefaults map[string]string
+
+	// runner runs pane and session commands. It is created when the first command runs.
+	runner *tmux.CommandRunner
+
+	// commandTimeout limits how long glaze waits for the commands of one pane. Zero waits with no limit.
+	commandTimeout time.Duration
 }
 
 // NewUp is responsible for creating a new ActionFormat struct value pre-populated
@@ -43,8 +51,9 @@ func NewUp(cmd *cli.Command, logLevel string) (*ActionUp, error) {
 	}
 
 	return &ActionUp{
-		ActionBase: *base,
-		tmux:       tmuxClient,
+		ActionBase:     *base,
+		tmux:           tmuxClient,
+		commandTimeout: cmd.Duration("command-timeout"),
 	}, nil
 }
 
@@ -109,32 +118,15 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		return err
 	}
 
-	// Run any session-level commands in the session's active pane, once all
-	// windows and panes exist. Each is serialised via `tmux wait-for`, except
-	// the final command which is sent fire-and-forget so a long-running or
-	// interactive command does not block on a wait-for signal that never fires.
-	for i, cmd := range profile.Commands {
-		a.Logger.Info("setting session command", "cmd", cmd, "session", a.session.Name)
-		if i == len(profile.Commands)-1 {
-			if err := a.session.SendKeys(cmd); err != nil {
-				return fmt.Errorf(
-					"could not execute command `%s` for session `%s`: %w",
-					cmd,
-					a.session.Name,
-					err,
-				)
-			}
-			continue
+	// Session commands run in the session's active pane, once all windows and panes exist.
+	if len(profile.Commands) > 0 {
+		pane, err := a.session.ActivePane()
+		if err != nil {
+			return err
 		}
 
-		channel := fmt.Sprintf("glaze-session-%s-%d", a.session.Name, i)
-		if err := a.session.SendKeysAndWait(cmd, channel); err != nil {
-			return fmt.Errorf(
-				"could not execute command `%s` for session `%s`: %w",
-				cmd,
-				a.session.Name,
-				err,
-			)
+		if err := a.runCommands("session", a.session.Name, pane, profile.Commands); err != nil {
+			return fmt.Errorf("could not run the commands for session `%s`: %w", a.session.Name, err)
 		}
 	}
 
@@ -377,34 +369,8 @@ func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.
 		}
 	}
 
-	// Run any defined commands in order as defined within the current
-	// profile.
-	for i, cmd := range ps.Commands {
-		a.Logger.Info("setting pane command", "cmd", cmd, "name", ptmx.Name)
-		if i == len(ps.Commands)-1 {
-			if err := ptmx.SendKeys(cmd); err != nil {
-				return fmt.Errorf(
-					"could not execute command `%s` for pane `%s` in window `%s`: %w",
-					cmd,
-					ptmx.Name,
-					wtmx.Name,
-					err,
-				)
-			}
-
-			continue
-		}
-
-		channel := fmt.Sprintf("glaze-%d-%d", int(ptmx.Id), i)
-		if err := ptmx.SendKeysAndWait(cmd, channel); err != nil {
-			return fmt.Errorf(
-				"could not execute command `%s` for pane `%s` in window `%s`: %w",
-				cmd,
-				ptmx.Name,
-				wtmx.Name,
-				err,
-			)
-		}
+	if err := a.runCommands("pane", ptmx.Name, ptmx.Target(), ps.Commands); err != nil {
+		return fmt.Errorf("could not run the commands for pane `%s` in window `%s`: %w", ptmx.Name, wtmx.Name, err)
 	}
 
 	if ps.Size.Valid() {
@@ -442,6 +408,34 @@ func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.
 	}
 
 	return nil
+}
+
+// runCommands runs commands in the target pane. A shell that exits early or a timeout only warns, because the session is still usable.
+func (a *ActionUp) runCommands(kind, name, target string, commands []string) error {
+	if len(commands) == 0 {
+		return nil
+	}
+
+	if a.runner == nil {
+		runner, err := a.tmux.NewCommandRunner(a.commandTimeout)
+		if err != nil {
+			return err
+		}
+
+		a.runner = runner
+	}
+
+	for _, cmd := range commands {
+		a.Logger.Info(fmt.Sprintf("setting %s command", kind), "cmd", cmd, "name", name)
+	}
+
+	err := a.runner.Run(target, commands)
+	if errors.Is(err, tmux.ErrPaneExited) || errors.Is(err, tmux.ErrCommandTimeout) {
+		a.Logger.Warn(fmt.Sprintf("glaze stopped waiting for the %s commands", kind), "name", name, "reason", err)
+		return nil
+	}
+
+	return err
 }
 
 // getDefaultPane is responsible for retrieving the default pane for a given tmux window.

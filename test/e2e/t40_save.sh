@@ -162,7 +162,7 @@ EOF
 
 t_hostile_names() {
   local n
-  for n in "my session" "a.b" "a:b" "semi;colon" "hash#tag" "ünïcødé" "-dash" "pct%s" "brace{x}" "tab	x" "x=y" "$(printf 'a%.0s' {1..200})"; do
+  for n in "my session" "a.b" "a:b" "semi;colon" "semi;" "hash#tag" "ünïcødé" "-dash" "pct%s" "brace{x}" "tab	x" "x=y" "$(printf 'a%.0s' {1..200})"; do
     begin hostile_session
     fx <<EOF
 session {
@@ -206,7 +206,7 @@ session {
 EOF
   up; info "empty names" "rc=$RC sessions=[$(tm ls -F '#S' | paste -sd, -)] err=[$ERR]"; end
 
-  for n in "w;1" "w:1" "w.1" "w 1" "#[fg=red]x" "#{session_name}" "ü"; do
+  for n in "w;1" "w;" "w:1" "w.1" "w 1" "#[fg=red]x" "#{session_name}" "ü"; do
     begin hostile_window
     fx <<EOF
 session {
@@ -240,7 +240,7 @@ EOF
     end
   done
 
-  for n in "p;1" "p|1" "p 1" "#{pane_id}"; do
+  for n in "p;1" "p;" "p|1" "p 1" "#{pane_id}"; do
     begin hostile_pane
     fx <<EOF
 session {
@@ -266,7 +266,7 @@ EOF
     end
   done
 
-  for n in "semi;dir" "sp ace" "ünï" "quote'd"; do
+  for n in "semi;dir" "dir;" "sp ace" "ünï" "quote'd"; do
     begin hostile_dir
     mkdir -p "$WD/$n"
     fx <<EOF

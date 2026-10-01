@@ -99,32 +99,16 @@ func (s Session) SetOption(option, value string) error {
 	return cmd.Exec()
 }
 
-// SendKeys sends the given keystrokes to the session's active pane without
-// waiting for the command to complete. It is used for the final command in a
-// sequence, which has no successor to gate and may be long-running or
-// interactive (e.g. nvim, tail -f, a dev server).
-func (s Session) SendKeys(keys string) error {
-	cmd := newCommand(s.Client, "send", "-t", s.Target(), fmt.Sprint(keys), "Enter")
+// ActivePane returns the id of the session's active pane.
+func (s Session) ActivePane() (string, error) {
+	cmd := newCommand(s.Client, "display-message", "-p", "-t", s.Target(), "#{pane_id}")
 
 	s.logger.Debug(cmd.String())
 
-	return cmd.Exec()
-}
-
-// SendKeysAndWait sends the given keystrokes to the session's active pane and
-// blocks until the command completes, using the same `tmux wait-for`
-// synchronisation as Pane.SendKeysAndWait. Session-level commands target the
-// session (and therefore its active pane) rather than a specific pane.
-func (s Session) SendKeysAndWait(keys, channel string) error {
-	signalled := fmt.Sprintf("%s ; tmux wait-for -S %s", keys, channel)
-
-	cmd := newCommand(s.Client, "send", "-t", s.Target(), signalled, "Enter")
-
-	s.logger.Debug(cmd.String())
-
-	if err := cmd.Exec(); err != nil {
-		return err
+	pane, err := cmd.ExecWithOutput()
+	if err != nil {
+		return "", fmt.Errorf("could not find the active pane of session `%s`: %w", s.Name, err)
 	}
 
-	return s.Client.WaitFor(channel)
+	return pane, nil
 }

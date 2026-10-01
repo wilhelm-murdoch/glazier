@@ -183,61 +183,22 @@ func TestSessionSetOption(t *testing.T) {
 	})
 }
 
-func TestSessionSendKeys(t *testing.T) {
-	t.Run("sends keys without a wait-for signal", func(t *testing.T) {
+func TestSessionActivePane(t *testing.T) {
+	t.Run("returns the id of the active pane", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
+		rec.On("display-message", fakeResult{Output: "%7"})
 
-		client := testClient()
-		assert.NoError(t, testSession(client).SendKeys("nvim"))
-
-		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "$0")
-		assert.Contains(t, sendArgs, "nvim")
-		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
-		assert.False(t, rec.Called("wait-for"))
+		pane, err := testSession(testClient()).ActivePane()
+		assert.NoError(t, err)
+		assert.Equal(t, "%7", pane)
+		assert.Equal(t, []string{"display-message", "-p", "-t", "$0", "#{pane_id}"}, rec.ArgsFor("display-message"))
 	})
 
-	t.Run("propagates send errors", func(t *testing.T) {
+	t.Run("propagates errors", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("send", fakeResult{Err: errors.New("send failed")})
+		rec.On("display-message", fakeResult{Err: errors.New("no server")})
 
-		client := testClient()
-		assert.Error(t, testSession(client).SendKeys("nvim"))
-	})
-}
-
-func TestSessionSendKeysAndWait(t *testing.T) {
-	t.Run("sends keys with a wait-for signal and blocks", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
-		rec.On("wait-for", fakeResult{})
-
-		client := testClient()
-		assert.NoError(t, testSession(client).SendKeysAndWait("make build", "glaze-session-demo-0"))
-
-		sendArgs := rec.ArgsFor("send")
-		assert.Contains(t, sendArgs, "$0")
-		assert.Contains(t, sendArgs, "make build ; tmux wait-for -S glaze-session-demo-0")
-		assert.Equal(t, "Enter", sendArgs[len(sendArgs)-1])
-		assert.Contains(t, rec.ArgsFor("wait-for"), "glaze-session-demo-0")
-	})
-
-	t.Run("propagates send errors without waiting", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{Err: errors.New("send failed")})
-
-		client := testClient()
-		assert.Error(t, testSession(client).SendKeysAndWait("make build", "ch"))
-		assert.False(t, rec.Called("wait-for"))
-	})
-
-	t.Run("propagates wait errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("send", fakeResult{})
-		rec.On("wait-for", fakeResult{Err: errors.New("wait failed")})
-
-		client := testClient()
-		assert.Error(t, testSession(client).SendKeysAndWait("make build", "ch"))
+		_, err := testSession(testClient()).ActivePane()
+		assert.Error(t, err)
 	})
 }

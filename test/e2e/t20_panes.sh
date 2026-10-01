@@ -135,6 +135,7 @@ t_commands() {
   up; rc0 "up"
   if ((DUR >= 1900)); then ok "up waits for non-final commands (${DUR}ms)"; else ko "up waits for non-final commands" "returned in ${DUR}ms"; fi
   wf "$WD/o"; sleep 0.5; eq "commands ran in order" "a,b,c" "$(paste -sd, "$WD/o")"
+  eq "no glaze buffer is left" "" "$(tm list-buffers)"
   end
 
   begin cmd_last_long_running
@@ -195,7 +196,67 @@ EOF
 
   begin cmd_exit
   pane_cmds ce '["exit", "echo b"]'
-  TO=8 up; info "non-final 'exit' command" "rc=$RC dur=${DUR}ms"; end
+  TO=8 up
+  if ((RC != 124)); then ok "non-final 'exit' command does not hang (${DUR}ms)"; else ko "non-final 'exit' command does not hang" "timed out"; fi
+  match "up warns that it stopped waiting" 'stopped waiting' "$ERR"
+  info "the only pane exits, so tmux ends the session" "rc=$RC"; end
+
+  begin cmd_command_timeout
+  pane_cmds ct '["sleep 600", "echo b"]'
+  TO=10 up --command-timeout 1s; rc0 "up with --command-timeout"
+  if ((DUR < 5000)); then ok "up stops waiting after the timeout (${DUR}ms)"; else ko "up stops waiting after the timeout" "${DUR}ms"; fi
+  match "up warns about the timeout" 'did not finish in time' "$ERR"; end
+
+  begin cmd_history_bang
+  pane_cmds hb '["echo wow!x > @WD@/o", "echo b >> @WD@/o"]'
+  TO=10 up; rc0 "a command with ! does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "! is literal" "wow!x,b" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_tab
+  pane_cmds tb '["printf '"'"'a\tb\n'"'"' > @WD@/o", "echo end >> @WD@/o"]'
+  TO=10 up; rc0 "a command with a tab does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "the tab is literal" $'a\tb,end' "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_leading_dash
+  pane_cmds ld '["-x 2>/dev/null; echo d > @WD@/o", "echo e >> @WD@/o"]'
+  TO=10 up; rc0 "a command that starts with - is not a tmux flag"
+  wf "$WD/o" 3; sleep 0.3; eq "both commands ran" "d,e" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_final_keyname
+  pane_cmds fk '["echo a > @WD@/o", "Enter"]'
+  TO=10 up; rc0 "up"; wf "$WD/o"; sleep 0.5
+  match "a final key name runs as a command" 'Enter.*not found' "$(tm capture-pane -p -t =fk:w)"; end
+
+  begin cmd_long_line
+  local a5k; a5k=$(printf 'A%.0s' $(seq 1 5000))
+  pane_cmds ll "[\"echo $a5k > @WD@/o\", \"echo end >> @WD@/o\"]"
+  TO=10 up; rc0 "a 5000-character command does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "the whole line ran" "$a5k,end" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_syntax_error
+  pane_cmds se '["echo a > @WD@/o", "if then", "echo \"unclosed", "echo b >> @WD@/o", "echo end >> @WD@/o"]'
+  TO=10 up; rc0 "a command with a syntax error does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "the commands after it ran" "a,b,end" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  begin cmd_unset_tmux
+  pane_cmds ut '["unset TMUX", "echo a > @WD@/o", "echo b >> @WD@/o"]'
+  TO=10 up; rc0 "unset TMUX does not hang"
+  wf "$WD/o" 3; sleep 0.3; eq "both commands ran" "a,b" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
+
+  local shell
+  for shell in zsh fish dash; do
+    begin "cmd_shell_$shell"
+    if ! command -v "$shell" >/dev/null; then info "default shell $shell" "not installed"; end; continue; fi
+    printf 'set -g default-shell %s\n' "$(command -v "$shell")" >"$HOME/.tmux.conf"
+    : >"$HOME/.zshrc"
+    mkdir -p d
+    pane_cmds "s$shell" '["cd @WD@/d", "if then", "echo wow!x > @WD@/o", "printf '"'"'a\tb\n'"'"' >> @WD@/o # note", "-x 2>/dev/null; pwd >> @WD@/o", "echo end >> @WD@/o"]'
+    TO=15 up; rc0 "up with $shell as the default shell"
+    wf "$WD/o" 5; sleep 0.5
+    eq "commands ran as written in $shell" $'wow!x,a\tb,'"$WD/d,end" "$(paste -sd, "$WD/o" 2>/dev/null)"
+    eq "no glaze buffer is left in $shell" "" "$(tm list-buffers)"
+    end
+  done
 
   begin cmd_special_chars
   pane_cmds sc '["printf \"%s|%s|%s\\n\" \"a;b\" '"'"'c d'"'"' \"$HOME\" > @WD@/o", "echo done"]'
@@ -208,11 +269,13 @@ EOF
 
   begin cmd_bare_keyname
   pane_cmds bk '["echo first > @WD@/o", "Escape", "echo third >> @WD@/o"]'
-  TO=8 up; info "a command that is exactly a tmux key name (Escape)" "rc=$RC dur=${DUR}ms file=[$(paste -sd, "$WD/o" 2>/dev/null)]"; end
+  TO=8 up; rc0 "a command that is exactly a tmux key name (Escape)"
+  wf "$WD/o" 3; sleep 0.3; eq "the commands around it ran" "first,third" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
 
   begin cmd_multiline
   pane_cmds ml '["echo one > @WD@/o\necho two >> @WD@/o", "echo three >> @WD@/o"]'
-  TO=10 up; info "command containing a newline" "rc=$RC dur=${DUR}ms file=[$(paste -sd, "$WD/o" 2>/dev/null)]"; end
+  TO=10 up; rc0 "a command containing a newline"
+  wf "$WD/o" 3; sleep 0.3; eq "both lines and the next command ran" "one,two,three" "$(paste -sd, "$WD/o" 2>/dev/null)"; end
 
   begin cmd_pane_dir
   mkdir -p pd
@@ -260,7 +323,7 @@ session {
   }
 }
 EOF
-  TO=8 up; info "envs.PATH without tmux, then two commands" "rc=$RC dur=${DUR}ms"; end
+  TO=8 up; rc0 "envs.PATH without tmux, then two commands"; end
 
   begin session_commands
   mkdir -p d1 d2

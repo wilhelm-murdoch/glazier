@@ -17,18 +17,50 @@ type Result struct {
 	Output string
 	Err    error
 	Status int
+
+	// OnExec runs before the command returns, so a test can block a command or react to it.
+	OnExec func()
 }
 
 // command is a programmable tmux.Commander representing one tmux invocation.
 type command struct {
-	args   []string
-	result Result
+	args     []string
+	result   Result
+	recorder *Recorder
+	index    int
 }
 
-func (c *command) String() string                  { return strings.Join(c.args, " ") }
-func (c *command) Exec() error                     { return c.result.Err }
-func (c *command) ExecWithOutput() (string, error) { return c.result.Output, c.result.Err }
-func (c *command) ExecWithStatus() int             { return c.result.Status }
+func (c *command) String() string { return strings.Join(c.args, " ") }
+
+func (c *command) Exec() error {
+	c.run()
+	return c.result.Err
+}
+
+func (c *command) ExecWithOutput() (string, error) {
+	c.run()
+	return c.result.Output, c.result.Err
+}
+
+func (c *command) ExecWithStatus() int {
+	c.run()
+	return c.result.Status
+}
+
+func (c *command) ExecWithInput(input string) error {
+	c.recorder.mu.Lock()
+	c.recorder.inputs[c.index] = input
+	c.recorder.mu.Unlock()
+
+	c.run()
+	return c.result.Err
+}
+
+func (c *command) run() {
+	if c.result.OnExec != nil {
+		c.result.OnExec()
+	}
+}
 
 // Recorder records every tmux invocation routed through it and returns canned
 // results keyed by tmux subcommand (e.g. "ls", "neww", "splitw"). This lets a
@@ -37,12 +69,13 @@ type Recorder struct {
 	mu       sync.Mutex
 	Calls    [][]string
 	queues   map[string][]Result
+	inputs   map[int]string
 	fallback Result
 }
 
 // New returns an empty Recorder.
 func New() *Recorder {
-	return &Recorder{queues: make(map[string][]Result)}
+	return &Recorder{queues: make(map[string][]Result), inputs: make(map[int]string)}
 }
 
 // On enqueues a canned result for the given tmux subcommand. Repeated calls for
@@ -66,7 +99,7 @@ func (r *Recorder) Install(t *testing.T) *Recorder {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.Calls = append(r.Calls, args)
-		return &command{args: args, result: r.resultFor(args)}
+		return &command{args: args, result: r.resultFor(args), recorder: r, index: len(r.Calls) - 1}
 	})
 	t.Cleanup(restore)
 	return r
@@ -117,6 +150,19 @@ func (r *Recorder) ArgsFor(subcommand string) []string {
 		}
 	}
 	return nil
+}
+
+// InputsFor returns the stdin of every invocation of the given subcommand, in call order.
+func (r *Recorder) InputsFor(subcommand string) []string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var inputs []string
+	for i, c := range r.Calls {
+		if subcommandOf(c) == subcommand {
+			inputs = append(inputs, r.inputs[i])
+		}
+	}
+	return inputs
 }
 
 // subcommandOf returns the tmux subcommand, skipping any leading socket flags

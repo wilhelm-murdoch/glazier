@@ -4,7 +4,7 @@ FROM ${BASE}
 ARG GLAZE_VERSION=v0.1.6
 ARG TARGETARCH
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tmux curl unzip ca-certificates procps bash coreutils bsdutils \
+ && apt-get install -y --no-install-recommends tmux curl unzip ca-certificates procps bash coreutils bsdutils zsh fish dash \
  && rm -rf /var/lib/apt/lists/*
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 WORKDIR /opt/glaze

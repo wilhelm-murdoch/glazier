@@ -35,6 +35,18 @@ func TestNewCommandArgs(t *testing.T) {
 		cmd := NewCommand(Client{tmuxPath: "tmux"}, "-L", "sock", "attach", "-t", "$1")
 		assert.Equal(t, []string{"tmux", "-L", "sock", "attach", "-t", "$1"}, cmd.args)
 	})
+
+	t.Run("escapes a trailing ; in each argument", func(t *testing.T) {
+		args := []string{"splitw", "-c", "/srv/d;", "-t", "%1", ";", `p\;`, "a;b"}
+		cmd := NewCommand(Client{tmuxPath: "tmux"}, args...)
+		assert.Equal(t, []string{"tmux", "-u", "splitw", "-c", `/srv/d\;`, "-t", "%1", `\;`, `p\\;`, "a;b"}, cmd.args)
+		assert.Equal(t, "/srv/d;", args[2], "the caller's arguments must not change")
+	})
+
+	t.Run("does not escape the socket flags", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "tmux"}, "-L", "sock;", "attach", "-t", "s;")
+		assert.Equal(t, []string{"tmux", "-L", "sock;", "attach", "-t", `s\;`}, cmd.args)
+	})
 }
 
 func TestCommandString(t *testing.T) {

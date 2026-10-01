@@ -34,6 +34,11 @@ func (m *MockCommander) ExecWithOutput() (string, error) {
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockCommander) ExecWithInput(input string) error {
+	args := m.Called(input)
+	return args.Error(0)
+}
+
 func (m *MockCommander) ExecWithStatus() int {
 	args := m.Called()
 	return args.Int(0)
@@ -93,20 +98,54 @@ type fakeResult struct {
 	Output string
 	Err    error
 	Status int
+
+	// OnExec runs before the command returns, so a test can block a command or react to it.
+	OnExec func()
 }
 
 // fakeCommand is a programmable Commander representing one tmux invocation.
 // Unlike MockCommander it is value-driven, so a CommandRecorder can hand out a
 // distinct result for every command a method issues.
 type fakeCommand struct {
-	args   []string
-	result fakeResult
+	args     []string
+	result   fakeResult
+	recorder *CommandRecorder
+	index    int
 }
 
-func (f *fakeCommand) String() string                  { return strings.Join(f.args, " ") }
-func (f *fakeCommand) Exec() error                     { return f.result.Err }
-func (f *fakeCommand) ExecWithOutput() (string, error) { return f.result.Output, f.result.Err }
-func (f *fakeCommand) ExecWithStatus() int             { return f.result.Status }
+func (f *fakeCommand) String() string { return strings.Join(f.args, " ") }
+
+func (f *fakeCommand) Exec() error {
+	f.run()
+	return f.result.Err
+}
+
+func (f *fakeCommand) ExecWithOutput() (string, error) {
+	f.run()
+	return f.result.Output, f.result.Err
+}
+
+func (f *fakeCommand) ExecWithInput(input string) error {
+	if f.recorder != nil {
+		f.recorder.mu.Lock()
+		f.recorder.inputs[f.index] = input
+		f.recorder.mu.Unlock()
+	}
+
+	f.run()
+	return f.result.Err
+}
+
+func (f *fakeCommand) ExecWithStatus() int {
+	f.run()
+	return f.result.Status
+}
+
+func (f *fakeCommand) run() {
+	if f.result.OnExec != nil {
+		f.result.OnExec()
+	}
+}
 
 // CommandRecorder records every tmux invocation made through newCommand and
 // routes canned results based on the tmux subcommand (e.g. "ls", "neww",
@@ -116,10 +155,11 @@ type CommandRecorder struct {
 	mu     sync.Mutex
 	Calls  [][]string
 	queues map[string][]fakeResult
+	inputs map[int]string
 }
 
 func NewCommandRecorder() *CommandRecorder {
-	return &CommandRecorder{queues: make(map[string][]fakeResult)}
+	return &CommandRecorder{queues: make(map[string][]fakeResult), inputs: make(map[int]string)}
 }
 
 // On enqueues a canned result for the given tmux subcommand. Repeated calls for
@@ -165,6 +205,18 @@ func (r *CommandRecorder) ArgsFor(subcommand string) []string {
 	return nil
 }
 
+// InputFor returns the stdin of the first invocation of the given subcommand.
+func (r *CommandRecorder) InputFor(subcommand string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for i, c := range r.Calls {
+		if subcommandOf(c) == subcommand {
+			return r.inputs[i]
+		}
+	}
+	return ""
+}
+
 // setupRecorder installs a CommandRecorder-backed newCommand factory and
 // restores the original factory when the test finishes.
 func setupRecorder(t *testing.T) *CommandRecorder {
@@ -175,7 +227,7 @@ func setupRecorder(t *testing.T) *CommandRecorder {
 		rec.mu.Lock()
 		defer rec.mu.Unlock()
 		rec.Calls = append(rec.Calls, args)
-		return &fakeCommand{args: args, result: rec.resultFor(args)}
+		return &fakeCommand{args: args, result: rec.resultFor(args), recorder: rec, index: len(rec.Calls) - 1}
 	}
 	t.Cleanup(func() {
 		newCommand = originalNewCommand
