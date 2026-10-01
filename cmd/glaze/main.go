@@ -66,7 +66,7 @@ func variableFlags() []cli.Flag {
 		},
 		&cli.StringFlag{
 			Name:  "var-file",
-			Usage: "path to an HCL or JSON file of variable values",
+			Usage: "path to an HCL file of variable values",
 		},
 	}
 }
