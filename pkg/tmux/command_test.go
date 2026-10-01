@@ -60,11 +60,19 @@ func TestCommandExec(t *testing.T) {
 		assert.NoError(t, cmd.Exec())
 	})
 
-	t.Run("returns a wrapped error on failure", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "false"})
+	t.Run("puts the output of a failed command into the error", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo can\\'t find session: x >&2; exit 3")
 		err := cmd.Exec()
-		assert.Error(t, err)
-		assert.IsType(t, CommandError{}, err)
+
+		var withOutput CommandErrorWithOutput
+		assert.ErrorAs(t, err, &withOutput)
+		assert.Equal(t, "can't find session: x", withOutput.Output)
+		assert.Equal(t, 3, withOutput.ExitStatus)
+	})
+
+	t.Run("does not print the output of a command that succeeds", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo noise")
+		assert.NoError(t, cmd.Exec())
 	})
 }
 

@@ -134,6 +134,16 @@ Global flags:
 
 Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile.
 
+Each exit code has one meaning. A script can use the code to find the cause of a failure:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success. |
+| `1` | A tmux command failed, for example because tmux rejected an option value. |
+| `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
+| `3` | The profile has errors, or Glazier cannot find the profile. |
+| `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH`. |
+
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
 ```console

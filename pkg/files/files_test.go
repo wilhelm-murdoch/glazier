@@ -62,7 +62,8 @@ func TestResolveProfilePath(t *testing.T) {
 		resolved, err := ResolveProfilePath("/definitely/not/here.glaze")
 		assert.Error(t, err)
 		assert.Equal(t, "/definitely/not/here.glaze", resolved)
-		assert.Contains(t, err.Error(), "could not locate profile")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.Contains(t, err.Error(), "/definitely/not/here.glaze")
 	})
 
 	t.Run("finds .glaze in the current working directory", func(t *testing.T) {
@@ -99,8 +100,7 @@ func TestResolveProfilePath(t *testing.T) {
 		t.Setenv("GLAZE_PATH", "")
 
 		_, err := ResolveProfilePath("")
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "glaze profile not found")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
 	})
 }
 

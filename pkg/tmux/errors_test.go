@@ -11,13 +11,24 @@ import (
 func TestNewCommandError(t *testing.T) {
 	ce := NewCommandError([]string{"tmux", "ls"}, errors.New("boom"))
 	assert.Equal(t, 0, ce.ExitStatus)
-	assert.Equal(t, `error: "boom" status: "0" command: "tmux ls"`, ce.Error())
+	assert.Equal(t, "boom (command: tmux ls)", ce.Error())
+}
+
+func TestCommandErrorUnwrap(t *testing.T) {
+	cause := errors.New("boom")
+	assert.ErrorIs(t, NewCommandError([]string{"tmux", "ls"}, cause), cause)
+	assert.ErrorIs(t, NewCommandErrorWithOutput([]string{"tmux", "ls"}, cause, "x"), cause)
 }
 
 func TestNewCommandErrorWithOutput(t *testing.T) {
 	cewo := NewCommandErrorWithOutput([]string{"tmux", "ls"}, errors.New("boom"), "\nsome output\n")
 	assert.Equal(t, "some output", cewo.Output)
-	assert.Equal(t, `error: "some output" status: "0" command: "tmux ls"`, cewo.Error())
+	assert.Equal(t, "some output (exit status 0, command: tmux ls)", cewo.Error())
+}
+
+func TestCommandErrorWithOutputWithoutOutput(t *testing.T) {
+	cewo := NewCommandErrorWithOutput([]string{"tmux", "ls"}, errors.New("exit status 1"), "\n")
+	assert.Equal(t, "exit status 1 (command: tmux ls)", cewo.Error())
 }
 
 func TestReturnExitStatusFromError(t *testing.T) {

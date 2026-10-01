@@ -112,9 +112,17 @@ func (c Command) String() string {
 	return strings.Join(c.args, " ")
 }
 
-// Exec executes the command and returns an error if one occurred. It will pipe
-// any output to os.Stdin, os.Stdout and os.Stderr.
+// Exec executes the command and puts the output of tmux into the error when it fails.
+// Only attach keeps the terminal, because an attached client needs it.
 func (c *Command) Exec() error {
+	if subcommandOf(c.args[1:]) != "attach" {
+		if output, err := c.cmd.CombinedOutput(); err != nil {
+			return NewCommandErrorWithOutput(c.args, err, string(output))
+		}
+
+		return nil
+	}
+
 	c.cmd.Stdin = os.Stdin
 	c.cmd.Stdout = os.Stdout
 	c.cmd.Stderr = os.Stderr

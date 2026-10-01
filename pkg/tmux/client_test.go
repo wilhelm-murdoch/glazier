@@ -115,8 +115,7 @@ func TestClientNew(t *testing.T) {
 
 		client, err := NewClient(testSocketPath, testSocketPath, discardLogger)
 
-		assert.Error(t, err)
-		assert.Equal(t, err.Error(), "tmux is not installed")
+		assert.ErrorIs(t, err, ErrUnreachable)
 		assert.Nil(t, client)
 	})
 

@@ -1,6 +1,7 @@
 package tmux
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,6 +16,9 @@ import (
 
 var defaultTmuxExecutablePath = "tmux"
 
+// ErrUnreachable means that glaze cannot run tmux or cannot connect to the tmux server.
+var ErrUnreachable = errors.New("tmux is unreachable")
+
 // Client represents a tmux client.
 type Client struct {
 	socketPath string
@@ -27,7 +31,7 @@ type Client struct {
 func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, error) {
 	resolvedTmuxPath, err := exec.LookPath(defaultTmuxExecutablePath)
 	if err != nil {
-		return nil, fmt.Errorf("tmux is not installed")
+		return nil, fmt.Errorf("%w: tmux is not installed or not on PATH", ErrUnreachable)
 	}
 
 	return &Client{

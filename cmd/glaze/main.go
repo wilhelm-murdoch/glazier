@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/mail"
 	"os"
 	"slices"
@@ -95,6 +96,21 @@ func profilePathFlag() cli.Flag {
 }
 
 func main() {
+	os.Exit(run(context.Background(), os.Args, os.Stderr))
+}
+
+// run executes glaze with args, writes any error to stderr and returns the exit code.
+func run(ctx context.Context, args []string, stderr io.Writer) int {
+	if err := newApp().Run(ctx, args); err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s\n", err)
+		return exitCode(err)
+	}
+
+	return exitOK
+}
+
+// newApp returns the glaze command with all of its subcommands.
+func newApp() *cli.Command {
 	var logLevel string
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
@@ -117,6 +133,9 @@ func main() {
 			mail.Address{Name: "Wilhelm Murdoch", Address: "wilhelm@devilmayco.de"},
 		},
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
+		// glaze picks the exit code itself, so the CLI library must not exit the process.
+		ExitErrHandler: func(context.Context, *cli.Command, error) {},
+		OnUsageError:   usageError,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",
@@ -254,10 +273,8 @@ func main() {
 	// separator config is read per owning command, so set it on each.
 	for _, sub := range app.Commands {
 		sub.DisableSliceFlagSeparator = true
+		sub.OnUsageError = usageError
 	}
 
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	return app
 }
