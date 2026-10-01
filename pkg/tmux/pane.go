@@ -43,9 +43,18 @@ func (p Pane) SetOption(option, value string) error {
 	return p.client().setScoped("set-option", "-p", p.Target(), option, value)
 }
 
-// Resize sets the width and the height of the pane, in cells or as a percentage.
+// Resize sets the width, the height or both, in cells or as a percentage. An empty x or y keeps that axis.
 func (p Pane) Resize(x, y string) error {
-	return p.client().run("resizep", "-t", p.Target(), "-x", x, "-y", y)
+	args := []string{"resizep", "-t", p.Target()}
+	if x != "" {
+		args = append(args, "-x", x)
+	}
+
+	if y != "" {
+		args = append(args, "-y", y)
+	}
+
+	return p.client().run(args...)
 }
 
 // Adjust grows or shrinks the pane in the given direction by amount cells.

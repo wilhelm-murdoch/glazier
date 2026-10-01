@@ -28,6 +28,15 @@ func setupClientTestDeps(t *testing.T) (*TestDepsClient, error) {
 	}, nil
 }
 
+func TestClientSessionsOnAServerWithNoSessions(t *testing.T) {
+	rec := setupRecorder(t)
+	rec.On("ls", fakeResult{Output: ""})
+
+	sessions, err := testClient().Sessions()
+	assert.NoError(t, err)
+	assert.Empty(t, sessions)
+}
+
 func TestClientSessions(t *testing.T) {
 	testCases := []TestCase{
 		{
@@ -137,6 +146,7 @@ var lookupCases = []struct {
 	{name: "no socket file", result: tmuxFailure("error connecting to /tmp/tmux-1000/default (No such file or directory)")},
 	{name: "stale socket", result: tmuxFailure("no server running on /tmp/tmux-1000/default")},
 	{name: "server exits while another client starts it", result: tmuxFailure("server exited unexpectedly")},
+	{name: "server with no sessions", result: tmuxFailure("no current target")},
 	{name: "permission denied", result: tmuxFailure("error connecting to /tmp/tmux-0/default (Permission denied)"), unreachable: true},
 	{name: "tmux cannot run", result: fakeResult{Err: errors.New("fork/exec /usr/bin/tmux: exec format error")}, unreachable: true},
 }

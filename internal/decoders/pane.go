@@ -26,9 +26,9 @@ type Adjustment struct {
 	Amount    string
 }
 
-// Valid reports whether both the width and the height are set.
-func (s Size) Valid() bool {
-	return s.X != "" && s.Y != ""
+// IsSet reports whether the width or the height is set.
+func (s Size) IsSet() bool {
+	return s.X != "" || s.Y != ""
 }
 
 // NewPane decodes a pane block.

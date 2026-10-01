@@ -45,16 +45,24 @@ func TestPaneSetHook(t *testing.T) {
 }
 
 func TestPaneResize(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("resizep", fakeResult{})
+	cases := []struct {
+		name, x, y string
+		want       []string
+	}{
+		{"both axes", "80", "24", []string{"resizep", "-t", "%0", "-x", "80", "-y", "24"}},
+		{"width only", "25%", "", []string{"resizep", "-t", "%0", "-x", "25%"}},
+		{"height only", "", "5", []string{"resizep", "-t", "%0", "-y", "5"}},
+	}
 
-	client := testClient()
-	pane := testPane(testWindow(testSession(client)))
-	assert.NoError(t, pane.Resize("80", "24"))
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rec := setupRecorder(t)
 
-	args := rec.ArgsFor("resizep")
-	assert.Contains(t, args, "80")
-	assert.Contains(t, args, "24")
+			pane := testPane(testWindow(testSession(testClient())))
+			assert.NoError(t, pane.Resize(c.x, c.y))
+			assert.Equal(t, c.want, rec.ArgsFor("resizep"))
+		})
+	}
 }
 
 func TestPaneSetOption(t *testing.T) {

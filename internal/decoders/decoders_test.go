@@ -110,7 +110,7 @@ func TestPaneDecode(t *testing.T) {
 		pane := NewPane(spec)
 
 		assert.True(t, pane.Focus)
-		assert.True(t, pane.Size.Valid())
+		assert.True(t, pane.Size.IsSet())
 		assert.Equal(t, "50%", pane.Size.X)
 		assert.Equal(t, "100", pane.Size.Y)
 		assert.Equal(t, []string{"vim", "ls"}, pane.Commands)
@@ -126,7 +126,7 @@ func TestPaneDecode(t *testing.T) {
 		pane := NewPane(spec)
 
 		assert.False(t, pane.Focus)
-		assert.False(t, pane.Size.Valid())
+		assert.False(t, pane.Size.IsSet())
 		assert.Empty(t, pane.Commands)
 	})
 
@@ -144,7 +144,7 @@ func TestPaneDecode(t *testing.T) {
 
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "", pane.Size.Y)
-		assert.False(t, pane.Size.Valid())
+		assert.True(t, pane.Size.IsSet())
 	})
 }
 
@@ -183,11 +183,11 @@ func TestPaneDecodeAdjust(t *testing.T) {
 	})
 }
 
-func TestSizeValid(t *testing.T) {
-	assert.True(t, Size{X: "1", Y: "2"}.Valid())
-	assert.False(t, Size{X: "1"}.Valid())
-	assert.False(t, Size{Y: "2"}.Valid())
-	assert.False(t, Size{}.Valid())
+func TestSizeIsSet(t *testing.T) {
+	assert.True(t, Size{X: "1", Y: "2"}.IsSet())
+	assert.True(t, Size{X: "1"}.IsSet())
+	assert.True(t, Size{Y: "2"}.IsSet())
+	assert.False(t, Size{}.IsSet())
 }
 
 // windowSpec builds a cty.Value matching the object shape the window decoder reads.

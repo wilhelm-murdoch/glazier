@@ -5,6 +5,7 @@ import (
 	"os"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
@@ -91,14 +92,43 @@ func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	return Invalid(field, `The %s of "%s" does not exist or is not a directory.`, field, value.AsString())
 }
 
-// sizePattern matches a size in cells, for example "20", or as a percentage, for example "25%".
-var sizePattern = regexp.MustCompile(`^(\d+)\s*%$|^(\d+)$`)
+// sizePattern matches a whole number of cells, for example "20", or a percentage, for example "25%".
+var sizePattern = regexp.MustCompile(`^(\d+)(%?)$`)
 
-// WrongSizeDiagnostic rejects a size that is not a number of cells or a percentage. The spec makes every size a string.
-func WrongSizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
-	if value.IsNull() || sizePattern.MatchString(value.AsString()) {
+// parseSize returns the number in a size and whether it is a percentage. ok is false when the value is not a size.
+func parseSize(value string) (n int, percent, ok bool) {
+	match := sizePattern.FindStringSubmatch(value)
+	if match == nil {
+		return 0, false, false
+	}
+
+	n, err := strconv.Atoi(match[1])
+
+	return n, match[2] == "%", err == nil
+}
+
+// SizeDiagnostic rejects a size that is not 1 or more cells, or 1% to 100%. The spec makes every size a string.
+func SizeDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+	if value.IsNull() {
 		return nil
 	}
 
-	return Invalid(field, `The %s value "%s" should be a number of cells or a percentage, for example 20 or 25%%.`, field, value.AsString())
+	if n, percent, ok := parseSize(value.AsString()); ok && n >= 1 && (!percent || n <= 100) {
+		return nil
+	}
+
+	return Invalid(field, `The %s value "%s" should be 1 or more cells, for example 20, or a percentage from 1%% to 100%%, for example 25%%.`, field, value.AsString())
+}
+
+// AmountDiagnostic rejects an adjust amount that is not 1 or more cells, because tmux resizes a pane in a direction by cells only.
+func AmountDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+	if value.IsNull() {
+		return nil
+	}
+
+	if n, percent, ok := parseSize(value.AsString()); ok && n >= 1 && !percent {
+		return nil
+	}
+
+	return Invalid(field, `The %s value "%s" should be 1 or more cells, for example 5. A percentage is not supported here.`, field, value.AsString())
 }

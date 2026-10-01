@@ -101,6 +101,16 @@ func TestActionLsRun(t *testing.T) {
 		assert.False(t, rec.Called("ls"))
 	})
 
+	t.Run("prints only the header for a server with no sessions", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		ls, rec, out := buildLs(t)
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: ""})
+
+		assert.NoError(t, ls.Run(context.Background()))
+		assert.Equal(t, "NAME  WINDOWS  PATH\n", out.String())
+	})
+
 	t.Run("errors when tmux is unreachable", func(t *testing.T) {
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))

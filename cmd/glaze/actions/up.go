@@ -200,7 +200,8 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 			return err
 		}
 
-		if err := a.generatePanes(ws.Panes, defaultPane, wtmx); err != nil {
+		panes, err := a.generatePanes(ws.Panes, defaultPane, wtmx)
+		if err != nil {
 			return err
 		}
 
@@ -222,6 +223,10 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 				wtmx.Name,
 				err,
 			)
+		}
+
+		if err := a.resizePanes(ws, panes, wtmx); err != nil {
+			return err
 		}
 
 		if ws.Focus {
@@ -289,7 +294,7 @@ func (a *ActionUp) generatePanes(
 	panes []*decoders.Pane,
 	defaultPane *tmux.Pane,
 	wtmx *tmux.Window,
-) error {
+) ([]*tmux.Pane, error) {
 	// Create every pane before any command runs, so a pane whose shell exits cannot break a later split.
 	created := make([]*tmux.Pane, 0, len(panes))
 	target := defaultPane.Target()
@@ -298,7 +303,7 @@ func (a *ActionUp) generatePanes(
 		a.Logger.Info("splitting pane", "name", ps.Name, "from", target)
 		ptmx, err := wtmx.Split(target, ps.Name, ps.StartingDirectory)
 		if err != nil {
-			return fmt.Errorf(
+			return nil, fmt.Errorf(
 				"could not create pane `%s` in window `%s`: %w",
 				ps.Name,
 				wtmx.Name,
@@ -308,7 +313,7 @@ func (a *ActionUp) generatePanes(
 
 		// Each split halves its parent, so share out the space again before the next split.
 		if err := wtmx.SelectLayout(enums.LayoutTiled.String()); err != nil {
-			return fmt.Errorf("could not make room for the next pane in window `%s`: %w", wtmx.Name, err)
+			return nil, fmt.Errorf("could not make room for the next pane in window `%s`: %w", wtmx.Name, err)
 		}
 
 		created = append(created, ptmx)
@@ -317,7 +322,39 @@ func (a *ActionUp) generatePanes(
 
 	for i, ps := range panes {
 		if err := a.configurePane(ps, created[i], wtmx); err != nil {
-			return err
+			return nil, err
+		}
+	}
+
+	return created, nil
+}
+
+// resizePanes applies the size, then the adjust blocks, of each pane in file order, after the layout of the window.
+// A raw layout string already fixes every pane, so in that window glaze skips them and warns.
+func (a *ActionUp) resizePanes(ws *decoders.Window, panes []*tmux.Pane, wtmx *tmux.Window) error {
+	for i, ps := range ws.Panes {
+		ptmx := panes[i]
+		if !ps.Size.IsSet() && len(ps.Adjustments) == 0 {
+			continue
+		}
+
+		if ws.Layout == enums.LayoutUnknown {
+			a.Logger.Warn("the raw layout of the window fixes the size of each pane, so glaze ignores size and adjust", "pane", ptmx.Name, "window", wtmx.Name)
+			continue
+		}
+
+		if ps.Size.IsSet() {
+			a.Logger.Info("setting size", "x", ps.Size.X, "y", ps.Size.Y, "name", ptmx.Name)
+			if err := ptmx.Resize(ps.Size.X, ps.Size.Y); err != nil {
+				a.Logger.Warn("could not resize pane", "name", ptmx.Name, "error", err)
+			}
+		}
+
+		for _, adjustment := range ps.Adjustments {
+			a.Logger.Info("adjusting pane", "direction", adjustment.Direction, "amount", adjustment.Amount, "name", ptmx.Name)
+			if err := ptmx.Adjust(adjustment.Direction, adjustment.Amount); err != nil {
+				return fmt.Errorf("could not adjust pane `%s` in window `%s`: %w", ptmx.Name, wtmx.Name, err)
+			}
 		}
 	}
 
@@ -342,33 +379,6 @@ func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.
 
 	if err := a.runCommands("pane", ptmx.Name, ptmx.Target(), ps.Commands); err != nil {
 		return fmt.Errorf("could not run the commands for pane `%s` in window `%s`: %w", ptmx.Name, wtmx.Name, err)
-	}
-
-	if ps.Size.Valid() {
-		a.Logger.Info("setting size", "x", ps.Size.X, "y", ps.Size.Y, "name", ptmx.Name)
-		if err := ptmx.Resize(ps.Size.X, ps.Size.Y); err != nil {
-			a.Logger.Warn("could not resize pane", "name", ptmx.Name, "error", err)
-		}
-	}
-
-	// Apply any directional resize adjustments in the order they were
-	// defined, after the absolute size so they refine the final dimensions.
-	for _, adjustment := range ps.Adjustments {
-		a.Logger.Info(
-			"adjusting pane",
-			"direction", adjustment.Direction,
-			"amount", adjustment.Amount,
-			"name", ptmx.Name,
-		)
-
-		if err := ptmx.Adjust(adjustment.Direction, adjustment.Amount); err != nil {
-			return fmt.Errorf(
-				"could not adjust pane `%s` in window `%s`: %w",
-				ptmx.Name,
-				wtmx.Name,
-				err,
-			)
-		}
 	}
 
 	if ps.Focus {

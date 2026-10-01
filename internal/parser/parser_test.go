@@ -146,7 +146,7 @@ session {
 	assert.Equal(t, "shell", shell.Name)
 	assert.True(t, shell.Focus)
 	assert.Equal(t, []string{"vim", "ls"}, shell.Commands)
-	assert.True(t, shell.Size.Valid())
+	assert.True(t, shell.Size.IsSet())
 	assert.Equal(t, "50%", shell.Size.X)
 	assert.Equal(t, "100", shell.Size.Y)
 
@@ -289,7 +289,7 @@ session {
 		session, hasErr := decode(t, content)
 		assert.False(t, hasErr)
 		pane := session.Windows[0].Panes[0]
-		assert.True(t, pane.Size.Valid())
+		assert.True(t, pane.Size.IsSet())
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "50%", pane.Size.Y)
 	})

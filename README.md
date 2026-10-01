@@ -331,7 +331,7 @@ window {
 }
 ```
 
-The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a **raw tmux layout string**, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window when no named preset applies. The `glaze up` command replays the string verbatim. Glazier validates the structure of the string at parse time. A malformed string fails fast. tmux recomputes the leading checksum. If you edit the geometry by hand and make an error, tmux rejects the layout when `up` runs. For a hand-authored profile, use a named preset. The raw string is exact but not easy to read.
+The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a **raw tmux layout string**, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window when no named preset applies. The `glaze up` command replays the string verbatim. Glazier validates the structure of the string at parse time. A malformed string fails fast. tmux recomputes the leading checksum. If you edit the geometry by hand and make an error, tmux rejects the layout when `up` runs. For a hand-authored profile, use a named preset. The raw string is exact but not easy to read. A raw string also fixes the size of each pane, so Glazier ignores `size` and `adjust` in that window.
 
 ### Pane
 
@@ -341,21 +341,25 @@ pane {
   focus    = true
   commands = ["nvim ./daemons", "echo upload ready"]
 
-  size {                     # absolute resize
+  size {                     # absolute resize; x, y or both
     x = "60%"                # cells ("80") or a percentage ("60%")
     y = "100"
   }
 
   adjust {                   # directional resize; a maximum of four blocks in order
     direction = "left"       # up | down | left | right
-    amount    = "5"
+    amount    = "5"          # cells only
   }
 
   options = { "remain-on-exit" = "on" }
 }
 ```
 
-Glazier applies the `size` block first. The `adjust` blocks then refine the dimensions in order.
+Glazier applies the window `layout` first. Then it applies the `size` block and the `adjust` blocks of each pane, in file order. Thus `size` and `adjust` refine the layout. A pane that changes size also changes the size of its neighbours, so a later pane can change an earlier result. tmux can only move a border between two panes. For example, the default `tiled` layout stacks two panes, so `x` has no effect there.
+
+A `size` can set `x`, `y` or both. A size is 1 or more cells, or a percentage from 1% to 100% of the window. An `adjust` amount is 1 or more cells, because tmux moves a pane border by cells only.
+
+A raw layout string fixes the size of every pane. In a window with a raw layout, Glazier ignores `size` and `adjust` and shows a warning.
 
 ### Commands
 

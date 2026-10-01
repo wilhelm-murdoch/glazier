@@ -153,6 +153,61 @@ func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
 	assert.Contains(t, logs.String(), "tmux_name=p-z")
 }
 
+func TestActionUpResizesPanesAfterTheLayout(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;2;b;1;/tmp"})
+
+	window := windowWithPane("w", enums.LayoutEvenHorizontal, &decoders.Pane{
+		Base:        &decoders.Base{Name: "a"},
+		Size:        decoders.Size{X: "20"},
+		Adjustments: []decoders.Adjustment{{Direction: enums.AdjustmentRight, Amount: "5"}},
+	})
+	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "b"}})
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
+
+	// The declared layout comes first, then the size, then the adjust blocks.
+	var order [][]string
+	for _, call := range rec.Calls {
+		if call[0] == "resizep" || (call[0] == "selectl" && call[len(call)-1] == "even-horizontal") {
+			order = append(order, call)
+		}
+	}
+	assert.Equal(t, [][]string{
+		{"selectl", "-t", "@1", "even-horizontal"},
+		{"resizep", "-t", "%2", "-x", "20"},
+		{"resizep", "-t", "%2", "-R", "5"},
+	}, order)
+}
+
+func TestActionUpIgnoresSizeInARawLayout(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+
+	window := windowWithPane("w", enums.LayoutUnknown, &decoders.Pane{
+		Base: &decoders.Base{Name: "a"},
+		Size: decoders.Size{X: "20"},
+	})
+	window.LayoutRaw = "bb62,80x24,0,0"
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
+
+	assert.False(t, rec.Called("resizep"))
+	assert.Equal(t, "bb62,80x24,0,0", lastCall(rec, "selectl")[3])
+	assert.Contains(t, logs.String(), "glaze ignores size and adjust")
+	assert.Contains(t, logs.String(), "pane=a")
+}
+
 func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
 	up, rec := newTestUp(t)
 

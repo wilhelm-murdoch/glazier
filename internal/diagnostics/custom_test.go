@@ -149,19 +149,31 @@ func TestDirectoryDiagnostic(t *testing.T) {
 	})
 }
 
-func TestWrongSizeDiagnostic(t *testing.T) {
-	t.Run("nil for a null value", func(t *testing.T) {
-		assert.Nil(t, WrongSizeDiagnostic("x", cty.NullVal(cty.String)))
-	})
+func TestSizeDiagnostic(t *testing.T) {
+	assert.Nil(t, SizeDiagnostic("x", cty.NullVal(cty.String)))
 
-	t.Run("no diagnostic for a valid percentage string", func(t *testing.T) {
-		assert.Empty(t, WrongSizeDiagnostic("x", cty.StringVal("50%")))
-		assert.Empty(t, WrongSizeDiagnostic("x", cty.StringVal("80")))
-	})
+	for _, valid := range []string{"1", "80", "5000", "1%", "50%", "100%"} {
+		assert.Empty(t, SizeDiagnostic("x", cty.StringVal(valid)), valid)
+	}
 
-	t.Run("diagnostic for an invalid string", func(t *testing.T) {
-		assert.True(t, WrongSizeDiagnostic("x", cty.StringVal("big")).HasErrors())
-	})
+	for _, invalid := range []string{"0", "0%", "101%", "-5", "big", "", " 10", "10 %", "10.5", "1e3", "%", "99999999999999999999"} {
+		assert.True(t, SizeDiagnostic("x", cty.StringVal(invalid)).HasErrors(), invalid)
+	}
+}
+
+func TestAmountDiagnostic(t *testing.T) {
+	assert.Nil(t, AmountDiagnostic("amount", cty.NullVal(cty.String)))
+
+	for _, valid := range []string{"1", "5", "200"} {
+		assert.Empty(t, AmountDiagnostic("amount", cty.StringVal(valid)), valid)
+	}
+
+	for _, invalid := range []string{"0", "-3", "10%", "100%", "abc", ""} {
+		diags := AmountDiagnostic("amount", cty.StringVal(invalid))
+		assert.True(t, diags.HasErrors(), invalid)
+	}
+
+	assert.Contains(t, AmountDiagnostic("amount", cty.StringVal("10%"))[0].Detail, "A percentage is not supported")
 }
 
 func TestErrHasDiagnosticsIsError(t *testing.T) {

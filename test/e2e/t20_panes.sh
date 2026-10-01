@@ -12,24 +12,39 @@ size_fixture() { # LAYOUT_LINE PANE0_BODY
 pw() { tm lsp -t =sz:w -F '#{pane_title} #{pane_width} #{pane_height}' | awk -v n="$1" '$1==n{print $2"x"$3}'; }
 
 t_size() {
-  local lay
-  for lay in "" "even-horizontal"; do
-    begin "size_cells_${lay:-nolayout}"
-    size_fixture "$lay" '      size {
+  # even-horizontal puts the panes side by side, so x applies.
+  begin size_cells_even-horizontal
+  size_fixture even-horizontal '      size {
         x = "20"
       }'
-    up; rc0 "up"
-    match "size x=20 honoured (layout=${lay:-default})" '^20x' "$(pw p0)"
-    end
+  up; rc0 "up"
+  match "size x=20 honoured (layout=even-horizontal)" '^20x' "$(pw p0)"
+  end
 
-    begin "size_pct_${lay:-nolayout}"
-    size_fixture "$lay" '      size {
+  begin size_pct_even-horizontal
+  size_fixture even-horizontal '      size {
         x = "25%"
       }'
-    up; rc0 "up"
-    match "size x=25% honoured (layout=${lay:-default}, ~20 cols)" '^(19|20|21)x' "$(pw p0)"
-    end
-  done
+  up; rc0 "up"
+  match "size x=25% honoured (layout=even-horizontal, ~20 cols)" '^(19|20|21)x' "$(pw p0)"
+  end
+
+  # The default tiled layout stacks two panes, so only y can change.
+  begin size_cells_nolayout
+  size_fixture "" '      size {
+        y = "5"
+      }'
+  up; rc0 "up"
+  match "size y=5 honoured (layout=default)" 'x5$' "$(pw p0)"
+  end
+
+  begin size_pct_nolayout
+  size_fixture "" '      size {
+        y = "25%"
+      }'
+  up; rc0 "up"
+  match "size y=25% honoured (layout=default, ~6 rows)" 'x(5|6|7)$' "$(pw p0)"
+  end
 
   begin size_y
   size_fixture even-vertical '      size {
@@ -92,7 +107,7 @@ t_size() {
     end
   done
 
-  for v in "0" "-3" "abc"; do
+  for v in "0" "-3" "abc" "10%"; do
     begin adjust_amount_invalid
     size_fixture "" "      adjust {
         direction = \"left\"
@@ -101,6 +116,18 @@ t_size() {
     up; rcnz "adjust amount=[$v] rejected"
     end
   done
+
+  # A raw layout string fixes the size of every pane, so glaze ignores size and warns.
+  begin size_raw_layout
+  tm new-session -d -s ref; tm splitw -h -t =ref:
+  local raw want; raw=$(tm display -p -t ref: '#{window_layout}'); tm kill-server
+  want=$(sed -E 's/.*\{([0-9]+)x.*/\1/' <<<"$raw")
+  size_fixture "$raw" '      size {
+        x = "20"
+      }'
+  up; rc0 "up with a raw layout and a size"
+  match "the raw layout keeps its width" "^${want}x" "$(pw p0)"
+  match "up warns that it ignores size" 'ignores size and adjust' "$ERR"; end
 
   begin size_empty_block
   size_fixture "" '      size {

@@ -321,6 +321,14 @@ t_ls() {
   eq "ls with no server prints nothing" "" "$OUT"
   match "ls with no server says so on stderr" 'no tmux server is running' "$ERR"; end
 
+  # With exit-empty off, a server can run with no sessions.
+  begin empty_server
+  printf 'set -g exit-empty off\n' >"$HOME/.tmux.conf"; tm start-server
+  gz ls --socket-name "$SOCK"; rc0 "ls on a server with no sessions"
+  match "ls on a server with no sessions prints the header" 'NAME +WINDOWS +PATH' "$OUT"
+  simple es; up; rc0 "up on a server with no sessions"; exists "up creates the session" es
+  end
+
   # nobody cannot open root's socket directory, which gives tmux "Permission denied".
   local sub
   for sub in ls down up; do
