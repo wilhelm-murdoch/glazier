@@ -282,7 +282,7 @@ session {
 | `starting_directory` | string | The directory must exist. The default value is the current directory. |
 | `envs` | map(string) | Environment variables for the session. |
 | `hooks` | map(string) | A map of a tmux hook name to a command. |
-| `options` | map(string) | A map of a tmux option name to a value. |
+| `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
 | `window` | block(s) | One or more windows. At least one window is required. |
 
 tmux rewrites some characters in names. Thus Glazier replaces these characters with `-` before it starts tmux, and it shows a warning with the new name:
@@ -291,6 +291,8 @@ tmux rewrites some characters in names. Thus Glazier replaces these characters w
 - In a window name or a pane name: a backslash and control characters.
 
 `glaze format --validate` shows the same warning with the file and the line.
+
+tmux keeps each option on a session, a window or a pane. Glazier asks tmux where it keeps an option and applies the option there. A session option, for example `history-limit`, on a window or a pane applies to the whole session, and Glazier shows a warning.
 
 ### Window
 

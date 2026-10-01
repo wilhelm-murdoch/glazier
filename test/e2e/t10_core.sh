@@ -192,6 +192,29 @@ EOF
   up; rc0 "up with renumber-windows on"
   eq "windows with renumber-windows" "w1,w2" "$(wnames rn)"
   end
+
+  begin base_index_late
+  # A tmux.conf that sets base-index in the background changes it while glaze provisions the session.
+  printf "run-shell -b 'tmux -L %s set -g base-index 1'\n" "$SOCK" >"$HOME/.tmux.conf"
+  fx <<'EOF'
+session {
+  name = "late"
+  window {
+    name = "one"
+    pane {}
+    pane {}
+    pane {}
+  }
+  window {
+    name = "two"
+    pane {}
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up with base-index set in the background"
+  sleep 0.3; eq "both declared windows exist" "one,two" "$(wnames late)"
+  end
 }
 
 t_directories() {

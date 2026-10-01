@@ -1,7 +1,6 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -202,15 +201,6 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 		return nil, err
 	}
 
-	baseIndexCmdParts, err := session.Client.GetBaseIndex(session.Target(), "base-index")
-	if err != nil {
-		return nil, err
-	}
-
-	if len(baseIndexCmdParts) != 2 {
-		return nil, errors.New("could not determine window base index")
-	}
-
 	return &Window{
 		Id:        WindowId(id),
 		Index:     index,
@@ -218,7 +208,6 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 		Layout:    enums.LayoutFromString(parts[3]),
 		RawLayout: parts[3],
 		IsActive:  parts[4] == "1",
-		IsFirst:   parts[1] == baseIndexCmdParts[1],
 		Session:   session,
 	}, nil
 }
@@ -242,17 +231,8 @@ func (c Client) Panes(window *Window) ([]*Pane, error) {
 		return panes, err
 	}
 
-	baseIndexCmdParts, err := c.GetBaseIndex(window.Target(), "pane-base-index")
-	if err != nil {
-		return panes, err
-	}
-
-	if len(baseIndexCmdParts) != 2 {
-		return panes, errors.New("could not determine pane base index")
-	}
-
 	for line := range strings.SplitSeq(output, "\n") {
-		pane, err := c.NewPaneFromLine(line, baseIndexCmdParts[1], window)
+		pane, err := c.NewPaneFromLine(line, window)
 		if err != nil {
 			return panes, err
 		}
@@ -263,7 +243,7 @@ func (c Client) Panes(window *Window) ([]*Pane, error) {
 	return panes, nil
 }
 
-func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, error) {
+func (c Client) NewPaneFromLine(line string, window *Window) (*Pane, error) {
 	parts, id, err := getPartsFromTmuxLine(line, "%", 5)
 	if err != nil {
 		return nil, err
@@ -280,7 +260,6 @@ func (c Client) NewPaneFromLine(line, baseIndex string, window *Window) (*Pane, 
 		Name:              parts[2],
 		StartingDirectory: parts[4],
 		IsActive:          parts[3] == "1",
-		IsFirst:           parts[1] == baseIndex,
 		Window:            window,
 	}, nil
 }
@@ -430,20 +409,4 @@ func (c Client) WaitFor(channel string) error {
 	}
 
 	return nil
-}
-
-// GetBaseIndex is a helper method which attempts to return the base index option
-// for the specified target which may be derived from a Window or a Pane.
-func (c Client) GetBaseIndex(target, option string) ([]string, error) {
-	var out []string
-
-	// base-index / pane-base-index are typically configured globally; querying
-	// at global scope reliably returns the effective value (a session-scoped
-	// query only reports values explicitly set on that session).
-	result, err := c.GetOption(target, option, "global")
-	if err != nil {
-		return out, err
-	}
-
-	return strings.Split(result, " "), nil
 }

@@ -365,14 +365,11 @@ func firstPaneOf(client *Client, window *Window) (*Pane, error) {
 		return nil, err
 	}
 
-	index := slices.IndexFunc(panes, func(p *Pane) bool {
-		return p.IsFirst
-	})
-	if index == -1 {
-		return nil, fmt.Errorf("no first pane found for window %q", window.Name)
+	if len(panes) == 0 {
+		return nil, fmt.Errorf("no pane found for window %q", window.Name)
 	}
 
-	return panes[index], nil
+	return slices.MinFunc(panes, func(x, y *Pane) int { return int(x.Id) - int(y.Id) }), nil
 }
 
 // runWithTimeout fails the test if fn does not return within d, preventing a

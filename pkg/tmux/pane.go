@@ -19,7 +19,6 @@ type Pane struct {
 	Name              string
 	StartingDirectory string
 	IsActive          bool
-	IsFirst           bool
 	Index             int
 	Id                PaneId
 }

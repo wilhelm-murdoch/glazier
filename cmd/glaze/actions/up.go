@@ -8,6 +8,7 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 // ActionUp is a struct that represents a Glazier "action".
@@ -15,6 +16,12 @@ type ActionUp struct {
 	ActionBase
 	tmux    *tmux.Client
 	session *tmux.Session
+
+	// optionTables tells glaze which scope tmux keeps each option in.
+	optionTables tmux.OptionTables
+
+	// windowDefaults holds the window options declared on the session, which apply to every window.
+	windowDefaults map[string]string
 }
 
 // NewUp is responsible for creating a new ActionFormat struct value pre-populated
@@ -82,28 +89,24 @@ func (a *ActionUp) attachToSession() error {
 
 // provisionSession creates the windows and panes as defined in the profile.
 func (a *ActionUp) provisionSession(profile *decoders.Session) error {
+	tables, err := a.tmux.OptionTables()
+	if err != nil {
+		return fmt.Errorf("could not read the tmux option tables: %w", err)
+	}
+
+	a.optionTables = tables
+
 	if err := a.applySessionSettings(profile); err != nil {
 		return err
 	}
 
-	if err := a.generateWindows(profile.Windows); err != nil {
+	first, err := a.getFirstWindow(a.session)
+	if err != nil {
 		return err
 	}
 
-	defaultWindow, err := a.getDefaultWindow(a.session)
-	if err != nil {
-		a.Logger.Warn(
-			"could not find default window to kill",
-			"session",
-			a.session.Name,
-			"error",
-			err,
-		)
-	} else if defaultWindow != nil {
-		// After creating our own windows, we can remove the default one tmux created.
-		if err := defaultWindow.Kill(); err != nil {
-			return fmt.Errorf("failed to kill default window: %w", err)
-		}
+	if err := a.generateWindows(profile.Windows, first); err != nil {
+		return err
 	}
 
 	// Run any session-level commands in the session's active pane, once all
@@ -170,6 +173,16 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	}
 
 	for option, value := range profile.Options {
+		// A window or pane option declared on the session applies to every window that glaze creates.
+		if a.optionTables.IsWindowOnly(option) {
+			if a.windowDefaults == nil {
+				a.windowDefaults = make(map[string]string)
+			}
+
+			a.windowDefaults[option] = value
+			continue
+		}
+
 		a.Logger.Info("setting session option", "option", option, "session", a.session.Name)
 		if err := a.session.SetOption(option, value); err != nil {
 			return fmt.Errorf(
@@ -186,13 +199,17 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 
 // generateWindows iterates through the windows and panes defined within the
 // specified profile and create them within the tmux session.
-func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
-	for _, ws := range windows {
-		a.Logger.Info("creating new window", "name", ws.Name)
+func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Window) error {
+	for i, ws := range windows {
 		a.warnRename("window", ws.Name, tmux.SanitizeName(ws.Name))
-		wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
+
+		wtmx, err := a.createWindow(ws, i == 0, first)
 		if err != nil {
-			return fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
+			return err
+		}
+
+		if err := a.applyWindowOptions(ws, wtmx); err != nil {
+			return err
 		}
 
 		defaultPane, err := a.getDefaultPane(wtmx)
@@ -223,18 +240,6 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 			}
 		}
 
-		for option, value := range ws.Options {
-			a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
-			if err := wtmx.SetOption(option, value); err != nil {
-				return fmt.Errorf(
-					"could not set option `%s` on window `%s`: %w",
-					option,
-					wtmx.Name,
-					err,
-				)
-			}
-		}
-
 		if err := wtmx.SelectLayout(ws.LayoutValue()); err != nil {
 			return fmt.Errorf(
 				"could not select layout `%s` for window `%s`: %w",
@@ -250,6 +255,48 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
 				a.Logger.Warn("could not focus window", "name", wtmx.Name, "error", err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// applyWindowOptions sets the window options from the session block, then the window's own options, before any pane exists.
+func (a *ActionUp) applyWindowOptions(ws *decoders.Window, wtmx *tmux.Window) error {
+	for option, value := range a.windowDefaults {
+		a.Logger.Info("setting session window option", "option", option, "window", wtmx.Name)
+		if err := wtmx.SetOption(option, value); err != nil {
+			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
+		}
+	}
+
+	for option, value := range ws.Options {
+		if a.optionTables.IsSessionOnly(option) {
+			if err := a.setSessionOption("window", wtmx.Name, option, value); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
+		if err := wtmx.SetOption(option, value); err != nil {
+			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// setSessionOption warns that a session option declared on a window or pane applies to the whole session, then sets it.
+func (a *ActionUp) setSessionOption(kind, name, option, value string) error {
+	a.Logger.Warn(
+		fmt.Sprintf("tmux keeps this option on the session, so it applies to the whole session and not only to this %s", kind),
+		"option", option,
+		kind, name,
+	)
+
+	if err := a.session.SetOption(option, value); err != nil {
+		return fmt.Errorf("could not set option `%s` on session `%s`: %w", option, a.session.Name, err)
 	}
 
 	return nil
@@ -274,6 +321,11 @@ func (a *ActionUp) generatePanes(
 				wtmx.Name,
 				err,
 			)
+		}
+
+		// Each split halves its parent, so share out the space again before the next split.
+		if err := wtmx.SelectLayout(enums.LayoutTiled.String()); err != nil {
+			return fmt.Errorf("could not make room for the next pane in window `%s`: %w", wtmx.Name, err)
 		}
 
 		created = append(created, ptmx)
@@ -305,6 +357,14 @@ func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.
 	}
 
 	for option, value := range ps.Options {
+		if a.optionTables.IsSessionOnly(option) {
+			if err := a.setSessionOption("pane", ptmx.Name, option, value); err != nil {
+				return err
+			}
+
+			continue
+		}
+
 		a.Logger.Info("setting pane option", "option", option, "pane", ptmx.Name)
 		if err := ptmx.SetOption(option, value); err != nil {
 			return fmt.Errorf(
@@ -391,33 +451,50 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 		return nil, fmt.Errorf("could not read panes for window `%s`: %w", window.Name, err)
 	}
 
-	index := slices.IndexFunc(panes, func(pane *tmux.Pane) bool {
-		return pane.IsFirst
-	})
-
-	if index == -1 {
+	if len(panes) == 0 {
 		return nil, fmt.Errorf("could not locate default pane for window `%s`", window.Name)
 	}
 
-	return panes[index], nil
+	// The pane that tmux creates with a window has the lowest id.
+	return slices.MinFunc(panes, func(x, y *tmux.Pane) int {
+		return int(x.Id) - int(y.Id)
+	}), nil
 }
 
-// getDefaultWindow is responsible for retrieving the default window for a given tmux session.
-func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
+// getFirstWindow returns the window that tmux creates with a new session, which has the lowest id.
+func (a *ActionUp) getFirstWindow(session *tmux.Session) (*tmux.Window, error) {
 	windows, err := a.tmux.Windows(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not read windows for session `%s`: %w", session.Name, err)
 	}
 
-	index := slices.IndexFunc(windows, func(window *tmux.Window) bool {
-		return window.IsFirst
-	})
-
-	if index == -1 {
-		return nil, fmt.Errorf("could not locate default window for session `%s`", session.Name)
+	if len(windows) == 0 {
+		return nil, fmt.Errorf("could not find the first window of session `%s`", session.Name)
 	}
 
-	return windows[index], nil
+	return slices.MinFunc(windows, func(x, y *tmux.Window) int {
+		return int(x.Id) - int(y.Id)
+	}), nil
+}
+
+// createWindow renames the first window of a new session for the first declared window, and creates the others.
+func (a *ActionUp) createWindow(ws *decoders.Window, isFirst bool, first *tmux.Window) (*tmux.Window, error) {
+	if isFirst && first != nil {
+		a.Logger.Info("using the first window", "name", ws.Name)
+		if err := first.Rename(ws.Name); err != nil {
+			return nil, fmt.Errorf("could not rename the first window to `%s`: %w", ws.Name, err)
+		}
+
+		return first, nil
+	}
+
+	a.Logger.Info("creating new window", "name", ws.Name)
+	wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
+	if err != nil {
+		return nil, fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
+	}
+
+	return wtmx, nil
 }
 
 // warnRename tells the user when glaze must change a name because tmux would rewrite it.
