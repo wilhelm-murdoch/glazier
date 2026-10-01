@@ -131,6 +131,8 @@ Global flags:
 |------|---------|-------------|
 | `--log-level` | `info` | One of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical`. |
 
+Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile.
+
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
 ```console

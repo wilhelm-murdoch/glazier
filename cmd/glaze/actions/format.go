@@ -41,10 +41,8 @@ func (a *ActionFormat) Run() error {
 			return a.DiagnosticsManager.Write()
 		}
 
-		// Warnings do not stop the format. Show them and continue. Diagnostics
-		// go to stdout, so with --stdout a warning would end up in the
-		// formatted output.
-		if len(validationDiags) > 0 && !a.Command.Bool("stdout") {
+		// Warnings do not stop the format. Show them and continue.
+		if len(validationDiags) > 0 {
 			if err := a.DiagnosticsManager.Writer.WriteDiagnostics(validationDiags); err != nil {
 				return err
 			}
