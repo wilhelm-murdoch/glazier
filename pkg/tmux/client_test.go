@@ -136,6 +136,7 @@ var lookupCases = []struct {
 	{name: "session missing", result: tmuxFailure("can't find session: demos")},
 	{name: "no socket file", result: tmuxFailure("error connecting to /tmp/tmux-1000/default (No such file or directory)")},
 	{name: "stale socket", result: tmuxFailure("no server running on /tmp/tmux-1000/default")},
+	{name: "server exits while another client starts it", result: tmuxFailure("server exited unexpectedly")},
 	{name: "permission denied", result: tmuxFailure("error connecting to /tmp/tmux-0/default (Permission denied)"), unreachable: true},
 	{name: "tmux cannot run", result: fakeResult{Err: errors.New("fork/exec /usr/bin/tmux: exec format error")}, unreachable: true},
 }

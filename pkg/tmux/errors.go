@@ -104,9 +104,9 @@ func tmuxSaid(err error, messages ...string) bool {
 }
 
 // lookupFailure returns nil when err only says that the server or the session does not exist, and ErrUnreachable otherwise.
-// A missing socket file and a missing socket directory both give "No such file or directory".
+// A missing socket gives "No such file or directory", and a server that stops while another glaze starts it gives "server exited unexpectedly".
 func lookupFailure(err error) error {
-	if tmuxSaid(err, "can't find session", "no server running on", "(No such file or directory)") {
+	if tmuxSaid(err, "can't find session", "no server running on", "(No such file or directory)", "server exited unexpectedly") {
 		return nil
 	}
 
