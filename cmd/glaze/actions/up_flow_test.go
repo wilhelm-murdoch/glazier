@@ -39,7 +39,7 @@ const validProfile = `session {
 func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, *tmuxtest.Recorder) {
 	t.Helper()
 
-	rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+	rec := tmuxtest.New().Default(tmuxtest.Result{})
 	rec.Install(t)
 
 	dir := t.TempDir()
@@ -86,7 +86,7 @@ func TestActionUpDebugFlag(t *testing.T) {
 	build := func(t *testing.T, args []string) *ActionUp {
 		t.Helper()
 
-		rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+		rec := tmuxtest.New().Default(tmuxtest.Result{})
 		rec.Install(t)
 
 		dir := t.TempDir()

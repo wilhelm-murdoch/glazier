@@ -8,12 +8,12 @@ import (
 
 type WindowId int
 
-// String is responsible for returning the string representation of the WindowId.
+// String returns the tmux id of the window, for example @5.
 func (id WindowId) String() string {
 	return fmt.Sprintf("@%d", int(id))
 }
 
-// Window represents a tmux window.
+// Window is a tmux window.
 type Window struct {
 	Session  *Session
 	Name     string
@@ -21,43 +21,34 @@ type Window struct {
 	Id       WindowId
 	Index    int
 	Layout   enums.Layout
-	// RawLayout is the verbatim tmux window layout coordinate string (the
-	// #{window_layout} value). It is preserved so `save` can capture a layout
-	// that does not map to a named preset.
+
+	// RawLayout is the #{window_layout} coordinate string, which `save` keeps when no named preset matches.
 	RawLayout string
 }
 
-// Target returns the target window by its string representation of the WindowId.
+// Target returns the id that tmux commands use to address the window.
 func (w Window) Target() string {
 	return w.Id.String()
 }
 
-// Split splits the current window into two panes.
+// Split creates a pane from the parent pane and gives it the name as its title.
 func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) {
-	var pane *Pane
-
+	client := w.Session.Client
 	name = SanitizeName(name)
 
-	args := []string{
-		"splitw",
-		"-Pd",
+	output, err := client.output(
+		"splitw", "-Pd",
 		"-t", parentId,
 		"-c", escapeFormat(startingDirectory),
 		"-F", formatActivePanes,
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	cmd := newCommand(w.Session.Client, args...)
-
-	w.Session.logger.Debug(cmd.String())
-
-	output, err := cmd.ExecWithOutput()
+	pane, err := client.NewPaneFromLine(output, w)
 	if err != nil {
-		return pane, err
-	}
-
-	pane, err = w.Session.Client.NewPaneFromLine(output, w)
-	if err != nil {
-		return pane, err
+		return nil, err
 	}
 
 	// tmux can report an empty path for a pane that has only just started.
@@ -65,16 +56,11 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		pane.StartingDirectory = startingDirectory
 	}
 
-	cmd = newCommand(w.Session.Client, "selectp", "-T", escapeFormat(name), "-t", pane.Id.String())
-
-	w.Session.logger.Debug(cmd.String())
-
-	if err = cmd.Exec(); err != nil {
+	if err := client.run("selectp", "-T", escapeFormat(name), "-t", pane.Target()); err != nil {
 		return pane, err
 	}
 
-	// The name tmux gives us immediately after the split is the name of the host.
-	// Explicitly reset the name to the one derived from the associated glaze file.
+	// Right after the split, tmux reports the host name as the title, so keep the name from the profile.
 	pane.Name = name
 
 	return pane, nil
@@ -84,11 +70,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 func (w *Window) Rename(name string) error {
 	name = SanitizeName(name)
 
-	cmd := newCommand(w.Session.Client, "renamew", "-t", w.Target(), escapeFormat(name))
-
-	w.Session.logger.Debug(cmd.String())
-
-	if err := cmd.Exec(); err != nil {
+	if err := w.Session.Client.run("renamew", "-t", w.Target(), escapeFormat(name)); err != nil {
 		return err
 	}
 
@@ -97,42 +79,22 @@ func (w *Window) Rename(name string) error {
 	return nil
 }
 
-// Select is responsible for selecting the current window.
+// Select makes the window the active window of its session.
 func (w Window) Select() error {
-	cmd := newCommand(w.Session.Client, "selectw", "-t", w.Target())
-
-	w.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return w.Session.Client.run("selectw", "-t", w.Target())
 }
 
-// SelectLayout is responsible for selecting the layout for the current window.
-// The layout is either a named preset (e.g. "tiled") or a raw tmux layout
-// coordinate string; tmux's select-layout accepts both. An invalid or
-// checksum-stale coordinate string is rejected by tmux here, failing the `up`.
+// SelectLayout applies a named preset or a raw layout string; tmux rejects a raw string with a bad checksum.
 func (w Window) SelectLayout(layout string) error {
-	cmd := newCommand(w.Session.Client, "selectl", "-t", w.Target(), layout)
-
-	w.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return w.Session.Client.run("selectl", "-t", w.Target(), layout)
 }
 
-// SetHook registers a window-scoped hook command which tmux will run when the
-// named hook fires for this window.
+// SetHook sets a window hook.
 func (w Window) SetHook(hook, command string) error {
-	cmd := newCommand(w.Session.Client, "set-hook", "-w", "-t", w.Target(), fmt.Sprint(hook), fmt.Sprint(command))
-
-	w.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return w.Session.Client.setScoped("set-hook", "-w", w.Target(), hook, command)
 }
 
-// SetOption sets a window-scoped tmux option.
+// SetOption sets a window option.
 func (w Window) SetOption(option, value string) error {
-	cmd := newCommand(w.Session.Client, "set-option", "-w", "-t", w.Target(), fmt.Sprint(option), fmt.Sprint(value))
-
-	w.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return w.Session.Client.setScoped("set-option", "-w", w.Target(), option, value)
 }

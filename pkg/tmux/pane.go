@@ -8,12 +8,12 @@ import (
 
 type PaneId int
 
-// String is responsible for returning the string representation of the PaneId.
+// String returns the tmux id of the pane, for example %7.
 func (id PaneId) String() string {
 	return fmt.Sprintf("%%%d", int(id))
 }
 
-// Pane represents a tmux pane.
+// Pane is a tmux pane.
 type Pane struct {
 	Window            *Window
 	Name              string
@@ -23,95 +23,47 @@ type Pane struct {
 	Id                PaneId
 }
 
-// Target returns the target pane by its string representation of the PaneId.
+// Target returns the id that tmux commands use to address the pane.
 func (p Pane) Target() string {
 	return p.Id.String()
 }
 
-// SetHook registers a pane-scoped hook command which tmux will run when the
-// named hook fires for this pane.
+// client returns the client of the server that holds the pane.
+func (p Pane) client() Client {
+	return p.Window.Session.Client
+}
+
+// SetHook sets a pane hook.
 func (p Pane) SetHook(hook, command string) error {
-	cmd := newCommand(
-		p.Window.Session.Client,
-		"set-hook",
-		"-p",
-		"-t", p.Target(),
-		fmt.Sprint(hook),
-		fmt.Sprint(command),
-	)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return p.client().setScoped("set-hook", "-p", p.Target(), hook, command)
 }
 
-// Resize is responsible for modifying the height, or width, of the current pane.
-func (p Pane) Resize(x, y string) error {
-	args := []string{
-		"resizep",
-		"-t", p.Target(),
-		"-x", x,
-		"-y", y,
-	}
-
-	cmd := newCommand(p.Window.Session.Client, args...)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
-}
-
-// SetOption sets a pane-scoped tmux option.
+// SetOption sets a pane option.
 func (p Pane) SetOption(option, value string) error {
-	cmd := newCommand(
-		p.Window.Session.Client,
-		"set-option",
-		"-p",
-		"-t", p.Target(),
-		fmt.Sprint(option),
-		fmt.Sprint(value),
-	)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return p.client().setScoped("set-option", "-p", p.Target(), option, value)
 }
 
-// Adjust resizes the pane in the given direction by the given amount using
-// `tmux resize-pane -U|-D|-L|-R`. An unknown direction yields an error.
+// Resize sets the width and the height of the pane, in cells or as a percentage.
+func (p Pane) Resize(x, y string) error {
+	return p.client().run("resizep", "-t", p.Target(), "-x", x, "-y", y)
+}
+
+// Adjust grows or shrinks the pane in the given direction by amount cells.
 func (p Pane) Adjust(direction enums.Adjustment, amount string) error {
 	flag, ok := direction.ResizeFlag()
 	if !ok {
 		return fmt.Errorf("unknown pane adjustment direction `%s`", direction)
 	}
 
-	cmd := newCommand(
-		p.Window.Session.Client,
-		"resizep",
-		"-t", p.Target(),
-		flag,
-		fmt.Sprint(amount),
-	)
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return p.client().run("resizep", "-t", p.Target(), flag, amount)
 }
 
-// Select is responsible for selecting the current pane.
+// Select makes the pane the active pane of its window.
 func (p Pane) Select() error {
-	cmd := newCommand(p.Window.Session.Client, "selectp", "-t", p.Target())
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return p.client().run("selectp", "-t", p.Target())
 }
 
-// Kill closes the current pane.
+// Kill kills the pane.
 func (p Pane) Kill() error {
-	cmd := newCommand(p.Window.Session.Client, "killp", "-t", p.Target())
-
-	p.Window.Session.logger.Debug(cmd.String())
-
-	return cmd.Exec()
+	return p.client().run("killp", "-t", p.Target())
 }

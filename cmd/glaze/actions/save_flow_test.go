@@ -18,7 +18,7 @@ import (
 func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Recorder) {
 	t.Helper()
 
-	rec := tmuxtest.New().Default(tmuxtest.Result{Output: "base-index 1"})
+	rec := tmuxtest.New().Default(tmuxtest.Result{})
 	rec.Install(t)
 
 	var (

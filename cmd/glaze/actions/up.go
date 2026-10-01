@@ -597,9 +597,5 @@ func (a *ActionUp) useExistingSession(profile *decoders.Session) error {
 		a.Logger.Info("attaching to existing session", "name", profile.Name)
 	}
 
-	if err := a.attachToSession(); err != nil {
-		return fmt.Errorf("could not attach to session `%s`: %w", session.Name, err)
-	}
-
-	return nil
+	return a.attachToSession()
 }

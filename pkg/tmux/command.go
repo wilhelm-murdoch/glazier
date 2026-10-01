@@ -2,6 +2,7 @@ package tmux
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"slices"
@@ -43,10 +44,11 @@ func OverrideCommandFactory(factory func(client Client, args ...string) Commande
 	}
 }
 
-// Command represents a command to run within a tmux session.
+// Command is one tmux command, ready to run.
 type Command struct {
-	cmd  *exec.Cmd
-	args []string
+	cmd    *exec.Cmd
+	args   []string
+	logger *slog.Logger
 }
 
 // NewCommand returns a new command with the given arguments.
@@ -75,7 +77,7 @@ func NewCommand(client Client, args ...string) *Command {
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
 	cmd.WaitDelay = cancelGrace
 
-	return &Command{args: args, cmd: cmd}
+	return &Command{args: args, cmd: cmd, logger: client.logger}
 }
 
 // cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
@@ -118,9 +120,18 @@ func (c Command) String() string {
 	return strings.Join(c.args, " ")
 }
 
+// debug logs the command before it runs, so --debug shows every command that glaze sends.
+func (c Command) debug() {
+	if c.logger != nil {
+		c.logger.Debug(c.String())
+	}
+}
+
 // Exec executes the command and puts the output of tmux into the error when it fails.
 // Only attach keeps the terminal, because an attached client needs it.
 func (c *Command) Exec() error {
+	c.debug()
+
 	if subcommandOf(c.args[1:]) != "attach" {
 		if output, err := c.cmd.CombinedOutput(); err != nil {
 			return NewCommandErrorWithOutput(c.args, err, string(output))
@@ -142,6 +153,8 @@ func (c *Command) Exec() error {
 
 // ExecWithOutput executes the command and returns the output as a string.
 func (c Command) ExecWithOutput() (string, error) {
+	c.debug()
+
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
 		return "", NewCommandErrorWithOutput(c.args, err, string(output))
@@ -152,6 +165,7 @@ func (c Command) ExecWithOutput() (string, error) {
 
 // ExecWithInput executes the command with input on its stdin, so the input never appears in the argument list.
 func (c Command) ExecWithInput(input string) error {
+	c.debug()
 	c.cmd.Stdin = strings.NewReader(input)
 
 	output, err := c.cmd.CombinedOutput()

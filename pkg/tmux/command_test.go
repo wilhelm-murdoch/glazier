@@ -1,7 +1,9 @@
 package tmux
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -76,6 +78,18 @@ func TestCommandExec(t *testing.T) {
 		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo noise")
 		assert.NoError(t, cmd.Exec())
 	})
+}
+
+func TestCommandLogsAtDebugLevel(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	assert.NoError(t, NewCommand(Client{tmuxPath: "true", logger: logger}, "ls").Exec())
+	assert.Contains(t, logs.String(), "level=DEBUG msg=\"true -u ls\"")
+
+	_, err := NewCommand(Client{tmuxPath: "true", logger: logger}, "lsw").ExecWithOutput()
+	assert.NoError(t, err)
+	assert.Contains(t, logs.String(), "true -u lsw")
 }
 
 func TestCommandContext(t *testing.T) {

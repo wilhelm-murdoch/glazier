@@ -239,7 +239,7 @@ func testClient() Client {
 
 // testSession builds a Session attached to the given client.
 func testSession(c Client) *Session {
-	return &Session{Client: c, Name: "demo", StartingDirectory: "/tmp", logger: discardLogger}
+	return &Session{Client: c, Name: "demo", StartingDirectory: "/tmp"}
 }
 
 // testWindow builds a Window attached to the given session.
