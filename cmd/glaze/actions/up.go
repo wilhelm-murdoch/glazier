@@ -8,6 +8,7 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 // ActionUp is a struct that represents a Glazier "action".
@@ -274,6 +275,11 @@ func (a *ActionUp) generatePanes(
 				wtmx.Name,
 				err,
 			)
+		}
+
+		// Each split halves its parent, so share out the space again before the next split.
+		if err := wtmx.SelectLayout(enums.LayoutTiled.String()); err != nil {
+			return fmt.Errorf("could not make room for the next pane in window `%s`: %w", wtmx.Name, err)
 		}
 
 		created = append(created, ptmx)

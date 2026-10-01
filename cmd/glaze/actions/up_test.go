@@ -161,6 +161,41 @@ func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
 	assert.Contains(t, logs.String(), "tmux_name=p-z")
 }
 
+func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;2;b;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%4;3;c;1;/tmp"})
+
+	window := windowWithPane("w", enums.LayoutEvenHorizontal, &decoders.Pane{Base: &decoders.Base{Name: "a"}})
+	window.Panes = append(window.Panes,
+		&decoders.Pane{Base: &decoders.Base{Name: "b"}},
+		&decoders.Pane{Base: &decoders.Base{Name: "c"}},
+	)
+
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+
+	// Each split is followed by a tiled rebalance, and the declared layout comes last.
+	var order []string
+	for _, call := range rec.Calls {
+		switch call[0] {
+		case "splitw":
+			order = append(order, "splitw")
+		case "selectl":
+			order = append(order, "selectl "+call[len(call)-1])
+		}
+	}
+	assert.Equal(t, []string{
+		"splitw", "selectl tiled",
+		"splitw", "selectl tiled",
+		"splitw", "selectl tiled",
+		"selectl even-horizontal",
+	}, order)
+}
+
 func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 	up, rec := newTestUp(t)
 
