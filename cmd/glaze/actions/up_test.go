@@ -274,6 +274,9 @@ func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
 	assert.Equal(t, 1, rec.CountOf("neww"))
 	assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "second"})
 	assert.False(t, rec.Called("killw"))
+
+	// Windows and panes are found by id, so provisioning never reads base-index.
+	assert.Equal(t, 0, rec.CountOf("show"))
 }
 
 func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T) {

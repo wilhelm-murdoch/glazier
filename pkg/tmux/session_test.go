@@ -53,7 +53,6 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, enums.LayoutTiled, window.Layout)
 		assert.True(t, window.IsActive)
-		assert.True(t, window.IsFirst)
 
 		// No starting directory was given, so no -c flag should be sent.
 		assert.NotContains(t, rec.ArgsFor("neww"), "-c")
@@ -113,26 +112,6 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("errors when base index lookup fails", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
-		rec.On("show", fakeResult{Err: errors.New("show failed")})
-
-		client := testClient()
-		_, err := testSession(client).NewWindow("editor", "")
-		assert.Error(t, err)
-	})
-
-	t.Run("errors when base index is malformed", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
-		rec.On("show", fakeResult{Output: "base-index"})
-
-		client := testClient()
-		_, err := testSession(client).NewWindow("editor", "")
-		assert.Error(t, err)
-		assert.Equal(t, "could not determine window base index", err.Error())
-	})
 }
 
 func TestSessionSetEnv(t *testing.T) {

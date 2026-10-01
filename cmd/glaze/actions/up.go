@@ -386,15 +386,14 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 		return nil, fmt.Errorf("could not read panes for window `%s`: %w", window.Name, err)
 	}
 
-	index := slices.IndexFunc(panes, func(pane *tmux.Pane) bool {
-		return pane.IsFirst
-	})
-
-	if index == -1 {
+	if len(panes) == 0 {
 		return nil, fmt.Errorf("could not locate default pane for window `%s`", window.Name)
 	}
 
-	return panes[index], nil
+	// The pane that tmux creates with a window has the lowest id.
+	return slices.MinFunc(panes, func(x, y *tmux.Pane) int {
+		return int(x.Id) - int(y.Id)
+	}), nil
 }
 
 // getFirstWindow returns the window that tmux creates with a new session, which has the lowest id.

@@ -392,7 +392,7 @@ func TestClientPanes(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(panes))
 		assert.True(t, slices.ContainsFunc(panes, func(p *Pane) bool {
-			return p.Name == "pane-a" && p.IsActive && p.IsFirst
+			return p.Name == "pane-a" && p.IsActive
 		}))
 	})
 
@@ -407,19 +407,6 @@ func TestClientPanes(t *testing.T) {
 		assert.Equal(t, 0, len(panes))
 	})
 
-	t.Run("errors when base index cannot be determined", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("lsp", fakeResult{Output: "%1;1;pane-a;1;/tmp"})
-		rec.On("show", fakeResult{Output: "pane-base-index"})
-
-		client := testClient()
-		panes, err := client.Panes(testWindow(testSession(client)))
-
-		assert.Error(t, err)
-		assert.Equal(t, "could not determine pane base index", err.Error())
-		assert.Equal(t, 0, len(panes))
-	})
-
 	t.Run("errors on a malformed pane line", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("lsp", fakeResult{Output: "%x;1;pane-a;1;/tmp"})
@@ -430,15 +417,6 @@ func TestClientPanes(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("propagates base index lookup errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("lsp", fakeResult{Output: "%1;1;pane-a;1;/tmp"})
-		rec.On("show", fakeResult{Err: errors.New("show failed")})
-
-		client := testClient()
-		_, err := client.Panes(testWindow(testSession(client)))
-		assert.Error(t, err)
-	})
 }
 
 func TestClientNewWindowFromLine(t *testing.T) {
@@ -456,7 +434,6 @@ func TestClientNewWindowFromLine(t *testing.T) {
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, enums.LayoutMainVertical, window.Layout)
 		assert.True(t, window.IsActive)
-		assert.True(t, window.IsFirst)
 	})
 
 	client := testClient()
@@ -480,14 +457,13 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("show", fakeResult{Output: "base-index 1"})
 
-		pane, err := client.NewPaneFromLine("%4;1;shell;1;/srv", "1", window)
+		pane, err := client.NewPaneFromLine("%4;1;shell;1;/srv", window)
 		assert.NoError(t, err)
 		assert.Equal(t, PaneId(4), pane.Id)
 		assert.Equal(t, 1, pane.Index)
 		assert.Equal(t, "shell", pane.Name)
 		assert.Equal(t, "/srv", pane.StartingDirectory)
 		assert.True(t, pane.IsActive)
-		assert.True(t, pane.IsFirst)
 	})
 
 	t.Run("errors on a non-numeric index", func(t *testing.T) {
@@ -497,7 +473,7 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("show", fakeResult{Output: "base-index 1"})
 
-		_, err := client.NewPaneFromLine("%4;x;shell;1;/srv", "1", window)
+		_, err := client.NewPaneFromLine("%4;x;shell;1;/srv", window)
 		assert.Error(t, err)
 	})
 
@@ -508,7 +484,7 @@ func TestClientNewPaneFromLine(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("show", fakeResult{Output: "base-index 1"})
 
-		_, err := client.NewPaneFromLine("%4;1;shell", "1", window)
+		_, err := client.NewPaneFromLine("%4;1;shell", window)
 		assert.Error(t, err)
 	})
 }
@@ -544,25 +520,6 @@ func TestClientGetOption(t *testing.T) {
 		rec.On("show", fakeResult{Err: errors.New("show failed")})
 
 		_, err := testClient().GetOption("demo", "base-index", "global")
-		assert.Error(t, err)
-	})
-}
-
-func TestClientGetBaseIndex(t *testing.T) {
-	t.Run("splits the option result", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Output: "base-index 1"})
-
-		parts, err := testClient().GetBaseIndex("demo", "base-index")
-		assert.NoError(t, err)
-		assert.Equal(t, []string{"base-index", "1"}, parts)
-	})
-
-	t.Run("propagates command errors", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("show", fakeResult{Err: errors.New("show failed")})
-
-		_, err := testClient().GetBaseIndex("demo", "base-index")
 		assert.Error(t, err)
 	})
 }

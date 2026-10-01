@@ -1,7 +1,6 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
@@ -19,7 +18,6 @@ type Window struct {
 	Session  *Session
 	Name     string
 	IsActive bool
-	IsFirst  bool
 	Id       WindowId
 	Index    int
 	Layout   enums.Layout
@@ -57,16 +55,7 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		return pane, err
 	}
 
-	baseIndexCmdParts, err := w.Session.Client.GetBaseIndex(w.Target(), "pane-base-index")
-	if err != nil {
-		return pane, err
-	}
-
-	if len(baseIndexCmdParts) != 2 {
-		return pane, errors.New("could not determine pane base index")
-	}
-
-	pane, err = w.Session.Client.NewPaneFromLine(output, baseIndexCmdParts[1], w)
+	pane, err = w.Session.Client.NewPaneFromLine(output, w)
 	if err != nil {
 		return pane, err
 	}

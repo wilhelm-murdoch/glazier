@@ -37,7 +37,6 @@ func TestWindowSplit(t *testing.T) {
 		assert.Equal(t, "shell", pane.Name)
 		assert.Equal(t, "/srv", pane.StartingDirectory)
 		assert.True(t, pane.IsActive)
-		assert.True(t, pane.IsFirst)
 		assert.Subset(t, rec.ArgsFor("selectp"), []string{"-T", "shell", "-t", "%2"})
 	})
 
@@ -87,30 +86,6 @@ func TestWindowSplit(t *testing.T) {
 		window := testWindow(testSession(client))
 		_, err := window.Split("%1", "shell", "/srv")
 		assert.ErrorIs(t, err, splitErr)
-	})
-
-	t.Run("propagates base index lookup errors", func(t *testing.T) {
-		showErr := errors.New("show failed")
-
-		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Err: showErr})
-
-		client := testClient()
-		window := testWindow(testSession(client))
-		_, err := window.Split("%1", "shell", "/srv")
-		assert.ErrorIs(t, err, showErr)
-	})
-
-	t.Run("errors when base index is malformed", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
-		rec.On("show", fakeResult{Output: "pane-base-index"})
-
-		client := testClient()
-		window := testWindow(testSession(client))
-		_, err := window.Split("%1", "shell", "/srv")
-		assert.EqualError(t, err, "could not determine pane base index")
 	})
 
 	t.Run("errors on malformed pane response", func(t *testing.T) {
