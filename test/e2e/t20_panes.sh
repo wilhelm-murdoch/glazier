@@ -359,6 +359,48 @@ EOF
   eq "window name survives automatic-rename" "w" "$(wnames op)"
   end
 
+  begin options_session_declares_window_option
+  # A window option declared on the session applies to every window, not only to the first.
+  fx <<'EOF'
+session {
+  name = "ow"
+  options = {
+    "remain-on-exit" = "on"
+    "history-limit"  = "4242"
+  }
+  window {
+    name = "one"
+    pane {}
+  }
+  window {
+    name = "two"
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up"
+  eq "window one remain-on-exit" "on" "$(tm show -w -t "$(wid ow one)" -v remain-on-exit)"
+  eq "window two remain-on-exit" "on" "$(tm show -w -t "$(wid ow two)" -v remain-on-exit)"
+  eq "session option history-limit" "4242" "$(tm show -t ow -v history-limit)"
+  end
+
+  begin options_window_declares_session_option
+  # A session option declared on a window applies to the session, with a warning.
+  fx <<'EOF'
+session {
+  name = "os"
+  window {
+    name    = "w"
+    options = { "history-limit" = "4321" }
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up"
+  eq "session option history-limit" "4321" "$(tm show -t os -v history-limit)"
+  match "warns that the option applies to the session" "applies to the whole session" "$OUT$ERR"
+  end
+
   begin options_numeric_value
   fx <<'EOF'
 session {

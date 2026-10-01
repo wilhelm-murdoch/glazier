@@ -16,6 +16,12 @@ type ActionUp struct {
 	ActionBase
 	tmux    *tmux.Client
 	session *tmux.Session
+
+	// optionTables tells glaze which scope tmux keeps each option in.
+	optionTables tmux.OptionTables
+
+	// windowDefaults holds the window options declared on the session, which apply to every window.
+	windowDefaults map[string]string
 }
 
 // NewUp is responsible for creating a new ActionFormat struct value pre-populated
@@ -83,6 +89,13 @@ func (a *ActionUp) attachToSession() error {
 
 // provisionSession creates the windows and panes as defined in the profile.
 func (a *ActionUp) provisionSession(profile *decoders.Session) error {
+	tables, err := a.tmux.OptionTables()
+	if err != nil {
+		return fmt.Errorf("could not read the tmux option tables: %w", err)
+	}
+
+	a.optionTables = tables
+
 	if err := a.applySessionSettings(profile); err != nil {
 		return err
 	}
@@ -160,6 +173,16 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	}
 
 	for option, value := range profile.Options {
+		// A window or pane option declared on the session applies to every window that glaze creates.
+		if a.optionTables.IsWindowOnly(option) {
+			if a.windowDefaults == nil {
+				a.windowDefaults = make(map[string]string)
+			}
+
+			a.windowDefaults[option] = value
+			continue
+		}
+
 		a.Logger.Info("setting session option", "option", option, "session", a.session.Name)
 		if err := a.session.SetOption(option, value); err != nil {
 			return fmt.Errorf(
@@ -182,6 +205,10 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 
 		wtmx, err := a.createWindow(ws, i == 0, first)
 		if err != nil {
+			return err
+		}
+
+		if err := a.applyWindowOptions(ws, wtmx); err != nil {
 			return err
 		}
 
@@ -213,18 +240,6 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 			}
 		}
 
-		for option, value := range ws.Options {
-			a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
-			if err := wtmx.SetOption(option, value); err != nil {
-				return fmt.Errorf(
-					"could not set option `%s` on window `%s`: %w",
-					option,
-					wtmx.Name,
-					err,
-				)
-			}
-		}
-
 		if err := wtmx.SelectLayout(ws.LayoutValue()); err != nil {
 			return fmt.Errorf(
 				"could not select layout `%s` for window `%s`: %w",
@@ -240,6 +255,48 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 				a.Logger.Warn("could not focus window", "name", wtmx.Name, "error", err)
 			}
 		}
+	}
+
+	return nil
+}
+
+// applyWindowOptions sets the window options from the session block, then the window's own options, before any pane exists.
+func (a *ActionUp) applyWindowOptions(ws *decoders.Window, wtmx *tmux.Window) error {
+	for option, value := range a.windowDefaults {
+		a.Logger.Info("setting session window option", "option", option, "window", wtmx.Name)
+		if err := wtmx.SetOption(option, value); err != nil {
+			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
+		}
+	}
+
+	for option, value := range ws.Options {
+		if a.optionTables.IsSessionOnly(option) {
+			if err := a.setSessionOption("window", wtmx.Name, option, value); err != nil {
+				return err
+			}
+
+			continue
+		}
+
+		a.Logger.Info("setting window option", "option", option, "window", wtmx.Name)
+		if err := wtmx.SetOption(option, value); err != nil {
+			return fmt.Errorf("could not set option `%s` on window `%s`: %w", option, wtmx.Name, err)
+		}
+	}
+
+	return nil
+}
+
+// setSessionOption warns that a session option declared on a window or pane applies to the whole session, then sets it.
+func (a *ActionUp) setSessionOption(kind, name, option, value string) error {
+	a.Logger.Warn(
+		fmt.Sprintf("tmux keeps this option on the session, so it applies to the whole session and not only to this %s", kind),
+		"option", option,
+		kind, name,
+	)
+
+	if err := a.session.SetOption(option, value); err != nil {
+		return fmt.Errorf("could not set option `%s` on session `%s`: %w", option, a.session.Name, err)
 	}
 
 	return nil
@@ -300,6 +357,14 @@ func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.
 	}
 
 	for option, value := range ps.Options {
+		if a.optionTables.IsSessionOnly(option) {
+			if err := a.setSessionOption("pane", ptmx.Name, option, value); err != nil {
+				return err
+			}
+
+			continue
+		}
+
 		a.Logger.Info("setting pane option", "option", option, "pane", ptmx.Name)
 		if err := ptmx.SetOption(option, value); err != nil {
 			return fmt.Errorf(

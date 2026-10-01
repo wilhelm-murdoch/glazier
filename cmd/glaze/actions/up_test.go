@@ -279,6 +279,83 @@ func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
 	assert.Equal(t, 0, rec.CountOf("show"))
 }
 
+func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
+	t.Run("a window option on the session applies to every window before its panes", func(t *testing.T) {
+		up, rec := newTestUp(t)
+
+		rec.On("show-options", tmuxtest.Result{Output: "history-limit 2000"})
+		rec.On("show-options", tmuxtest.Result{Output: "remain-on-exit off"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
+		rec.On("neww", tmuxtest.Result{Output: "@4;2;second;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+		rec.On("lsp", tmuxtest.Result{Output: "%5;1;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%6;1;q;1;/tmp"})
+
+		profile := &decoders.Session{Base: &decoders.Base{
+			Name:    "demo",
+			Options: map[string]string{"remain-on-exit": "on", "history-limit": "5000"},
+		}}
+		profile.Windows = []*decoders.Window{
+			windowWithPane("first", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}}),
+			windowWithPane("second", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "q"}}),
+		}
+
+		assert.NoError(t, up.provisionSession(profile))
+
+		var events []string
+		for _, call := range rec.Calls {
+			switch {
+			case call[0] == "set-option" && call[1] == "-w":
+				events = append(events, "window "+call[3]+" "+call[4])
+			case call[0] == "set-option":
+				events = append(events, "session "+call[2]+" "+call[3])
+			case call[0] == "splitw":
+				events = append(events, "split")
+			}
+		}
+		assert.Equal(t, []string{
+			"session $1 history-limit",
+			"window @3 remain-on-exit", "split",
+			"window @4 remain-on-exit", "split",
+		}, events)
+	})
+
+	t.Run("a session option on a window or pane warns and applies to the session", func(t *testing.T) {
+		up, rec := newTestUp(t)
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		rec.On("show-options", tmuxtest.Result{Output: "history-limit 2000\nstatus on"})
+		rec.On("show-options", tmuxtest.Result{Output: "remain-on-exit off"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+
+		pane := &decoders.Pane{Base: &decoders.Base{Name: "p", Options: map[string]string{"status": "off"}}}
+		window := windowWithPane("w", enums.LayoutTiled, pane)
+		window.Options = map[string]string{"history-limit": "5000"}
+
+		profile := &decoders.Session{Base: &decoders.Base{Name: "demo"}}
+		profile.Windows = []*decoders.Window{window}
+
+		assert.NoError(t, up.provisionSession(profile))
+
+		var sessionOptions []string
+		for _, call := range rec.Calls {
+			if call[0] == "set-option" {
+				assert.NotContains(t, call, "-w")
+				assert.NotContains(t, call, "-p")
+				sessionOptions = append(sessionOptions, call[3])
+			}
+		}
+		assert.Equal(t, []string{"history-limit", "status"}, sessionOptions)
+		assert.Contains(t, logs.String(), "not only to this window")
+		assert.Contains(t, logs.String(), "not only to this pane")
+	})
+}
+
 func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T) {
 	up, rec := newTestUp(t)
 
