@@ -88,9 +88,11 @@ gone() { if has "$2"; then ko "$1" "session [$2] still present"; else ok "$1"; f
 
 # Introspection. All targets use session ids or exact matches.
 wins() { tm lsw -t "=$1" -F '#{window_index}|#{window_name}|#{window_active}|#{window_panes}'; }
-wnames() { tm lsw -t "=$1" -F '#{window_name}' | paste -sd, -; }
+# tmux 3.4 prints a $ that starts a variable name as \$ in plain -F output.
+unesc34() { if [[ $(tmux -V) == "tmux 3.4" ]]; then sed 's/\\\$/$/g'; else cat; fi; }
+wnames() { tm lsw -t "=$1" -F '#{window_name}' | unesc34 | paste -sd, -; }
 wid() { tm lsw -t "=$1" -F '#{window_id}|#{window_name}' | awk -v n="$2" '{i=index($0,"|"); if (substr($0,i+1)==n) {print substr($0,1,i-1); exit}}'; }
-ptitles() { tm lsp -t "$1" -F '#{pane_title}' | paste -sd, -; }
+ptitles() { tm lsp -t "$1" -F '#{pane_title}' | unesc34 | paste -sd, -; }
 ppaths() { tm lsp -t "$1" -F '#{pane_current_path}' | paste -sd, -; }
 pactive() { tm lsp -t "$1" -F '#{pane_active}#{pane_title}' | awk '/^1/{print substr($0,2)}'; }
 wactive() { tm lsw -t "=$1" -F '#{window_active}#{window_name}' | awk '/^1/{print substr($0,2)}'; }

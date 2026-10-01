@@ -179,8 +179,10 @@ session {
 }
 EOF
     TO=10 up
-    local tmuxname; tmuxname=$(tm ls -F '#S')
-    if [[ $RC -eq 0 && "$tmuxname" == "$n" ]]; then ok "session name [${n:0:20}] works"
+    # glaze replaces the characters that tmux rewrites in a session name with -.
+    local want="${n//[.:\\\$]/-}" tmuxname; tmuxname=$(tm ls -F '#S')
+    if [[ "$want" != "$n" ]]; then match "warns about the renamed session [${n:0:20}]" "replacing them with hyphens" "$OUT$ERR"; fi
+    if [[ $RC -eq 0 && "$tmuxname" == "$want" ]]; then ok "session name [${n:0:20}] works"
     else ko "session name [${n:0:20}] works" "rc=$RC tmux has [${tmuxname:0:40}] windows=[$(tm lsw -a -F '#W' | paste -sd, -)] err=[${ERR:0:300}]"; fi
     if [[ $RC -eq 0 ]]; then
       TO=10 up; if [[ $RC -eq 0 && $(tm ls | wc -l) -eq 1 ]]; then ok "second up idempotent [${n:0:20}]"; else ko "second up idempotent [${n:0:20}]" "rc=$RC sessions=[$(tm ls -F '#S' | paste -sd'|' -)] err=[${ERR:0:200}]"; fi

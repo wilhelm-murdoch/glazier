@@ -155,6 +155,29 @@ t_commands() {
   pane_cmds cf '["false", "(exit 3)", "echo after > @WD@/o"]'
   up; rc0 "up with a failing command"; wf "$WD/o"; eq "later commands still run" "after" "$(cat "$WD/o" 2>/dev/null)"; end
 
+  begin cmd_exit_then_split
+  fx <<'EOF'
+session {
+  name = "ex"
+  window {
+    name = "w"
+    pane {
+      name     = "runner"
+      commands = ["true; exit"]
+    }
+    pane {
+      name = "shell"
+    }
+    pane {
+      name = "shell2"
+    }
+  }
+}
+EOF
+  up; rc0 "a pane whose command exits does not break the next split"
+  sleep 0.5; eq "the other panes keep their order" "shell,shell2" "$(ptitles =ex:w)"
+  end
+
   begin cmd_trailing_comment
   pane_cmds cc '["echo a > @WD@/o # a comment", "echo b >> @WD@/o"]'
   TO=10 up; rc0 "non-final command with trailing # comment does not hang"
