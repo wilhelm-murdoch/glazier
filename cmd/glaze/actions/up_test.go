@@ -118,7 +118,7 @@ func TestActionUpGenerateWindows(t *testing.T) {
 	}
 	window := windowWithPane("ice-breaker", enums.LayoutTiled, pane)
 
-	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
 
 	// Window + pane were created, the default pane killed, layout selected.
 	assert.True(t, rec.Called("neww"))
@@ -153,7 +153,7 @@ func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
 	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p-z;1;/tmp"})
 
 	window := windowWithPane(`w\z`, enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p\tz"}})
-	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
 
 	assert.Contains(t, logs.String(), "this window name")
 	assert.Contains(t, logs.String(), "tmux_name=w-z")
@@ -176,7 +176,7 @@ func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
 		&decoders.Pane{Base: &decoders.Base{Name: "c"}},
 	)
 
-	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
 
 	// Each split is followed by a tiled rebalance, and the declared layout comes last.
 	var order []string
@@ -210,7 +210,7 @@ func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 	})
 	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "shell"}})
 
-	assert.NoError(t, up.generateWindows([]*decoders.Window{window}))
+	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
 
 	// A pane that exits at once must not be the parent of a later split.
 	var order []string
@@ -241,13 +241,39 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 
 	assert.NoError(t, up.provisionSession(profile))
 
-	// The default window tmux created was removed.
-	assert.True(t, rec.Called("killw"))
+	// The window tmux created is reused, not removed.
+	assert.True(t, rec.Called("renamew"))
+	assert.False(t, rec.Called("killw"))
 
 	// Each command list has a single, final command, so both are sent
 	// fire-and-forget with no wait-for synchronisation.
 	assert.Equal(t, 2, rec.CountOf("send"))
 	assert.Equal(t, 0, rec.CountOf("wait-for"))
+}
+
+func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
+	rec.On("neww", tmuxtest.Result{Output: "@4;2;second;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("lsp", tmuxtest.Result{Output: "%5;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%6;1;q;1;/tmp"})
+
+	profile := &decoders.Session{Base: &decoders.Base{Name: "demo"}}
+	profile.Windows = []*decoders.Window{
+		windowWithPane("first", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}}),
+		windowWithPane("second", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "q"}}),
+	}
+
+	assert.NoError(t, up.provisionSession(profile))
+
+	// Only the second window is created; the first reuses the window that tmux made.
+	assert.Equal(t, []string{"renamew", "-t", "@3", "first"}, rec.ArgsFor("renamew"))
+	assert.Equal(t, 1, rec.CountOf("neww"))
+	assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "second"})
+	assert.False(t, rec.Called("killw"))
 }
 
 func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T) {

@@ -91,13 +91,21 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 	return pane, nil
 }
 
-// Kill is responsible for closing the current window.
-func (w Window) Kill() error {
-	cmd := newCommand(w.Session.Client, "killw", "-t", w.Target())
+// Rename gives the window a new name, sanitised and escaped like a name passed to NewWindow.
+func (w *Window) Rename(name string) error {
+	name = SanitizeName(name)
+
+	cmd := newCommand(w.Session.Client, "renamew", "-t", w.Target(), escapeFormat(name))
 
 	w.Session.logger.Debug(cmd.String())
 
-	return cmd.Exec()
+	if err := cmd.Exec(); err != nil {
+		return err
+	}
+
+	w.Name = name
+
+	return nil
 }
 
 // Select is responsible for selecting the current window.

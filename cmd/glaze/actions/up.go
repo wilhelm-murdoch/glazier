@@ -87,24 +87,13 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		return err
 	}
 
-	if err := a.generateWindows(profile.Windows); err != nil {
+	first, err := a.getFirstWindow(a.session)
+	if err != nil {
 		return err
 	}
 
-	defaultWindow, err := a.getDefaultWindow(a.session)
-	if err != nil {
-		a.Logger.Warn(
-			"could not find default window to kill",
-			"session",
-			a.session.Name,
-			"error",
-			err,
-		)
-	} else if defaultWindow != nil {
-		// After creating our own windows, we can remove the default one tmux created.
-		if err := defaultWindow.Kill(); err != nil {
-			return fmt.Errorf("failed to kill default window: %w", err)
-		}
+	if err := a.generateWindows(profile.Windows, first); err != nil {
+		return err
 	}
 
 	// Run any session-level commands in the session's active pane, once all
@@ -187,13 +176,13 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 
 // generateWindows iterates through the windows and panes defined within the
 // specified profile and create them within the tmux session.
-func (a *ActionUp) generateWindows(windows []*decoders.Window) error {
-	for _, ws := range windows {
-		a.Logger.Info("creating new window", "name", ws.Name)
+func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Window) error {
+	for i, ws := range windows {
 		a.warnRename("window", ws.Name, tmux.SanitizeName(ws.Name))
-		wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
+
+		wtmx, err := a.createWindow(ws, i == 0, first)
 		if err != nil {
-			return fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
+			return err
 		}
 
 		defaultPane, err := a.getDefaultPane(wtmx)
@@ -408,22 +397,40 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 	return panes[index], nil
 }
 
-// getDefaultWindow is responsible for retrieving the default window for a given tmux session.
-func (a *ActionUp) getDefaultWindow(session *tmux.Session) (*tmux.Window, error) {
+// getFirstWindow returns the window that tmux creates with a new session, which has the lowest id.
+func (a *ActionUp) getFirstWindow(session *tmux.Session) (*tmux.Window, error) {
 	windows, err := a.tmux.Windows(session)
 	if err != nil {
 		return nil, fmt.Errorf("could not read windows for session `%s`: %w", session.Name, err)
 	}
 
-	index := slices.IndexFunc(windows, func(window *tmux.Window) bool {
-		return window.IsFirst
-	})
-
-	if index == -1 {
-		return nil, fmt.Errorf("could not locate default window for session `%s`", session.Name)
+	if len(windows) == 0 {
+		return nil, fmt.Errorf("could not find the first window of session `%s`", session.Name)
 	}
 
-	return windows[index], nil
+	return slices.MinFunc(windows, func(x, y *tmux.Window) int {
+		return int(x.Id) - int(y.Id)
+	}), nil
+}
+
+// createWindow renames the first window of a new session for the first declared window, and creates the others.
+func (a *ActionUp) createWindow(ws *decoders.Window, isFirst bool, first *tmux.Window) (*tmux.Window, error) {
+	if isFirst && first != nil {
+		a.Logger.Info("using the first window", "name", ws.Name)
+		if err := first.Rename(ws.Name); err != nil {
+			return nil, fmt.Errorf("could not rename the first window to `%s`: %w", ws.Name, err)
+		}
+
+		return first, nil
+	}
+
+	a.Logger.Info("creating new window", "name", ws.Name)
+	wtmx, err := a.session.NewWindow(ws.Name, ws.StartingDirectory)
+	if err != nil {
+		return nil, fmt.Errorf("could not create new window `%s`: %w", ws.Name, err)
+	}
+
+	return wtmx, nil
 }
 
 // warnRename tells the user when glaze must change a name because tmux would rewrite it.

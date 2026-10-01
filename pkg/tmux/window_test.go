@@ -161,14 +161,28 @@ func TestWindowSplit(t *testing.T) {
 	})
 }
 
-func TestWindowKill(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("killw", fakeResult{})
+func TestWindowRename(t *testing.T) {
+	t.Run("renames by id with the name sanitised and escaped", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("renamew", fakeResult{})
 
-	client := testClient()
-	window := testWindow(testSession(client))
-	assert.NoError(t, window.Kill())
-	assert.True(t, rec.Called("killw"))
+		window := testWindow(testSession(testClient()))
+		window.Id = 7
+		require.NoError(t, window.Rename("w#{x}\\y"))
+		assert.Equal(t, []string{"renamew", "-t", "@7", "w##{x}-y"}, rec.ArgsFor("renamew"))
+		assert.Equal(t, "w#{x}-y", window.Name)
+	})
+
+	t.Run("keeps the old name when tmux fails", func(t *testing.T) {
+		renameErr := errors.New("renamew failed")
+
+		rec := setupRecorder(t)
+		rec.On("renamew", fakeResult{Err: renameErr})
+
+		window := testWindow(testSession(testClient()))
+		assert.ErrorIs(t, window.Rename("new"), renameErr)
+		assert.Equal(t, "win", window.Name)
+	})
 }
 
 func TestWindowSelect(t *testing.T) {

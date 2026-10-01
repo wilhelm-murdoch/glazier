@@ -290,17 +290,18 @@ func TestActionUpRun(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
 		rec.On("has-session", tmuxtest.Result{Status: 1})
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("neww", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
 		rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
 
 		assert.NoError(t, up.Run())
 
+		// The window that tmux creates with the session becomes the first declared window.
 		assert.True(t, rec.Called("new"))
-		assert.True(t, rec.Called("neww"))
+		assert.Subset(t, rec.ArgsFor("renamew"), []string{"-t", "@1", "main"})
+		assert.False(t, rec.Called("neww"))
 		assert.True(t, rec.Called("splitw"))
-		assert.True(t, rec.Called("killw"))
+		assert.False(t, rec.Called("killw"))
 		// Detached: no attach/switch should be issued.
 		assert.False(t, rec.Called("attach"))
 		assert.False(t, rec.Called("ls"))
