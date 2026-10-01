@@ -66,17 +66,10 @@ func (a *ActionLs) Run() error {
 		return fmt.Errorf("could not list sessions: %w", err)
 	}
 
-	// Resolving the attached session only makes sense from inside tmux;
-	// elsewhere `display-message` would report an arbitrary session.
-	var currentSession *tmux.Session
-	if os.Getenv("TMUX") != "" {
-		currentSession, err = a.tmux.CurrentSession()
-		if err != nil {
-			return fmt.Errorf(
-				"could not determine current session: %w",
-				err,
-			)
-		}
+	// Only a pane of this server has a current session; elsewhere nothing gets a marker.
+	currentSession, err := a.tmux.CurrentSession()
+	if err != nil {
+		return fmt.Errorf("could not determine current session: %w", err)
 	}
 
 	// Write errors surface on Flush, so the intermediate ones are ignored.

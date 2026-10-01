@@ -255,6 +255,28 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.True(t, rec.Called("ls"))
 	})
 
+	t.Run("shows the attach command inside another tmux server", func(t *testing.T) {
+		t.Setenv("TMUX", "/tmp/tmux-501/work,1234,0")
+		t.Setenv("TMUX_PANE", "%4")
+		up, rec := buildUp(t, validProfile, nil)
+		rec.On("has-session", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.False(t, rec.Called("attach"))
+		assert.False(t, rec.Called("switchc"))
+		assert.Contains(t, logs.String(), "does not attach")
+		assert.Contains(t, logs.String(), "tmux attach -t '=demo'")
+	})
+
 	t.Run("finds existing session without attaching when detached", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
 		rec.On("has-session", tmuxtest.Result{})
@@ -271,6 +293,7 @@ func TestActionUpResolveSession(t *testing.T) {
 	})
 
 	t.Run("kills the previous session when --clear is set", func(t *testing.T) {
+		t.Setenv("TMUX", "")
 		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
@@ -281,6 +304,37 @@ func TestActionUpResolveSession(t *testing.T) {
 		_, err = up.resolveSession(profile)
 		assert.NoError(t, err)
 		assert.True(t, rec.Called("kill-session"))
+	})
+
+	t.Run("refuses --clear inside the session that it would kill", func(t *testing.T) {
+		insidePane(t)
+		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
+		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.ErrorContains(t, err, "glaze runs inside session `demo`")
+		assert.False(t, rec.Called("kill-session"))
+		assert.False(t, rec.Called("new"))
+	})
+
+	t.Run("allows --clear from another session", func(t *testing.T) {
+		insidePane(t)
+		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
+		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+		rec.On("new", tmuxtest.Result{Output: "$3;demo;/tmp"})
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
 	})
 
 	t.Run("errors when an existing session cannot be found", func(t *testing.T) {
@@ -321,6 +375,7 @@ func TestActionUpRun(t *testing.T) {
 	})
 
 	t.Run("returns early without provisioning when already attached", func(t *testing.T) {
+		t.Setenv("TMUX", "")
 		up, rec := buildUp(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})

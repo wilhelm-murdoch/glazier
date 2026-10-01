@@ -138,9 +138,20 @@ func TestEndToEndHostileNames(t *testing.T) {
 		assert.Equal(t, session.Id, found.Id)
 	}
 
-	// No client is attached, so tmux reports the only session on the server.
+	// Glaze runs outside tmux, so it has no current session.
+	t.Setenv("TMUX", "")
 	current, err := client.CurrentSession()
-	if assert.NoError(t, err) {
+	assert.NoError(t, err)
+	assert.Nil(t, current)
+
+	// tmux sets these two variables in each pane, so set them as in the session's first pane.
+	socketPath, err := client.SocketPath()
+	assert.NoError(t, err)
+	t.Setenv("TMUX", socketPath+",0,0")
+	t.Setenv("TMUX_PANE", "%0")
+
+	current, err = client.CurrentSession()
+	if assert.NoError(t, err) && assert.NotNil(t, current) {
 		assert.Equal(t, sessionName, current.Name)
 	}
 

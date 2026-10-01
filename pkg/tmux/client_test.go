@@ -2,7 +2,6 @@ package tmux
 
 import (
 	"errors"
-	"os"
 	"slices"
 	"testing"
 
@@ -301,41 +300,127 @@ func TestClientHasSession(t *testing.T) {
 	}
 }
 
-func TestClientCurrentSession(t *testing.T) {
-	t.Run("returns the current session", func(t *testing.T) {
+// insideServer sets the environment of a pane of the server on /tmp/tmux-1000/default.
+func insideServer(t *testing.T, pane string) {
+	t.Setenv("TMUX", "/tmp/tmux-1000/default,1234,0")
+	t.Setenv("TMUX_PANE", pane)
+}
+
+func TestClientInsideServer(t *testing.T) {
+	t.Run("is false outside tmux, with no tmux call", func(t *testing.T) {
+		t.Setenv("TMUX", "")
 		rec := setupRecorder(t)
+
+		inside, err := testClient().InsideServer()
+		assert.NoError(t, err)
+		assert.False(t, inside)
+		assert.Empty(t, rec.Calls)
+	})
+
+	t.Run("is true when $TMUX names this server's socket", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
+
+		inside, err := testClient().InsideServer()
+		assert.NoError(t, err)
+		assert.True(t, inside)
+		assert.Equal(t, []string{"display-message", "-p", "#{socket_path}"}, rec.ArgsFor("display-message"))
+	})
+
+	t.Run("is false when $TMUX names another server's socket", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/other"})
+
+		inside, err := testClient().InsideServer()
+		assert.NoError(t, err)
+		assert.False(t, inside)
+	})
+
+	t.Run("is false when no server runs on this socket", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", tmuxFailure("no server running on /tmp/tmux-1000/other"))
+
+		inside, err := testClient().InsideServer()
+		assert.NoError(t, err)
+		assert.False(t, inside)
+	})
+
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", tmuxFailure("error connecting to /tmp/tmux-1000/default (Permission denied)"))
+
+		_, err := testClient().InsideServer()
+		assert.ErrorIs(t, err, ErrUnreachable)
+	})
+}
+
+func TestClientCurrentSession(t *testing.T) {
+	t.Run("returns the session of the pane that glaze runs in", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
 		rec.On("display-message", fakeResult{Output: "$1;demo;/tmp\n"})
 
 		session, err := testClient().CurrentSession()
 		assert.NoError(t, err)
 		assert.Equal(t, "demo", session.Name)
 		assert.Equal(t, SessionId(1), session.Id)
+		assert.Equal(t, []string{"display-message", "-p", "-t", "%3", formatActiveSessions}, rec.Calls[1])
+	})
 
-		args := rec.ArgsFor("display-message")
-		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, formatActiveSessions)
+	t.Run("is nil outside tmux", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		rec := setupRecorder(t)
+
+		session, err := testClient().CurrentSession()
+		assert.NoError(t, err)
+		assert.Nil(t, session)
+		assert.Empty(t, rec.Calls)
+	})
+
+	t.Run("is nil without $TMUX_PANE", func(t *testing.T) {
+		insideServer(t, "")
+		rec := setupRecorder(t)
+
+		session, err := testClient().CurrentSession()
+		assert.NoError(t, err)
+		assert.Nil(t, session)
+		assert.Empty(t, rec.Calls)
+	})
+
+	t.Run("is nil inside another tmux server", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/other"})
+
+		session, err := testClient().CurrentSession()
+		assert.NoError(t, err)
+		assert.Nil(t, session)
+		assert.Len(t, rec.Calls, 1)
 	})
 
 	t.Run("returns unparsable session result", func(t *testing.T) {
+		insideServer(t, "%3")
 		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
 		rec.On("display-message", fakeResult{Output: "garbage"})
 
 		_, err := testClient().CurrentSession()
-		assert.Error(t, err)
 		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
-
-		args := rec.ArgsFor("display-message")
-		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, formatActiveSessions)
 	})
 
 	t.Run("wraps the underlying error", func(t *testing.T) {
+		insideServer(t, "%3")
 		rec := setupRecorder(t)
-		rec.On("display-message", fakeResult{Err: errors.New("not in tmux")})
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
+		rec.On("display-message", fakeResult{Err: errors.New("can't find pane")})
 
 		_, err := testClient().CurrentSession()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "could not determine current session")
+		assert.ErrorContains(t, err, "could not determine current session")
 	})
 }
 
@@ -523,9 +608,10 @@ func TestClientGetOption(t *testing.T) {
 }
 
 func TestClientAttach(t *testing.T) {
-	t.Run("uses switchc when inside tmux", func(t *testing.T) {
-		t.Setenv("TMUX", "/tmp/tmux-1000/default,1,0")
+	t.Run("switches the client inside this server", func(t *testing.T) {
+		insideServer(t, "%3")
 		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
 		rec.On("switchc", fakeResult{})
 
 		client := testClient()
@@ -537,7 +623,18 @@ func TestClientAttach(t *testing.T) {
 		assert.False(t, rec.Called("attach"))
 	})
 
-	t.Run("uses attach when outside tmux", func(t *testing.T) {
+	t.Run("does not attach inside another tmux server", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/other"})
+
+		client := testClient()
+		assert.ErrorIs(t, client.Attach(testSession(client)), ErrOtherServer)
+		assert.False(t, rec.Called("attach"))
+		assert.False(t, rec.Called("switchc"))
+	})
+
+	t.Run("attaches outside tmux", func(t *testing.T) {
 		t.Setenv("TMUX", "")
 		rec := setupRecorder(t)
 		rec.On("attach", fakeResult{})
@@ -546,14 +643,23 @@ func TestClientAttach(t *testing.T) {
 		session := testSession(client)
 		session.Id = 7
 		assert.NoError(t, client.Attach(session))
-		assert.True(t, rec.Called("attach"))
 		assert.Subset(t, rec.ArgsFor("attach"), []string{"-t", "$7"})
 		assert.False(t, rec.Called("switchc"))
 	})
 
-	t.Run("leaves the socket flags to NewCommand", func(t *testing.T) {
-		t.Setenv("TMUX", "/tmp/tmux-1000/default,1,0")
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		insideServer(t, "%3")
 		rec := setupRecorder(t)
+		rec.On("display-message", tmuxFailure("error connecting to /tmp/tmux-1000/default (Permission denied)"))
+
+		client := testClient()
+		assert.ErrorIs(t, client.Attach(testSession(client)), ErrUnreachable)
+	})
+
+	t.Run("leaves the socket flags to NewCommand", func(t *testing.T) {
+		insideServer(t, "%3")
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
 		rec.On("switchc", fakeResult{})
 
 		client := Client{socketName: "sock", socketPath: "/tmp/tmux.sock", logger: discardLogger}
@@ -562,13 +668,20 @@ func TestClientAttach(t *testing.T) {
 	})
 
 	t.Run("wraps attach errors", func(t *testing.T) {
-		_ = os.Unsetenv("TMUX")
+		t.Setenv("TMUX", "")
 		rec := setupRecorder(t)
 		rec.On("attach", fakeResult{Err: errors.New("nope")})
 
 		client := testClient()
 		err := client.Attach(testSession(client))
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "demo")
+		assert.ErrorContains(t, err, "demo")
 	})
+}
+
+func TestClientAttachCommand(t *testing.T) {
+	session := &Session{Name: "it's here"}
+
+	assert.Equal(t, `tmux attach -t '=it'\''s here'`, Client{}.AttachCommand(session))
+	assert.Equal(t, `tmux -L 'work' attach -t '=it'\''s here'`, Client{socketName: "work"}.AttachCommand(session))
+	assert.Equal(t, `tmux -S '/tmp/my sock' attach -t '=it'\''s here'`, Client{socketPath: "/tmp/my sock"}.AttachCommand(session))
 }

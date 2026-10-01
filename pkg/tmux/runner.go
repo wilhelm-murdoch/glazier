@@ -42,11 +42,7 @@ type CommandRunner struct {
 
 // NewCommandRunner reads the socket path and the default shell of the server. A timeout of zero waits with no limit.
 func (c Client) NewCommandRunner(timeout time.Duration) (*CommandRunner, error) {
-	cmd := newCommand(c, "display-message", "-p", "#{socket_path}")
-
-	c.logger.Debug(cmd.String())
-
-	socket, err := cmd.ExecWithOutput()
+	socket, err := c.SocketPath()
 	if err != nil {
 		return nil, fmt.Errorf("could not read the tmux socket path: %w", err)
 	}
@@ -180,6 +176,11 @@ func (r *CommandRunner) quote(s string) string {
 		return "'" + strings.NewReplacer(`\`, `\\`, `'`, `\'`).Replace(s) + "'"
 	}
 
+	return posixQuote(s)
+}
+
+// posixQuote returns s as one single-quoted word for a POSIX shell.
+func posixQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 

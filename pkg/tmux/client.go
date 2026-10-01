@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -16,8 +17,13 @@ import (
 
 var defaultTmuxExecutablePath = "tmux"
 
-// ErrUnreachable means that glaze cannot run tmux or cannot connect to the tmux server.
-var ErrUnreachable = errors.New("tmux is unreachable")
+var (
+	// ErrUnreachable means that glaze cannot run tmux or cannot connect to the tmux server.
+	ErrUnreachable = errors.New("tmux is unreachable")
+
+	// ErrOtherServer means that glaze runs inside a different tmux server, so attaching would nest a client in a pane.
+	ErrOtherServer = errors.New("glaze runs inside a different tmux server")
+)
 
 // Client represents a tmux client.
 type Client struct {
@@ -75,13 +81,21 @@ func lookupFailure(err error) error {
 	return fmt.Errorf("%w: %w", ErrUnreachable, err)
 }
 
-// Attach attaches to the given session. If we are inside a tmux session,
-// we switch to the given session.
+// Attach attaches the terminal to the session, or switches the current client when glaze runs inside this server.
+// It returns ErrOtherServer when glaze runs inside another tmux server, because attaching there would nest a client.
 func (c *Client) Attach(session *Session) error {
+	inside, err := c.InsideServer()
+	if err != nil {
+		return err
+	}
+
 	// NewCommand adds the socket flags.
 	args := []string{"attach", "-t", session.Target()}
-	if os.Getenv("TMUX") != "" {
+	switch {
+	case inside:
 		args = []string{"switchc", "-t", session.Target()}
+	case os.Getenv("TMUX") != "":
+		return ErrOtherServer
 	}
 
 	cmd := newCommand(*c, args...)
@@ -363,9 +377,67 @@ func (c Client) HasSession(sessionName string) (bool, error) {
 	return true, nil
 }
 
-// CurrentSession returns the session attached to the current client.
+// AttachCommand returns the shell command that attaches a terminal to the session on this server.
+func (c Client) AttachCommand(session *Session) string {
+	args := []string{"tmux"}
+	if c.socketName != "" {
+		args = append(args, "-L", posixQuote(c.socketName))
+	} else if c.socketPath != "" {
+		args = append(args, "-S", posixQuote(c.socketPath))
+	}
+
+	return strings.Join(append(args, "attach", "-t", posixQuote("="+session.Name)), " ")
+}
+
+// SocketPath returns the path of the socket that the server listens on.
+func (c Client) SocketPath() (string, error) {
+	cmd := newCommand(c, "display-message", "-p", "#{socket_path}")
+
+	c.logger.Debug(cmd.String())
+
+	return cmd.ExecWithOutput()
+}
+
+// InsideServer reports whether glaze runs in a client of this server.
+// tmux puts the socket path of the server at the start of $TMUX, so a different path means a different server.
+func (c Client) InsideServer() (bool, error) {
+	socket, _, _ := strings.Cut(os.Getenv("TMUX"), ",")
+	if socket == "" {
+		return false, nil
+	}
+
+	ours, err := c.SocketPath()
+	if err != nil {
+		// When no server runs on this socket, glaze cannot run inside it.
+		return false, lookupFailure(err)
+	}
+
+	return filepath.Clean(socket) == filepath.Clean(ours), nil
+}
+
+// CurrentPane returns the pane that glaze runs in, or "" when glaze does not run in a pane of this server.
+func (c Client) CurrentPane() (string, error) {
+	pane := os.Getenv("TMUX_PANE")
+	if pane == "" {
+		return "", nil
+	}
+
+	inside, err := c.InsideServer()
+	if err != nil || !inside {
+		return "", err
+	}
+
+	return pane, nil
+}
+
+// CurrentSession returns the session of the pane that glaze runs in, or nil when glaze does not run in a pane of this server.
 func (c Client) CurrentSession() (*Session, error) {
-	cmd := newCommand(c, "display-message", "-p", formatActiveSessions)
+	pane, err := c.CurrentPane()
+	if err != nil || pane == "" {
+		return nil, err
+	}
+
+	cmd := newCommand(c, "display-message", "-p", "-t", pane, formatActiveSessions)
 
 	c.logger.Debug(cmd.String())
 

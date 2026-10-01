@@ -117,6 +117,9 @@ refgeo() {
 }
 
 # wf FILE [SECS] waits for FILE to exist and be non-empty.
+# wrc FILE waits up to 10 s for the RC= line that a command typed into a pane appends to FILE.
+wrc() { local i; for ((i = 0; i < 100; i++)); do grep -q '^RC=' "$1" 2>/dev/null && return 0; sleep 0.1; done; return 1; }
+
 wf() {
   local i
   for ((i = 0; i < ${2:-8} * 10; i++)); do [[ -s $1 ]] && return 0; sleep 0.1; done

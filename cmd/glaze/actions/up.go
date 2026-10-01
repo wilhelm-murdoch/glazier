@@ -87,13 +87,22 @@ func (a *ActionUp) Run() error {
 
 // attachToSession handles attaching the tmux client to the newly created session.
 func (a *ActionUp) attachToSession() error {
-	if !a.Command.Bool("detached") {
-		if err := a.tmux.Attach(a.session); err != nil {
-			return err
-		}
+	if a.Command.Bool("detached") {
+		return nil
 	}
 
-	return nil
+	err := a.tmux.Attach(a.session)
+	if errors.Is(err, tmux.ErrOtherServer) {
+		a.Logger.Info(
+			"glaze runs inside another tmux server, so it does not attach",
+			"session", a.session.Name,
+			"attach", a.tmux.AttachCommand(a.session),
+		)
+
+		return nil
+	}
+
+	return err
 }
 
 // provisionSession creates the windows and panes as defined in the profile.
@@ -510,6 +519,15 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	a.warnRename("session", profile.Name, tmux.SanitizeSessionName(profile.Name))
 
 	if a.Command.Bool("clear") {
+		current, err := a.tmux.CurrentSession()
+		if err != nil {
+			return false, fmt.Errorf("could not determine current session: %w", err)
+		}
+
+		if current != nil && current.Name == tmux.SanitizeSessionName(profile.Name) {
+			return false, fmt.Errorf("glaze runs inside session `%s`, so --clear would also end glaze; run it from another session or outside tmux", current.Name)
+		}
+
 		a.Logger.Info("clearing previous session", "name", profile.Name)
 		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
 			a.Logger.Warn("could not kill session", "name", profile.Name, "reason", err)
@@ -531,13 +549,10 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 
 		if !a.Command.Bool("detached") {
 			a.Logger.Info("attaching to existing session", "name", profile.Name)
-			if err := a.tmux.Attach(session); err != nil {
-				return true, fmt.Errorf(
-					"could not attach to session `%s`: %w",
-					session.Name,
-					err,
-				)
-			}
+		}
+
+		if err := a.attachToSession(); err != nil {
+			return true, fmt.Errorf("could not attach to session `%s`: %w", session.Name, err)
 		}
 
 		return true, nil

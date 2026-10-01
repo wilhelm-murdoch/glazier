@@ -74,11 +74,13 @@ func TestActionLsRun(t *testing.T) {
 		assert.Regexp(t, `gig-watson\s+1\s+/home/v`, rendered)
 	})
 
-	t.Run("marks the attached session when run inside tmux", func(t *testing.T) {
+	t.Run("marks the session of the pane that glaze runs in", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
+		t.Setenv("TMUX_PANE", "%4")
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
 		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
@@ -124,11 +126,28 @@ func TestActionLsRun(t *testing.T) {
 		assert.Contains(t, err.Error(), "could not list windows")
 	})
 
+	t.Run("marks no session inside another tmux server", func(t *testing.T) {
+		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
+		t.Setenv("TMUX_PANE", "%4")
+		ls, rec, out := buildLs(t)
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/work"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
+
+		assert.NoError(t, ls.Run())
+		assert.NotContains(t, out.String(), "*")
+		assert.Equal(t, 1, rec.CountOf("display-message"))
+	})
+
 	t.Run("errors when the current session cannot be determined", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
+		t.Setenv("TMUX_PANE", "%4")
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Err: assert.AnError})
 
 		err := ls.Run()

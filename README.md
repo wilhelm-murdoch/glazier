@@ -157,7 +157,7 @@ $ glaze up --var district=watson --var fixer=wakako
 | Flag | Description |
 |------|-------------|
 | `--detached` | Create the session and do not attach to it. |
-| `--clear` | First kill an existing session that has the same name. |
+| `--clear` | First kill an existing session that has the same name. Glazier refuses when it runs inside that session, because the kill would also end Glazier. |
 | `--debug` | Print each command that Glazier sends to the tmux socket. |
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |
@@ -165,6 +165,8 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
+
+Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead.
 
 ### `glaze down`
 
@@ -186,7 +188,7 @@ $ glaze down --session daemon-run   # kill by name; no profile is required
 
 ### `glaze ls`
 
-List the sessions on the target tmux server with window counts and starting directories. When you run the command inside tmux, Glazier marks the attached session with an asterisk. When no tmux server runs, `ls` writes nothing to stdout and exits with code `0`.
+List the sessions on the target tmux server with window counts and starting directories. When you run the command in a pane of the same tmux server, Glazier marks the session of that pane with an asterisk. When no tmux server runs, `ls` writes nothing to stdout and exits with code `0`.
 
 ```console
 $ glaze ls
@@ -232,7 +234,7 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 
 | Flag | Description |
 |------|-------------|
-| `--session` | The session to capture. The default is the current client's session. |
+| `--session` | The session to capture. The default is the session of the pane that runs `save`. Outside a pane of the target tmux server, the flag is necessary. |
 | `--profile-path` | The output path. The default is `.glaze`. |
 | `--stdout` | Print the profile. Do not write a file. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
