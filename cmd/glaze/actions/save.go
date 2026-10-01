@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -67,9 +69,17 @@ func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
 
 // Run captures the state of a running tmux session and writes it to a glaze
 // profile, either on disk or to stdout.
-func (a *ActionSave) Run() error {
-	if !a.tmux.IsRunning() {
-		return fmt.Errorf("no running tmux server found")
+func (a *ActionSave) Run(ctx context.Context) error {
+	client := a.tmux.WithContext(ctx)
+	a.tmux = &client
+
+	running, err := a.tmux.IsRunning()
+	if err != nil {
+		return err
+	}
+
+	if !running {
+		return errors.New("no tmux server is running, so there is no session to save")
 	}
 
 	a.Logger.Warn("this feature is currently EXPERIMENTAL and is limited to exporting structural layouts ONLY")
@@ -112,12 +122,21 @@ func (a *ActionSave) Run() error {
 	return nil
 }
 
-// resolveSession determines which tmux session to capture, preferring the
-// --session flag and falling back to the session of the current client.
+// resolveSession returns the session named by --session, or else the session of the pane that glaze runs in.
 func (a *ActionSave) resolveSession() (*tmux.Session, error) {
 	name := a.Command.String("session")
 	if name == "" {
-		return a.tmux.CurrentSession()
+		current, err := a.tmux.CurrentSession()
+		if err != nil {
+			return nil, err
+		}
+
+		// Outside a pane of this server, tmux would pick an arbitrary session.
+		if current == nil {
+			return nil, errors.New("glaze does not run inside this tmux server, so give the session to save with --session")
+		}
+
+		return current, nil
 	}
 
 	return a.tmux.FindSessionByName(name)

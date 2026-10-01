@@ -134,6 +134,20 @@ Global flags:
 
 Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour only when stderr is a terminal. Set `NO_COLOR` to turn colour off.
 
+Each exit code has one meaning. A script can use the code to find the cause of a failure:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success. `ls` with no tmux server and `down` for a session that does not run also succeed. |
+| `1` | A tmux command failed, for example because tmux rejected an option value. |
+| `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
+| `3` | The profile has errors, or Glazier cannot find the profile. |
+| `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH` or the socket does not give access. Glazier does not treat this as "no server". |
+| `130` | SIGINT, for example Ctrl-C, stopped Glazier. |
+| `143` | SIGTERM stopped Glazier. |
+
+When `up` fails or a signal stops it, Glazier removes the session that this run created, so the next `up` starts again from nothing. Glazier never removes a session that existed before the run. A second signal stops Glazier at once, with no clean-up.
+
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
 ```console
@@ -147,7 +161,8 @@ $ glaze up --var district=watson --var fixer=wakako
 | Flag | Description |
 |------|-------------|
 | `--detached` | Create the session and do not attach to it. |
-| `--clear` | First kill an existing session that has the same name. |
+| `--clear` | First kill an existing session that has the same name. Glazier refuses when it runs inside that session, because the kill would also end Glazier. |
+| `--keep-on-failure` | Keep the partly built session when `up` fails, so that you can examine it. Run `glaze up --clear` to build it again. |
 | `--debug` | Print each command that Glazier sends to the tmux socket. |
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |
@@ -155,6 +170,8 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
+
+Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead.
 
 ### `glaze down`
 
@@ -176,7 +193,7 @@ $ glaze down --session daemon-run   # kill by name; no profile is required
 
 ### `glaze ls`
 
-List the sessions on the target tmux server with window counts and starting directories. When you run the command inside tmux, Glazier marks the attached session with an asterisk.
+List the sessions on the target tmux server with window counts and starting directories. When you run the command in a pane of the same tmux server, Glazier marks the session of that pane with an asterisk. When no tmux server runs, `ls` writes nothing to stdout and exits with code `0`.
 
 ```console
 $ glaze ls
@@ -222,7 +239,7 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 
 | Flag | Description |
 |------|-------------|
-| `--session` | The session to capture. The default is the current client's session. |
+| `--session` | The session to capture. The default is the session of the pane that runs `save`. Outside a pane of the target tmux server, the flag is necessary. |
 | `--profile-path` | The output path. The default is `.glaze`. |
 | `--stdout` | Print the profile. Do not write a file. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |

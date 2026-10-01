@@ -1,10 +1,13 @@
 package tmux
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -15,19 +18,54 @@ import (
 
 var defaultTmuxExecutablePath = "tmux"
 
+var (
+	// ErrUnreachable means that glaze cannot run tmux or cannot connect to the tmux server.
+	ErrUnreachable = errors.New("tmux is unreachable")
+
+	// ErrOtherServer means that glaze runs inside a different tmux server, so attaching would nest a client in a pane.
+	ErrOtherServer = errors.New("glaze runs inside a different tmux server")
+
+	// ErrDuplicateSession means that another client created a session with the same name first.
+	ErrDuplicateSession = errors.New("a session with this name already exists")
+)
+
 // Client represents a tmux client.
 type Client struct {
 	socketPath string
 	socketName string
 	logger     *slog.Logger
 	tmuxPath   string
+
+	// ctx stops running tmux commands when it is cancelled. A nil ctx never cancels.
+	ctx context.Context
+}
+
+// WithContext returns a copy of the client whose tmux commands stop when ctx is cancelled.
+func (c Client) WithContext(ctx context.Context) Client {
+	c.ctx = ctx
+	return c
+}
+
+// WithoutCancel returns a copy of the client whose commands still run after a cancellation, for clean-up.
+func (c Client) WithoutCancel() Client {
+	c.ctx = context.WithoutCancel(c.context())
+	return c
+}
+
+// context returns the context of the client, or a context that never cancels.
+func (c Client) context() context.Context {
+	if c.ctx == nil {
+		return context.Background()
+	}
+
+	return c.ctx
 }
 
 // NewClient returns a new client.
 func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, error) {
 	resolvedTmuxPath, err := exec.LookPath(defaultTmuxExecutablePath)
 	if err != nil {
-		return nil, fmt.Errorf("tmux is not installed")
+		return nil, fmt.Errorf("%w: tmux is not installed or not on PATH", ErrUnreachable)
 	}
 
 	return &Client{
@@ -38,31 +76,54 @@ func NewClient(socketPath, socketName string, logger *slog.Logger) (*Client, err
 	}, nil
 }
 
-// IsRunning returns true if the local tmux server is currently running. It uses
-// `list-sessions` rather than `server-info` (`info`): the latter requires an
-// attached client and exits non-zero with "no current client" when a server is
-// running but only has detached sessions (e.g. in CI), which is a false
-// negative. `list-sessions` talks to the server without needing a client and
-// exits 0 whenever the server is up.
-func (c Client) IsRunning() bool {
+// IsRunning reports whether a tmux server runs on the socket; `server-info` would need an attached client, so it uses `list-sessions`.
+// An error means that glaze cannot reach the server, which is not the same as no server.
+func (c Client) IsRunning() (bool, error) {
 	cmd := newCommand(c, "list-sessions")
 
 	c.logger.Debug(cmd.String())
 
-	if exitStatus := cmd.ExecWithStatus(); exitStatus == 0 {
-		return true
+	if _, err := cmd.ExecWithOutput(); err != nil {
+		return false, lookupFailure(err)
 	}
 
-	return false
+	return true, nil
 }
 
-// Attach attaches to the given session. If we are inside a tmux session,
-// we switch to the given session.
+// absentOutputs are the messages with which tmux says that the server or the session does not exist.
+// A missing socket file and a missing socket directory both give "No such file or directory".
+var absentOutputs = []string{"can't find session", "no server running on", "(No such file or directory)"}
+
+// lookupFailure returns nil when err only says that the server or the session does not exist.
+// Any other failure, for example a socket without permission, means that glaze cannot reach tmux.
+func lookupFailure(err error) error {
+	var withOutput CommandErrorWithOutput
+	if errors.As(err, &withOutput) {
+		for _, output := range absentOutputs {
+			if strings.Contains(withOutput.Output, output) {
+				return nil
+			}
+		}
+	}
+
+	return fmt.Errorf("%w: %w", ErrUnreachable, err)
+}
+
+// Attach attaches the terminal to the session, or switches the current client when glaze runs inside this server.
+// It returns ErrOtherServer when glaze runs inside another tmux server, because attaching there would nest a client.
 func (c *Client) Attach(session *Session) error {
+	inside, err := c.InsideServer()
+	if err != nil {
+		return err
+	}
+
 	// NewCommand adds the socket flags.
 	args := []string{"attach", "-t", session.Target()}
-	if os.Getenv("TMUX") != "" {
+	switch {
+	case inside:
 		args = []string{"switchc", "-t", session.Target()}
+	case os.Getenv("TMUX") != "":
+		return ErrOtherServer
 	}
 
 	cmd := newCommand(*c, args...)
@@ -287,6 +348,11 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 
 	output, err := cmd.ExecWithOutput()
 	if err != nil {
+		var withOutput CommandErrorWithOutput
+		if errors.As(err, &withOutput) && strings.Contains(withOutput.Output, "duplicate session") {
+			return nil, fmt.Errorf("%w: %w", ErrDuplicateSession, err)
+		}
+
 		return session, err
 	}
 
@@ -330,24 +396,81 @@ func (c Client) FindSessionByName(sessionName string) (*Session, error) {
 	return nil, fmt.Errorf(`session "%s" not found`, sessionName)
 }
 
-// HasSession returns true if a session with the given name exists. Performs an attempt
-// at an exact match by prepending the given sanitized session name with "=" otherwise
-// tmux will attempt to match on prefix.
-func (c Client) HasSession(sessionName string) bool {
+// HasSession returns true if a session with exactly the given name exists; "=" stops tmux matching a prefix.
+// An error means that glaze cannot reach the server, so it cannot know whether the session exists.
+func (c Client) HasSession(sessionName string) (bool, error) {
 	cmd := newCommand(c, "has-session", "-t", fmt.Sprintf(`=%s`, SanitizeSessionName(sessionName)))
 
 	c.logger.Debug(cmd.String())
 
-	if exitStatus := cmd.ExecWithStatus(); exitStatus != 0 {
-		return false
+	if _, err := cmd.ExecWithOutput(); err != nil {
+		return false, lookupFailure(err)
 	}
 
-	return true
+	return true, nil
 }
 
-// CurrentSession returns the session attached to the current client.
+// AttachCommand returns the shell command that attaches a terminal to the session on this server.
+func (c Client) AttachCommand(session *Session) string {
+	args := []string{"tmux"}
+	if c.socketName != "" {
+		args = append(args, "-L", posixQuote(c.socketName))
+	} else if c.socketPath != "" {
+		args = append(args, "-S", posixQuote(c.socketPath))
+	}
+
+	return strings.Join(append(args, "attach", "-t", posixQuote("="+session.Name)), " ")
+}
+
+// SocketPath returns the path of the socket that the server listens on.
+func (c Client) SocketPath() (string, error) {
+	cmd := newCommand(c, "display-message", "-p", "#{socket_path}")
+
+	c.logger.Debug(cmd.String())
+
+	return cmd.ExecWithOutput()
+}
+
+// InsideServer reports whether glaze runs in a client of this server.
+// tmux puts the socket path of the server at the start of $TMUX, so a different path means a different server.
+func (c Client) InsideServer() (bool, error) {
+	socket, _, _ := strings.Cut(os.Getenv("TMUX"), ",")
+	if socket == "" {
+		return false, nil
+	}
+
+	ours, err := c.SocketPath()
+	if err != nil {
+		// When no server runs on this socket, glaze cannot run inside it.
+		return false, lookupFailure(err)
+	}
+
+	return filepath.Clean(socket) == filepath.Clean(ours), nil
+}
+
+// CurrentPane returns the pane that glaze runs in, or "" when glaze does not run in a pane of this server.
+func (c Client) CurrentPane() (string, error) {
+	pane := os.Getenv("TMUX_PANE")
+	if pane == "" {
+		return "", nil
+	}
+
+	inside, err := c.InsideServer()
+	if err != nil || !inside {
+		return "", err
+	}
+
+	return pane, nil
+}
+
+// CurrentSession returns the session of the pane that glaze runs in, or nil when glaze does not run in a pane of this server.
 func (c Client) CurrentSession() (*Session, error) {
-	cmd := newCommand(c, "display-message", "-p", formatActiveSessions)
+	pane, err := c.CurrentPane()
+	if err != nil || pane == "" {
+		return nil, err
+	}
+
+	cmd := newCommand(c, "display-message", "-p", "-t", pane, formatActiveSessions)
 
 	c.logger.Debug(cmd.String())
 

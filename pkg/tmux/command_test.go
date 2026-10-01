@@ -1,7 +1,9 @@
 package tmux
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -60,11 +62,44 @@ func TestCommandExec(t *testing.T) {
 		assert.NoError(t, cmd.Exec())
 	})
 
-	t.Run("returns a wrapped error on failure", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "false"})
+	t.Run("puts the output of a failed command into the error", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo can\\'t find session: x >&2; exit 3")
 		err := cmd.Exec()
-		assert.Error(t, err)
-		assert.IsType(t, CommandError{}, err)
+
+		var withOutput CommandErrorWithOutput
+		assert.ErrorAs(t, err, &withOutput)
+		assert.Equal(t, "can't find session: x", withOutput.Output)
+		assert.Equal(t, 3, withOutput.ExitStatus)
+	})
+
+	t.Run("does not print the output of a command that succeeds", func(t *testing.T) {
+		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo noise")
+		assert.NoError(t, cmd.Exec())
+	})
+}
+
+func TestCommandContext(t *testing.T) {
+	t.Run("a cancelled context stops the command with SIGTERM", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		client := Client{tmuxPath: "sh"}.WithContext(ctx)
+		cmd := NewCommand(client, "-c", "trap 'echo got TERM; kill $!; exit 7' TERM; sleep 5 & wait")
+
+		time.AfterFunc(200*time.Millisecond, cancel)
+		err := cmd.Exec()
+
+		var withOutput CommandErrorWithOutput
+		assert.ErrorAs(t, err, &withOutput)
+		assert.Equal(t, "got TERM", withOutput.Output)
+		assert.Equal(t, 7, withOutput.ExitStatus)
+	})
+
+	t.Run("WithoutCancel runs commands after a cancellation", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		client := Client{tmuxPath: "true"}.WithContext(ctx)
+		assert.Error(t, NewCommand(client).Exec())
+		assert.NoError(t, NewCommand(client.WithoutCancel()).Exec())
 	})
 }
 
@@ -82,17 +117,5 @@ func TestCommandExecWithOutput(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, "", out)
 		assert.IsType(t, CommandErrorWithOutput{}, err)
-	})
-}
-
-func TestCommandExecWithStatus(t *testing.T) {
-	t.Run("returns zero on success", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "true"})
-		assert.Equal(t, 0, cmd.ExecWithStatus())
-	})
-
-	t.Run("returns non-zero on failure", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "false"})
-		assert.Equal(t, 1, cmd.ExecWithStatus())
 	})
 }

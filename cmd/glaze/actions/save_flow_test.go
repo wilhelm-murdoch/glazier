@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
@@ -53,27 +54,43 @@ func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Re
 	return action, rec
 }
 
+// insidePane sets the environment of pane %4 of the tmux server on /tmp/tmux-501/default.
+func insidePane(t *testing.T) {
+	t.Helper()
+	t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
+	t.Setenv("TMUX_PANE", "%4")
+}
+
 func TestActionSaveRun(t *testing.T) {
 	t.Run("errors when no tmux server is running", func(t *testing.T) {
 		save, rec := buildSave(t, nil)
-		rec.On("list-sessions", tmuxtest.Result{Status: 1})
+		rec.On("list-sessions", tmuxtest.Failure("no server running on /tmp/tmux-1000/default"))
 
-		err := save.Run()
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "no running tmux server")
+		err := save.Run(context.Background())
+		assert.ErrorContains(t, err, "no tmux server is running")
+		assert.NotErrorIs(t, err, tmux.ErrUnreachable)
+	})
+
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		save, rec := buildSave(t, nil)
+		rec.On("list-sessions", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
+
+		assert.ErrorIs(t, save.Run(context.Background()), tmux.ErrUnreachable)
 	})
 
 	t.Run("captures the current session and writes a profile", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "out.glaze")
 		save, rec := buildSave(t, map[string]string{"profile-path": path})
+		insidePane(t)
 
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
 
-		assert.NoError(t, save.Run())
+		assert.NoError(t, save.Run(context.Background()))
 
 		// The current session comes from display-message, with no second
 		// lookup by name.
@@ -96,8 +113,10 @@ func TestActionSaveRun(t *testing.T) {
 
 	t.Run("does not mark inactive windows or panes as focused", func(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"stdout": "true"})
+		insidePane(t)
 
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;0"})
@@ -113,15 +132,35 @@ func TestActionSaveRun(t *testing.T) {
 		assert.False(t, captured.Windows[0].Panes[0].Focus)
 	})
 
+	t.Run("needs --session outside tmux", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		save, rec := buildSave(t, map[string]string{"stdout": "true"})
+		rec.On("list-sessions", tmuxtest.Result{})
+
+		assert.ErrorContains(t, save.Run(context.Background()), "--session")
+		assert.False(t, rec.Called("display-message"))
+		assert.False(t, rec.Called("lsw"))
+	})
+
+	t.Run("needs --session inside another tmux server", func(t *testing.T) {
+		save, rec := buildSave(t, map[string]string{"stdout": "true"})
+		insidePane(t)
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/work"})
+
+		assert.ErrorContains(t, save.Run(context.Background()), "--session")
+		assert.False(t, rec.Called("lsw"))
+	})
+
 	t.Run("honours the --session flag", func(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"session": "other", "stdout": "true"})
 
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$2;other;/srv"})
 		rec.On("lsw", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;p;1;/srv"})
 
-		assert.NoError(t, save.Run())
+		assert.NoError(t, save.Run(context.Background()))
 		// --session bypasses the current-session lookup.
 		assert.False(t, rec.Called("display-message"))
 	})
@@ -129,10 +168,10 @@ func TestActionSaveRun(t *testing.T) {
 	t.Run("errors when the target session cannot be found", func(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"session": "ghost"})
 
-		rec.On("list-sessions", tmuxtest.Result{Status: 0})
+		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
-		err := save.Run()
+		err := save.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
 	})

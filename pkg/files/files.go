@@ -35,13 +35,14 @@ func ExpandPath(path string) string {
 	return path
 }
 
+// ErrProfileNotFound means that glaze cannot find the profile to read.
+var ErrProfileNotFound = errors.New("glaze profile not found")
+
+// ResolveProfilePath returns the profile from --profile-path, the current directory or GLAZE_PATH, in that order.
 func ResolveProfilePath(profilePath string) (string, error) {
 	if profilePath != "" {
 		if exists := FileExists(profilePath); !exists {
-			return profilePath, fmt.Errorf(
-				"could not locate profile `%s`",
-				profilePath,
-			)
+			return profilePath, fmt.Errorf("%w: `%s` does not exist", ErrProfileNotFound, profilePath)
 		}
 
 		return ExpandPath(profilePath), nil
@@ -58,8 +59,9 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	}
 
 	if !FileExists(profilePath) {
-		return profilePath, errors.New(
-			"glaze profile not found:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
+		return profilePath, fmt.Errorf(
+			"%w:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
+			ErrProfileNotFound,
 		)
 	}
 

@@ -272,8 +272,17 @@ EOF
 
   begin up_concurrent
   simple cc
-  (gz up --detached --socket-name "$SOCK") & (sleep 0.01; "$G" up --detached --socket-name "$SOCK" >"$WD/o2" 2>&1); wait
-  sleep 0.5; info "two concurrent ups" "sessions=[$(tm ls -F '#S' | paste -sd, -)] windows=$(wnames cc)"
+  local rc1 rc2 p1 p2 i
+  for ((i = 0; i < 4; i++)); do
+    tm kill-server
+    "$G" up --detached --socket-name "$SOCK" >"$WD/o1" 2>&1 & p1=$!
+    "$G" up --detached --socket-name "$SOCK" >"$WD/o2" 2>&1 & p2=$!
+    wait "$p1"; rc1=$?; wait "$p2"; rc2=$?
+    [[ "$rc1,$rc2" == 0,0 ]] || break
+  done
+  eq "two concurrent ups both succeed" "0,0" "$rc1,$rc2"
+  eq "two concurrent ups leave one session" "cc" "$(tm ls -F '#S' | paste -sd, -)"
+  eq "two concurrent ups build the session once" "w" "$(wnames cc)"
   end
 }
 
@@ -308,7 +317,23 @@ t_down() {
 
 t_ls() {
   begin ls_no_server
-  gz ls --socket-name "$SOCK"; info "ls with no server" "rc=$RC out=[$OUT] err=[$ERR]"; end
+  gz ls --socket-name "$SOCK"; rc0 "ls with no server"
+  eq "ls with no server prints nothing" "" "$OUT"
+  match "ls with no server says so on stderr" 'no tmux server is running' "$ERR"; end
+
+  # nobody cannot open root's socket directory, which gives tmux "Permission denied".
+  local sub
+  for sub in ls down up; do
+    begin "${sub}_unreachable"
+    simple unr; tm new-session -d -s unr; chmod 755 "$WD"
+    [[ $sub == ls ]] && r su -s /bin/sh nobody -c "$G ls --socket-path /tmp/tmux-0/$SOCK"
+    [[ $sub == down ]] && r su -s /bin/sh nobody -c "$G down --session unr --socket-path /tmp/tmux-0/$SOCK --profile-path $WD/.glaze"
+    [[ $sub == up ]] && r su -s /bin/sh nobody -c "$G up --detached --socket-path /tmp/tmux-0/$SOCK --profile-path $WD/.glaze"
+    eq "$sub exits 4 when tmux is unreachable" 4 "$RC"
+    match "$sub names the cause" 'Permission denied' "$ERR"
+    exists "$sub leaves the session alone" unr
+    end
+  done
 
   begin ls_sessions
   mkdir -p a "b dir"; tm new-session -d -s alpha -c "$WD/a"; tm neww -t =alpha:; tm new-session -d -s "beta two" -c "$WD/b dir"

@@ -1,12 +1,13 @@
 package tmux
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"slices"
 	"strings"
+	"syscall"
+	"time"
 )
 
 // Commander is an interface that represents what kind of actions a Command, and
@@ -16,7 +17,6 @@ type Commander interface {
 	Exec() error
 	ExecWithOutput() (string, error)
 	ExecWithInput(input string) error
-	ExecWithStatus() int
 }
 
 var (
@@ -67,13 +67,19 @@ func NewCommand(client Client, args ...string) *Command {
 
 	args = append([]string{client.tmuxPath}, args...)
 
-	return &Command{
-		args: args,
-		// Spawning tmux with caller-supplied arguments is this package's
-		// entire purpose; args[0] is the resolved tmux binary path.
-		cmd: exec.Command(args[0], args[1:]...), //nolint:gosec // G204
-	}
+	// Spawning tmux with caller-supplied arguments is this package's
+	// entire purpose; args[0] is the resolved tmux binary path.
+	cmd := exec.CommandContext(client.context(), args[0], args[1:]...) //nolint:gosec // G204
+
+	// A tmux client restores the terminal on SIGTERM, but not on the SIGKILL that a cancelled context sends by default.
+	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
+	cmd.WaitDelay = cancelGrace
+
+	return &Command{args: args, cmd: cmd}
 }
+
+// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
+var cancelGrace = 5 * time.Second
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
 func subcommandOf(args []string) string {
@@ -112,9 +118,17 @@ func (c Command) String() string {
 	return strings.Join(c.args, " ")
 }
 
-// Exec executes the command and returns an error if one occurred. It will pipe
-// any output to os.Stdin, os.Stdout and os.Stderr.
+// Exec executes the command and puts the output of tmux into the error when it fails.
+// Only attach keeps the terminal, because an attached client needs it.
 func (c *Command) Exec() error {
+	if subcommandOf(c.args[1:]) != "attach" {
+		if output, err := c.cmd.CombinedOutput(); err != nil {
+			return NewCommandErrorWithOutput(c.args, err, string(output))
+		}
+
+		return nil
+	}
+
 	c.cmd.Stdin = os.Stdin
 	c.cmd.Stdout = os.Stdout
 	c.cmd.Stderr = os.Stderr
@@ -124,16 +138,6 @@ func (c *Command) Exec() error {
 	}
 
 	return nil
-}
-
-// ExecWithStatus executes the command and attempts to return its exit status.
-func (c Command) ExecWithStatus() int {
-	err := c.cmd.Run()
-	if err != nil && !errors.Is(err, CommandError{}) {
-		return 1
-	}
-
-	return returnExitStatusFromError(err)
 }
 
 // ExecWithOutput executes the command and returns the output as a string.

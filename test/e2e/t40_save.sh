@@ -88,7 +88,8 @@ t_save() {
 
   begin save_outside_tmux
   simple so; up; gz save --stdout --socket-name "$SOCK"; rcnz "save without --session outside tmux"
-  info "save outside tmux message" "$ERR$OUT"; end
+  match "save outside tmux asks for --session" '--session' "$ERR"
+  eq "save outside tmux writes no profile" "" "$OUT"; end
 
   begin save_missing_session
   simple sm; up; gz save --session nope --stdout --socket-name "$SOCK"; rcnz "save of unknown session"; end
@@ -375,6 +376,41 @@ t_attach() {
   wf "$WD/o" 5; sleep 1
   if has nd; then ok "glaze inside a pane without socket flags targets the enclosing server"; else ko "glaze inside a pane without socket flags targets the enclosing server" "session not on enclosing server; out=[$(cat "$WD/o")]"; fi
   tmux kill-server 2>/dev/null
+  end
+
+  begin inside_other_server
+  # glaze runs in a pane of the host server and targets a different server.
+  local hs="${SOCK}h" i
+  simple os os.glaze
+  tmux -L "$hs" -f /dev/null new-session -d -s host
+  attach_client "tmux -L $hs attach -t =host"
+  for ((i = 0; i < 50; i++)); do [[ -n "$(tmux -L "$hs" lsc 2>/dev/null)" ]] && break; sleep 0.1; done
+  tmux -L "$hs" send-keys -t =host: "$G up --socket-name $SOCK --profile-path $WD/os.glaze > $WD/up.txt 2>&1; echo RC=\$? >> $WD/up.txt" Enter
+  wrc "$WD/up.txt"
+  match "up inside another server exits 0" 'RC=0' "$(cat "$WD/up.txt" 2>/dev/null)"
+  exists "up inside another server creates the session" os
+  match "up inside another server shows the attach command" "attach -t '=os'" "$(cat "$WD/up.txt" 2>/dev/null)"
+  eq "up inside another server leaves the host client alone" "host" "$(tmux -L "$hs" lsc -F '#{client_session}' 2>/dev/null | head -1)"
+  eq "up inside another server attaches no client" "" "$(tm lsc)"
+  tmux -L "$hs" send-keys -t =host: "$G ls --socket-name $SOCK > $WD/ls.txt 2>&1; echo RC=\$? >> $WD/ls.txt" Enter
+  wrc "$WD/ls.txt"
+  nomatch "ls inside another server marks no session" '\*' "$(cat "$WD/ls.txt" 2>/dev/null)"
+  tmux -L "$hs" send-keys -t =host: "$G save --stdout --socket-name $SOCK > $WD/save.txt 2>&1; echo RC=\$? >> $WD/save.txt" Enter
+  wrc "$WD/save.txt"
+  match "save inside another server asks for --session" '--session' "$(cat "$WD/save.txt" 2>/dev/null)"
+  match "save inside another server fails" 'RC=1' "$(cat "$WD/save.txt" 2>/dev/null)"
+  tmux -L "$hs" kill-server 2>/dev/null
+  end
+
+  begin clear_inside_target
+  simple self self.glaze; up --profile-path self.glaze
+  attach_client "tmux -L $SOCK attach -t =self"
+  if wait_client self; then ok "client attached to the target"; else ko "client attached to the target" "no client"; fi
+  tm send-keys -t =self: "$G up --clear --socket-name $SOCK --profile-path $WD/self.glaze > $WD/clear.txt 2>&1; echo RC=\$? >> $WD/clear.txt" Enter
+  if wrc "$WD/clear.txt"; then ok "--clear inside the target does not end the shell that runs it"; else ko "--clear inside the target does not end the shell that runs it" "no exit code; out=[$(cat "$WD/clear.txt" 2>/dev/null)]"; fi
+  match "--clear inside the target fails" 'RC=1' "$(cat "$WD/clear.txt" 2>/dev/null)"
+  match "--clear inside the target says why" 'would also end glaze' "$(cat "$WD/clear.txt" 2>/dev/null)"
+  exists "--clear inside the target keeps the session" self
   end
 }
 

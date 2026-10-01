@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
 
@@ -64,10 +65,10 @@ func buildDown(t *testing.T, profile string, flags map[string]string) (*ActionDo
 func TestActionDownRun(t *testing.T) {
 	t.Run("kills the session named by the profile", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.True(t, rec.Called("kill-session"))
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
@@ -75,10 +76,10 @@ func TestActionDownRun(t *testing.T) {
 
 	t.Run("kills the session named by --session without a profile", func(t *testing.T) {
 		down, rec := buildDown(t, "", map[string]string{"session": "other"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.True(t, rec.Called("kill-session"))
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
@@ -86,19 +87,29 @@ func TestActionDownRun(t *testing.T) {
 
 	t.Run("--session wins over the profile", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, map[string]string{"session": "other"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
 	})
 
+	t.Run("errors when tmux is unreachable", func(t *testing.T) {
+		down, rec := buildDown(t, validProfile, nil)
+		rec.On("has-session", tmuxtest.Failure("error connecting to /tmp/tmux-0/default (Permission denied)"))
+
+		err := down.Run(context.Background())
+		assert.ErrorIs(t, err, tmux.ErrUnreachable)
+		assert.ErrorContains(t, err, "could not check for session `demo`")
+		assert.False(t, rec.Called("kill-session"))
+	})
+
 	t.Run("is a no-op when the session is not running", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 1})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.False(t, rec.Called("kill-session"))
 	})
@@ -117,10 +128,10 @@ session {
 }
 `
 		down, rec := buildDown(t, profile, map[string]string{"var": "district=watson"})
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=gig-watson")
 	})
@@ -144,20 +155,20 @@ session {
 }
 `
 		down, rec := buildDown(t, profile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{})
 
-		assert.NoError(t, down.Run())
+		assert.NoError(t, down.Run(context.Background()))
 
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
 	})
 
 	t.Run("propagates kill failures", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{Status: 0})
+		rec.On("has-session", tmuxtest.Result{})
 		rec.On("kill-session", tmuxtest.Result{Err: assert.AnError})
 
-		err := down.Run()
+		err := down.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not bring down session")
 	})

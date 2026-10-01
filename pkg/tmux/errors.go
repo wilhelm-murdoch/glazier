@@ -25,7 +25,12 @@ func NewCommandError(args []string, err error) CommandError {
 
 // Error returns the error message.
 func (ce CommandError) Error() string {
-	return fmt.Sprintf(`error: "%s" status: "%d" command: "%s"`, ce.err, ce.ExitStatus, strings.Join(ce.args, " "))
+	return fmt.Sprintf("%s (command: %s)", ce.err, strings.Join(ce.args, " "))
+}
+
+// Unwrap returns the error from running the command.
+func (ce CommandError) Unwrap() error {
+	return ce.err
 }
 
 // CommandErrorWithOutput extends the CommandError struct with the output of the command.
@@ -34,9 +39,13 @@ type CommandErrorWithOutput struct {
 	CommandError
 }
 
-// Error returns the error message.
+// Error returns what tmux printed, or the error from running the command when tmux printed nothing.
 func (cewo CommandErrorWithOutput) Error() string {
-	return fmt.Sprintf(`error: "%s" status: "%d" command: "%s"`, cewo.Output, cewo.ExitStatus, strings.Join(cewo.args, " "))
+	if cewo.Output == "" {
+		return cewo.CommandError.Error()
+	}
+
+	return fmt.Sprintf("%s (exit status %d, command: %s)", cewo.Output, cewo.ExitStatus, strings.Join(cewo.args, " "))
 }
 
 // NewCommandError returns a new command error.

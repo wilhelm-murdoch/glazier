@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
@@ -57,13 +58,21 @@ func NewDown(cmd *cli.Command, logLevel string) (*ActionDown, error) {
 // profile. Tearing down a session that is not running is a no-op rather than
 // an error so `down` stays idempotent for scripts, mirroring how `up` treats
 // an already-running session.
-func (a *ActionDown) Run() error {
+func (a *ActionDown) Run(ctx context.Context) error {
+	client := a.tmux.WithContext(ctx)
+	a.tmux = &client
+
 	name, err := a.sessionName()
 	if err != nil {
 		return err
 	}
 
-	if !a.tmux.HasSession(name) {
+	exists, err := a.tmux.HasSession(name)
+	if err != nil {
+		return fmt.Errorf("could not check for session `%s`: %w", name, err)
+	}
+
+	if !exists {
 		a.Logger.Info("nothing to do; session is not running", "session", name)
 		return nil
 	}

@@ -1,7 +1,7 @@
 package actions
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -50,9 +50,19 @@ func NewLs(cmd *cli.Command, logLevel string) (*ActionLs, error) {
 // Run lists every session on the target tmux server with its window count
 // and starting directory. The session the current client is attached to, if
 // any, is marked with an asterisk.
-func (a *ActionLs) Run() error {
-	if !a.tmux.IsRunning() {
-		return errors.New("no running tmux server found")
+func (a *ActionLs) Run(ctx context.Context) error {
+	client := a.tmux.WithContext(ctx)
+	a.tmux = &client
+
+	running, err := a.tmux.IsRunning()
+	if err != nil {
+		return err
+	}
+
+	// No server means no sessions, so stdout stays empty for a script that reads it.
+	if !running {
+		a.Logger.Info("no tmux server is running")
+		return nil
 	}
 
 	sessions, err := a.tmux.Sessions()
@@ -60,17 +70,10 @@ func (a *ActionLs) Run() error {
 		return fmt.Errorf("could not list sessions: %w", err)
 	}
 
-	// Resolving the attached session only makes sense from inside tmux;
-	// elsewhere `display-message` would report an arbitrary session.
-	var currentSession *tmux.Session
-	if os.Getenv("TMUX") != "" {
-		currentSession, err = a.tmux.CurrentSession()
-		if err != nil {
-			return fmt.Errorf(
-				"could not determine current session: %w",
-				err,
-			)
-		}
+	// Only a pane of this server has a current session; elsewhere nothing gets a marker.
+	currentSession, err := a.tmux.CurrentSession()
+	if err != nil {
+		return fmt.Errorf("could not determine current session: %w", err)
 	}
 
 	// Write errors surface on Flush, so the intermediate ones are ignored.

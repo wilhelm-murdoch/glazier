@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/mail"
 	"os"
+	"os/signal"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/urfave/cli/v3"
@@ -95,6 +98,53 @@ func profilePathFlag() cli.Flag {
 }
 
 func main() {
+	ctx, cancel := context.WithCancelCause(context.Background())
+	stop := cancelOnSignal(cancel)
+
+	code := run(ctx, os.Args, os.Stderr)
+
+	stop()
+	os.Exit(code)
+}
+
+// run executes glaze with args, writes any error to stderr and returns the exit code.
+func run(ctx context.Context, args []string, stderr io.Writer) int {
+	err := newApp().Run(ctx, args)
+
+	// A signal ends the run with whatever error the stopped tmux command gives, so name the signal instead.
+	if err != nil && ctx.Err() != nil {
+		err = fmt.Errorf("%w: %w", context.Cause(ctx), err)
+	}
+
+	if err != nil {
+		_, _ = fmt.Fprintf(stderr, "%s\n", err)
+		return exitCode(err)
+	}
+
+	return exitOK
+}
+
+// cancelOnSignal cancels the run on the first SIGINT or SIGTERM, with the signal as the cause.
+// A second signal gets the default action, so it stops glaze at once.
+func cancelOnSignal(cancel context.CancelCauseFunc) (stop func()) {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
+
+	go func() {
+		if received, ok := <-signals; ok {
+			signal.Reset(os.Interrupt, syscall.SIGTERM)
+			cancel(signalError{signal: received.(syscall.Signal)})
+		}
+	}()
+
+	return func() {
+		signal.Stop(signals)
+		close(signals)
+	}
+}
+
+// newApp returns the glaze command with all of its subcommands.
+func newApp() *cli.Command {
 	var logLevel string
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
@@ -117,6 +167,10 @@ func main() {
 			mail.Address{Name: "Wilhelm Murdoch", Address: "wilhelm@devilmayco.de"},
 		},
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
+		// glaze picks the exit code itself, so the CLI library must not exit the process.
+		ExitErrHandler: func(context.Context, *cli.Command, error) {},
+		OnUsageError:   usageError,
+		Action:         rootAction,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",
@@ -149,6 +203,10 @@ func main() {
 						Name:  "debug",
 						Usage: "prints a list of all commands sent to the specified tmux socket",
 					},
+					&cli.BoolFlag{
+						Name:  "keep-on-failure",
+						Usage: "keep a partly built session when up fails, for debugging",
+					},
 					&cli.DurationFlag{
 						Name:  "command-timeout",
 						Usage: "stop waiting for the commands of a pane after this duration, for example 5m (0 waits with no limit)",
@@ -161,7 +219,7 @@ func main() {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -180,7 +238,7 @@ func main() {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -193,7 +251,7 @@ func main() {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 			{
@@ -242,7 +300,7 @@ func main() {
 						return err
 					}
 
-					return action.Run()
+					return action.Run(ctx)
 				},
 			},
 		},
@@ -254,10 +312,8 @@ func main() {
 	// separator config is read per owning command, so set it on each.
 	for _, sub := range app.Commands {
 		sub.DisableSliceFlagSeparator = true
+		sub.OnUsageError = usageError
 	}
 
-	if err := app.Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
+	return app
 }
