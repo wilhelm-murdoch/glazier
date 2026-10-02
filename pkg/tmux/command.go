@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// redactedValue replaces a secret value in logs and errors.
+const redactedValue = "<redacted>"
+
 var (
 	// Ensure Command properly implements the Commander interface.
 	_ Commander = (*Command)(nil)
@@ -21,8 +24,8 @@ var (
 		return NewCommand(client, args...)
 	}
 
-	// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
-	cancelGrace = 5 * time.Second
+	// cancelGracePeriod is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
+	cancelGracePeriod = 5 * time.Second
 )
 
 // Commander is an interface that represents what kind of actions a Command, and
@@ -46,28 +49,33 @@ func OverrideCommandFactory(factory func(client Client, args ...string) Commande
 
 // Command is one tmux command, ready to run.
 type Command struct {
-	cmd    *exec.Cmd
-	args   []string
+	cmd  *exec.Cmd
+	args []string
+
+	// shown is args for logs and errors, with secret values redacted.
+	shown  []string
 	logger *slog.Logger
 }
 
 // NewCommand returns a new command with the given arguments.
 func NewCommand(client Client, args ...string) *Command {
 	args = escapeSeparators(args)
+	prefix := []string{client.tmuxPath}
+
+	if client.socketName != "" {
+		prefix = append(prefix, "-L", client.socketName)
+	} else if client.socketPath != "" {
+		prefix = append(prefix, "-S", client.socketPath)
+	}
 
 	// Glaze reads output as UTF-8, so stop tmux printing non-ASCII as "_" under a non-UTF-8 locale.
 	// An attached client is the user's terminal, so its locale decides.
 	if subcommandOf(args) != "attach" {
-		args = append([]string{"-u"}, args...)
+		prefix = append(prefix, "-u")
 	}
 
-	if client.socketName != "" {
-		args = append([]string{"-L", client.socketName}, args...)
-	} else if client.socketPath != "" {
-		args = append([]string{"-S", client.socketPath}, args...)
-	}
-
-	args = append([]string{client.tmuxPath}, args...)
+	shown := slices.Concat(prefix, redactSecrets(args))
+	args = slices.Concat(prefix, args)
 
 	// Spawning tmux with caller-supplied arguments is this package's
 	// entire purpose; args[0] is the resolved tmux binary path.
@@ -75,9 +83,34 @@ func NewCommand(client Client, args ...string) *Command {
 
 	// A tmux client restores the terminal on SIGTERM, but not on the SIGKILL that a cancelled context sends by default.
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
-	cmd.WaitDelay = cancelGrace
+	cmd.WaitDelay = cancelGracePeriod
 
-	return &Command{args: args, cmd: cmd, logger: client.logger}
+	return &Command{args: args, shown: shown, cmd: cmd, logger: client.logger}
+}
+
+// redactSecrets returns a copy of args with the value of `setenv NAME VALUE` replaced, because an env value is often a secret.
+func redactSecrets(args []string) []string {
+	shown := slices.Clone(args)
+	if sub := subcommandOf(args); sub != "setenv" && sub != "set-environment" {
+		return shown
+	}
+
+	// The operands are NAME and VALUE. Flags and the target of -t come before them, so a VALUE such as "-t" is still an operand.
+	var operands []int
+	for i := subcommandIndex(args) + 1; i < len(args); i++ {
+		switch {
+		case len(operands) > 0 || !strings.HasPrefix(args[i], "-"):
+			operands = append(operands, i)
+		case args[i] == "-t":
+			i++
+		}
+	}
+
+	if len(operands) == 2 {
+		shown[operands[1]] = redactedValue
+	}
+
+	return shown
 }
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
@@ -112,9 +145,9 @@ func escapeSeparators(args []string) []string {
 	return escaped
 }
 
-// String returns the full command with arguments as a string.
+// String returns the full command with arguments as a string, with secret values redacted.
 func (c Command) String() string {
-	return strings.Join(c.args, " ")
+	return strings.Join(c.shown, " ")
 }
 
 // debug logs the command before it runs, so --debug shows every command that glaze sends.
@@ -131,7 +164,7 @@ func (c *Command) Exec() error {
 
 	if subcommandOf(c.args[1:]) != "attach" {
 		if output, err := c.cmd.CombinedOutput(); err != nil {
-			return NewCommandErrorWithOutput(c.args, err, string(output))
+			return NewCommandErrorWithOutput(c.shown, err, string(output))
 		}
 
 		return nil
@@ -142,7 +175,7 @@ func (c *Command) Exec() error {
 	c.cmd.Stderr = os.Stderr
 
 	if err := c.cmd.Run(); err != nil {
-		return NewCommandError(c.args, err)
+		return NewCommandError(c.shown, err)
 	}
 
 	return nil
@@ -154,7 +187,7 @@ func (c Command) ExecWithOutput() (string, error) {
 
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
-		return "", NewCommandErrorWithOutput(c.args, err, string(output))
+		return "", NewCommandErrorWithOutput(c.shown, err, string(output))
 	}
 
 	return strings.TrimSuffix(string(output), "\n"), nil
@@ -167,7 +200,7 @@ func (c Command) ExecWithInput(input string) error {
 
 	output, err := c.cmd.CombinedOutput()
 	if err != nil {
-		return NewCommandErrorWithOutput(c.args, err, string(output))
+		return NewCommandErrorWithOutput(c.shown, err, string(output))
 	}
 
 	return nil

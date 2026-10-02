@@ -528,3 +528,25 @@ func lastCall(rec *tmuxtest.Recorder, subcommand string) []string {
 	}
 	return last
 }
+
+func TestActionUpLogsCommandTextOnlyAtDebug(t *testing.T) {
+	for _, tc := range []struct {
+		level    slog.Level
+		wantText bool
+	}{
+		{slog.LevelInfo, false},
+		{slog.LevelDebug, true},
+	} {
+		t.Run(tc.level.String(), func(t *testing.T) {
+			up, _ := newTestUp(t)
+
+			var logs bytes.Buffer
+			up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: tc.level}))}
+
+			assert.NoError(t, up.runCommands("pane", "api", "%1", []string{"psql postgres://app:hunter2@db"}))
+			assert.Contains(t, logs.String(), "running pane commands")
+			assert.Contains(t, logs.String(), "count=1")
+			assert.Equal(t, tc.wantText, strings.Contains(logs.String(), "hunter2"))
+		})
+	}
+}
