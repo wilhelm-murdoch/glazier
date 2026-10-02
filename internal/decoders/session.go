@@ -34,23 +34,23 @@ func NewSession(spec cty.Value) *Session {
 
 // ResolveDirectories sets the absolute starting directory of the session, each window and each pane.
 // A pane without one uses its window's, a window uses the session's, and the session uses the current directory.
-func (s *Session) ResolveDirectories(base string) error {
+func (s *Session) ResolveDirectories(baseDirectory string) error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("could not read current working directory: %w", err)
 	}
 
-	if s.StartingDirectory, err = inherit(s.StartingDirectory, pwd, base); err != nil {
+	if s.StartingDirectory, err = inherit(s.StartingDirectory, pwd, baseDirectory); err != nil {
 		return err
 	}
 
 	for _, window := range s.Windows {
-		if window.StartingDirectory, err = inherit(window.StartingDirectory, s.StartingDirectory, base); err != nil {
+		if window.StartingDirectory, err = inherit(window.StartingDirectory, s.StartingDirectory, baseDirectory); err != nil {
 			return err
 		}
 
 		for _, pane := range window.Panes {
-			if pane.StartingDirectory, err = inherit(pane.StartingDirectory, window.StartingDirectory, base); err != nil {
+			if pane.StartingDirectory, err = inherit(pane.StartingDirectory, window.StartingDirectory, baseDirectory); err != nil {
 				return err
 			}
 		}
@@ -59,11 +59,11 @@ func (s *Session) ResolveDirectories(base string) error {
 	return nil
 }
 
-// inherit returns parent when dir is empty, or else dir resolved against base.
-func inherit(dir, parent, base string) (string, error) {
+// inherit returns parent when dir is empty, or else dir resolved against baseDirectory.
+func inherit(dir, parent, baseDirectory string) (string, error) {
 	if dir == "" {
 		return parent, nil
 	}
 
-	return files.ResolveDirectory(dir, base)
+	return files.ResolveDirectory(dir, baseDirectory)
 }

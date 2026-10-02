@@ -42,15 +42,15 @@ func ExpandPath(path string) (string, error) {
 	return home + path[1:], nil
 }
 
-// ResolveDirectory expands `~` in path and makes a relative path absolute against base.
-func ResolveDirectory(path, base string) (string, error) {
+// ResolveDirectory expands `~` in path and makes a relative path absolute against baseDirectory.
+func ResolveDirectory(path, baseDirectory string) (string, error) {
 	path, err := ExpandPath(path)
 	if err != nil {
 		return path, err
 	}
 
 	if !filepath.IsAbs(path) {
-		path = filepath.Join(base, path)
+		path = filepath.Join(baseDirectory, path)
 	}
 
 	return filepath.Clean(path), nil

@@ -9,14 +9,14 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-// pane returns the spec for the pane blocks of a window; base is the directory of the profile.
-func pane(base string) hcldec.Spec {
+// pane returns the spec for the pane blocks of a window; baseDirectory is the directory of the profile.
+func pane(baseDirectory string) hcldec.Spec {
 	return &hcldec.BlockListSpec{
 		TypeName: "pane",
 		MinItems: 1,
 		Nested: &hcldec.ObjectSpec{
 			"name":               nameSpec("pane"),
-			"starting_directory": startingDirectory(base),
+			"starting_directory": startingDirectory(baseDirectory),
 			"hooks":              Hooks,
 			"options":            Options,
 			"focus":              Focus,

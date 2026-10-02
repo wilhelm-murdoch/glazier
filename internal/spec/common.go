@@ -37,15 +37,15 @@ var (
 	}
 )
 
-// startingDirectory returns the starting_directory attribute. A relative path is relative to base, the directory of the profile.
-func startingDirectory(base string) hcldec.Spec {
+// startingDirectory returns the starting_directory attribute. A relative path is relative to baseDirectory, the directory of the profile.
+func startingDirectory(baseDirectory string) hcldec.Spec {
 	return &hcldec.ValidateSpec{
 		Wrapped: &hcldec.AttrSpec{
 			Name: "starting_directory",
 			Type: cty.String,
 		},
 		Func: func(value cty.Value) hcl.Diagnostics {
-			return diagnostics.DirectoryDiagnostic("starting directory", value, base)
+			return diagnostics.DirectoryDiagnostic("starting directory", value, baseDirectory)
 		},
 	}
 }

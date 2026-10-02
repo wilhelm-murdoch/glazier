@@ -87,7 +87,7 @@ func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
 	return profile, nil
 }
 
-// profileDir returns the absolute directory of the profile, which relative starting directories use as their base.
+// profileDir returns the absolute directory of the profile, which relative starting directories use as their base directory.
 func (ba *ActionBase) profileDir() string {
 	dir, err := filepath.Abs(filepath.Dir(ba.ProfilePath))
 	if err != nil {
