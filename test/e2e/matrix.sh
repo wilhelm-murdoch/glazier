@@ -9,21 +9,12 @@ shift 2>/dev/null
 TARGETS=("$@")
 ((${#TARGETS[@]})) || TARGETS=(bookworm trixie jammy alpine)
 
-base_for() {
-  case $1 in
-    bookworm) echo debian:bookworm-slim ;;
-    trixie) echo debian:trixie-slim ;;
-    jammy) echo ubuntu:22.04 ;;
-    noble) echo ubuntu:24.04 ;;
-    *) echo "unknown target: $1" >&2; exit 1 ;;
-  esac
-}
-
 for t in "${TARGETS[@]}"; do
   if [[ $t == alpine ]]; then
     docker build -q -f Dockerfile.alpine --build-arg GLAZE_VERSION="$VERSION" -t "glaze-e2e:$t-$VERSION" . >/dev/null || exit 1
   else
-    docker build -q --build-arg BASE="$(base_for "$t")" --build-arg GLAZE_VERSION="$VERSION" -t "glaze-e2e:$t-$VERSION" . >/dev/null || exit 1
+    # The Dockerfile has one pinned base stage for each Debian and Ubuntu target, named after the target.
+    docker build -q --build-arg BASE="$t" --build-arg GLAZE_VERSION="$VERSION" -t "glaze-e2e:$t-$VERSION" . >/dev/null || exit 1
   fi
 done
 

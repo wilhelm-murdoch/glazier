@@ -20,3 +20,17 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+
+  # The harness base images are pinned by digest. Each tag is a test target,
+  # so Dependabot updates only the digest and never moves a tag to a new release.
+  - package-ecosystem: docker
+    directory: /test/e2e
+    schedule:
+      interval: weekly
+      day: monday
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor", "version-update:semver-patch"]
+    groups:
+      harness-images:
+        patterns: ["*"]
