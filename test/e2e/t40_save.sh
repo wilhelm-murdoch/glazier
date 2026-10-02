@@ -447,6 +447,22 @@ t_scale() {
 }
 
 t_malformed() {
+  # A chain of locals that each double the one before; 22 steps is 32 MiB, small enough for a build without the limit.
+  begin limits_locals
+  { echo 'locals {'; echo '  a0 = "xxxxxxxx"'; for i in $(seq 1 22); do echo "  a$i = \"\${local.a$((i - 1))}\${local.a$((i - 1))}\""; done; echo '}'; } >.glaze
+  printf 'session {\n  name = "lb"\n  window {\n    pane {}\n  }\n}\n' >>.glaze
+  gz format --validate; rcnz "format --validate rejects a locals doubling chain"
+  match "the error names the local past the budget" 'Locals too large' "$ERR"
+  down; rcnz "down rejects a locals doubling chain"
+  end
+
+  begin limits_nesting
+  { printf 'session {\n  name = "ln"\n  window {\n    name = '; printf '[%.0s' $(seq 1 1000); printf '"x"'; printf ']%.0s' $(seq 1 1000); printf '\n    pane {}\n  }\n}\n'; } >.glaze
+  gz format --validate; rcnz "format --validate rejects deep nesting"
+  match "the error says the nesting is too deep" 'Nesting too deep' "$ERR"
+  up; rcnz "up rejects deep nesting"; no_server "deep nesting"
+  end
+
   local body
   while IFS= read -r -d $'\0' body; do
     begin malformed

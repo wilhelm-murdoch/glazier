@@ -2,7 +2,7 @@
 
 This document is the reference for the `.glaze` profile format. It describes the blocks, the attributes and the expression language. The [README](README.md) gives a walkthrough of the same material.
 
-A profile is a native HCL file. A profile contains exactly one `session` block. A profile can also contain `variable` blocks and `locals` blocks at the top level. Only a `variable` block has a label. The label is the name of the variable. You name a `session`, a `window` or a `pane` with its `name` attribute.
+A profile is a native HCL file. A profile contains exactly one `session` block. A profile can also contain `variable` blocks and `locals` blocks at the top level. Only a `variable` block has a label. The label is the name of the variable. You name a `session`, a `window` or a `pane` with its `name` attribute. Brackets, braces, parentheses and strings can nest at most 256 levels deep in a profile or a `--var-file`.
 
 ---
 
@@ -148,7 +148,7 @@ An unset required variable causes an error. A `--var` flag or a var file entry w
 
 ## 3. `locals`
 
-A `locals` block declares named values for use across the profile, for example derived strings or computed lists. A local can reference `var.*`, `env.*`, `path.*`, the function library and other locals. The declaration order of locals has no effect. A circular reference causes an error. A duplicate local name causes an error. You read a local as `local.<name>`.
+A `locals` block declares named values for use across the profile, for example derived strings or computed lists. A local can reference `var.*`, `env.*`, `path.*`, the function library and other locals. The declaration order of locals has no effect. A circular reference causes an error. A duplicate local name causes an error. All locals together can hold at most 1 MiB: the bytes of each string plus one for each element. The first local past that limit causes an error. You read a local as `local.<name>`.
 
 ```hcl
 locals {

@@ -453,6 +453,8 @@ Built-in namespaces sit alongside `var.`. They need no declaration:
 - `path.pwd` is the working directory. `path.base` is its basename.
 - `local.*` reads the values that `locals` blocks declare.
 
+Glazier limits a profile in two ways, so that a profile from an unknown source cannot use all the memory or crash `glaze`. All locals together can hold at most 1 MiB, counted as the bytes of each string plus one for each element. Brackets, braces, parentheses and strings can nest at most 256 levels deep in a profile or a `--var-file`. Large nested `for` expressions are not limited, so read a profile from an unknown source before you run `glaze` on it.
+
 ```hcl
 session {
   name               = "gig-${var.district}"
