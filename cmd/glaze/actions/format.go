@@ -3,11 +3,12 @@ package actions
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
+
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
 // ActionFormat formats a profile, and validates it with --validate.
@@ -16,7 +17,14 @@ type ActionFormat struct {
 }
 
 // NewFormat returns the format action, with the profile parsed.
+// It refuses an in-place format of a pipe or a device before it reads it, because a read can block and a write cannot replace it.
 func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
+	if !cmd.Bool("stdout") {
+		if path, err := files.ResolveProfilePath(cmd.String("profile-path")); err == nil && !files.IsRegular(path) {
+			return nil, fmt.Errorf("could not format `%s` in place: %w; use --stdout", path, files.ErrNotRegular)
+		}
+	}
+
 	base, err := NewActionBase(cmd, logLevel)
 	if err != nil {
 		return nil, err
@@ -50,8 +58,14 @@ func (a *ActionFormat) Run(_ context.Context) error {
 		return nil
 	}
 
+	// An unchanged file keeps its modification time, so editors and file watchers see no change.
+	if formatted == string(a.Parser.File.Bytes) {
+		a.Logger.Info("the profile is already formatted", "path", a.ProfilePath)
+		return nil
+	}
+
 	// Profiles are sharable config meant to be committed; 0644 is intended.
-	if err := os.WriteFile(a.ProfilePath, []byte(formatted), 0o644); err != nil { //nolint:gosec // G306
+	if err := files.WriteFile(a.ProfilePath, []byte(formatted), 0o644); err != nil {
 		a.DiagnosticsManager.Append(&hcl.Diagnostic{
 			Severity: hcl.DiagError,
 			Summary:  "Failed to write file",

@@ -224,7 +224,7 @@ EOF
   begin cmd_exit
   pane_cmds ce '["exit", "echo b"]'
   TO=8 up
-  if ((RC != 124)); then ok "non-final 'exit' command does not hang (${DUR}ms)"; else ko "non-final 'exit' command does not hang" "timed out"; fi
+  if ((RC != 124 && RC != 137)); then ok "non-final 'exit' command does not hang (${DUR}ms)"; else ko "non-final 'exit' command does not hang" "timed out"; fi
   match "up warns that it stopped waiting" 'stopped waiting' "$ERR"
   info "the only pane exits, so tmux ends the session" "rc=$RC"; end
 

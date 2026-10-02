@@ -11,6 +11,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -80,6 +81,11 @@ func (a *ActionSave) Run(ctx context.Context) error {
 		path = ".glaze"
 	}
 
+	// Check before the capture, so that a refusal captures nothing. A dangling symlink also counts as a file.
+	if _, err := os.Lstat(path); err == nil && !a.Command.Bool("stdout") && !a.Command.Bool("force") {
+		return fmt.Errorf("could not save to `%s`: %w; use --force to replace it", path, files.ErrFileExists)
+	}
+
 	session, err := a.resolveSession()
 	if err != nil {
 		return err
@@ -104,7 +110,7 @@ func (a *ActionSave) Run(ctx context.Context) error {
 	}
 
 	// Profiles are sharable config meant to be committed; 0644 is intended.
-	if err := os.WriteFile(path, output, 0o644); err != nil { //nolint:gosec // G306
+	if err := files.WriteFile(path, output, 0o644); err != nil {
 		return fmt.Errorf("could not write profile `%s`: %w", path, err)
 	}
 

@@ -29,10 +29,11 @@ end() {
 }
 
 # r CMD... runs a command under a timeout and records RC, OUT, ERR and DUR (ms).
+# A command that ignores SIGTERM, for example one blocked on a FIFO, gets SIGKILL 2 s later (RC 137).
 r() {
   local to=${TO:-20} t0 t1
   t0=$(date +%s%N)
-  timeout "$to" "$@" >"$WD/.out" 2>"$WD/.err" </dev/null
+  timeout -k 2 "$to" "$@" >"$WD/.out" 2>"$WD/.err" </dev/null
   RC=$?
   t1=$(date +%s%N); DUR=$(((t1 - t0) / 1000000))
   OUT=$(cat "$WD/.out"); ERR=$(cat "$WD/.err")
@@ -77,8 +78,8 @@ match() { if [[ "$3" =~ $2 ]]; then ok "$1"; else ko "$1" "expected /$2/ got [$3
 nomatch() { if [[ "$3" =~ $2 ]]; then ko "$1" "unexpected /$2/ in [$3]"; else ok "$1"; fi; }
 rc0() { if [[ $RC -eq 0 ]]; then ok "$1 rc=0"; else ko "$1 rc=0" "rc=$RC stderr=[$ERR] stdout=[${OUT:0:200}]"; fi; }
 rcnz() {
-  if [[ $RC -ne 0 && $RC -ne 124 ]]; then ok "$1 rc!=0"
-  elif [[ $RC -eq 124 ]]; then ko "$1 rc!=0" "timed out (hang) after ${DUR}ms"
+  if [[ $RC -ne 0 && $RC -ne 124 && $RC -ne 137 ]]; then ok "$1 rc!=0"
+  elif [[ $RC -eq 124 || $RC -eq 137 ]]; then ko "$1 rc!=0" "timed out (hang) after ${DUR}ms"
   else ko "$1 rc!=0" "rc=0 stdout=[${OUT:0:200}] stderr=[${ERR:0:300}]"; fi
 }
 no_server() { if tm ls >/dev/null; then ko "$1 no tmux server started" "server running: $(tm ls)"; else ok "$1 no tmux server started"; fi; }

@@ -227,6 +227,8 @@ $ glaze format --validate --var region=us-east-1 # supply declared variables
 
 The `--validate` flag enforces the full variable contract. A required variable must get a value from `--var` or from a default. A profile fails validation without one.
 
+`format` writes the new profile to a temporary file and then renames it over the old one. Thus a failed write, for example on a full disk, keeps the old profile. `format` writes through a symlink and keeps the permissions of the file. It does not write a profile that is already formatted, so the modification time does not change. A profile that is not a regular file, for example a pipe or `/dev/stdin`, cannot be formatted in place. Use `--stdout` for it.
+
 ### `glaze save`
 
 Capture the current running tmux session, or a named session, into a `.glaze` profile.
@@ -235,6 +237,7 @@ Capture the current running tmux session, or a named session, into a `.glaze` pr
 $ glaze save                        # write ./.glaze from the current session
 $ glaze save --stdout               # print the profile; do not write
 $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
+$ glaze save --force                # replace an existing ./.glaze
 ```
 
 | Flag | Description |
@@ -242,7 +245,10 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 | `--session` | The session to capture. The default is the session of the pane that runs `save`. Outside a pane of the target tmux server, the flag is necessary. |
 | `--profile-path` | The output path. The default is `.glaze`. |
 | `--stdout` | Print the profile. Do not write a file. |
+| `--force` | Replace the file at `--profile-path` if it exists. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
+
+`save` does not replace an existing file unless you set `--force`. With `--force`, it writes the same way as `format`: through a temporary file, through a symlink and with the permissions of the old file.
 
 > [!NOTE]
 > `save` captures the **structure** of a session: the session, window and pane names, the starting directories, the focus and the layout. tmux reports a window layout only as a low-level coordinate string, for example `bb62,80x24,0,0`. It does not report a named preset. The `save` command writes that raw string verbatim as a fallback. The `up` command replays it exactly. Thus Glazier restores your pane geometry even when it does not match a named preset. By design `save` does **not** export pane commands, environment variables, hooks or tmux options.
