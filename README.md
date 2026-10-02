@@ -305,7 +305,7 @@ session {
 
 | Attribute | Type | Notes |
 |-----------|------|-------|
-| `name` | string | The session name. The default value is `default`. |
+| `name` | string | The session name. The default value is `default`. A number or a bool becomes a string. The name must not use `random()`, directly or through a local, because `glaze down` computes the name again. |
 | `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. |
 | `envs` | map(string) | Environment variables for the session. |
 | `hooks` | map(string) | A map of a tmux hook name to a command. |
@@ -594,7 +594,7 @@ The functions are thin wrappers around the `go-cty` standard library, plus `rand
 - `trimsuffix`
 - `upper`
 
-The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns a seeded random element of a list. It pairs naturally with a comprehension (`random([for e in local.editors : e])`).
+The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns a random element of a list, with a new choice on each run. It pairs naturally with a comprehension (`random([for e in local.editors : e])`). Use it in a window name, a pane name or a command, not in the session `name`: `glaze down` computes the session name again, so it would look for a different session.
 
 See [SPEC.md](SPEC.md) for the full profile reference: blocks, variables, `locals`, built-in namespaces and the expression language.
 

@@ -170,8 +170,9 @@ EOF
   up; rcnz "duplicate local"
   fx <<'EOF'
 session {
-  name = random([])
+  name = "re"
   window {
+    name = random([])
     pane {}
   }
 }
@@ -306,6 +307,48 @@ t_down() {
   begin down_prefix_match
   mkdir -p empty; cd empty; tm new-session -d -s "project-long"
   down --session project; rc0 "down --session prefix"; exists "prefix does not kill project-long" project-long
+  end
+
+  begin down_name_number
+  fx <<'EOF'
+session {
+  name = 42
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up with a number as the session name"; exists "up creates session 42" 42
+  down; rc0 "down with a number as the session name"; gone "down kills session 42" 42
+  end
+
+  begin down_name_missing
+  fx <<'EOF'
+session {
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up without a session name"; exists "up creates session default" default
+  down; rc0 "down without a session name"; gone "down kills session default" default
+  end
+
+  begin down_name_random
+  fx <<'EOF'
+locals {
+  pick = random(["a", "b", "c"])
+}
+session {
+  name = "gig-${local.pick}"
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rcnz "up rejects random() in the session name"; no_server "random() in the session name"
+  match "the error says why" 'must not use random' "$ERR"
+  down; rcnz "down rejects random() in the session name"
   end
 
   begin down_vars

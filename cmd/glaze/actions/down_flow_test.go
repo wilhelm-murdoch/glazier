@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
@@ -70,6 +71,31 @@ func TestActionDownRun(t *testing.T) {
 
 		assert.True(t, rec.Called("kill-session"))
 		assert.Contains(t, rec.ArgsFor("kill-session"), "=demo")
+	})
+
+	t.Run("names the session the same way as up", func(t *testing.T) {
+		for nameLine, want := range map[string]string{
+			"name = 42":   "=42",
+			"name = true": "=true",
+			"":            "=default",
+		} {
+			profile := "session {\n  " + nameLine + "\n  window {\n    pane {}\n  }\n}\n"
+			down, rec := buildDown(t, profile, nil)
+			rec.On("has-session", tmuxtest.Result{})
+			rec.On("kill-session", tmuxtest.Result{})
+
+			assert.NoError(t, down.Run(context.Background()), nameLine)
+			assert.Contains(t, rec.ArgsFor("kill-session"), want, nameLine)
+		}
+	})
+
+	t.Run("refuses random() in the session name and kills nothing", func(t *testing.T) {
+		profile := "session {\n  name = random([\"a\", \"b\"])\n  window {\n    pane {}\n  }\n}\n"
+		down, rec := buildDown(t, profile, nil)
+
+		assert.ErrorIs(t, down.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+		assert.False(t, rec.Called("has-session"))
+		assert.False(t, rec.Called("kill-session"))
 	})
 
 	t.Run("kills the session named by --session without a profile", func(t *testing.T) {
