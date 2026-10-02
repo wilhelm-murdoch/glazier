@@ -57,8 +57,8 @@ func nameSpec(kind string) hcldec.Spec {
 	}
 }
 
-// sizeSpec returns a size attribute in cells or as a percentage.
-func sizeSpec(name string, required bool) hcldec.Spec {
+// sizeSpec returns a string attribute for a size or an amount, which validate checks.
+func sizeSpec(name string, required bool, validate func(field string, value cty.Value) hcl.Diagnostics) hcldec.Spec {
 	return &hcldec.ValidateSpec{
 		Wrapped: &hcldec.AttrSpec{
 			Name:     name,
@@ -66,7 +66,7 @@ func sizeSpec(name string, required bool) hcldec.Spec {
 			Required: required,
 		},
 		Func: func(value cty.Value) hcl.Diagnostics {
-			return diagnostics.WrongSizeDiagnostic(name, value)
+			return validate(name, value)
 		},
 	}
 }

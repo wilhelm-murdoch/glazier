@@ -81,9 +81,12 @@ func (c Client) setScoped(command, scope, target, name, value string) error {
 	return c.run(append(args, "-t", target, name, value)...)
 }
 
-// parseLines parses each line of a tmux listing with parse.
+// parseLines parses each line of a tmux listing with parse. Empty output, for example from a server with no sessions, has no items.
 func parseLines[T any](output string, parse func(line string) (*T, error)) ([]*T, error) {
 	var items []*T
+	if output == "" {
+		return items, nil
+	}
 
 	for line := range strings.SplitSeq(output, "\n") {
 		item, err := parse(line)

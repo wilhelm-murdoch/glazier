@@ -23,8 +23,8 @@ var Pane = &hcldec.BlockListSpec{
 			Wrapped: &hcldec.BlockSpec{
 				TypeName: "size",
 				Nested: hcldec.ObjectSpec{
-					"x": sizeSpec("x", false),
-					"y": sizeSpec("y", false),
+					"x": sizeSpec("x", false, diagnostics.SizeDiagnostic),
+					"y": sizeSpec("y", false, diagnostics.SizeDiagnostic),
 				},
 			},
 			Func: func(value cty.Value) hcl.Diagnostics {
@@ -49,7 +49,7 @@ var Pane = &hcldec.BlockListSpec{
 						return diagnostics.ContainsDiagnostic("direction", value, enums.AdjustmentList)
 					},
 				},
-				"amount": sizeSpec("amount", true),
+				"amount": sizeSpec("amount", true, diagnostics.AmountDiagnostic),
 			},
 		},
 	},
