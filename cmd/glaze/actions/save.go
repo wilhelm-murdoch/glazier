@@ -74,8 +74,6 @@ func (a *ActionSave) Run(ctx context.Context) error {
 		return errors.New("no tmux server is running, so there is no session to save")
 	}
 
-	a.Logger.Warn("this feature is currently EXPERIMENTAL and is limited to exporting structural layouts ONLY")
-
 	path := a.Command.String("profile-path")
 	if path == "" {
 		path = ".glaze"

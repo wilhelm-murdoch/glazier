@@ -139,6 +139,23 @@ EOF
   eq "function results" "A B|3|4|nvim+hx+vim|x,bCd" "$(ptitles =gig-night-city:)"
   end
 
+  begin fn_reverselist
+  fx <<'EOF'
+session {
+  name = "rl"
+  window {
+    name = join("+", reverselist(["a", "b", "c"]))
+    pane {
+      name = reverse("abc")
+    }
+  }
+}
+EOF
+  up; rc0 "up with reverselist"
+  eq "reverselist reverses a list" "c+b+a" "$(wnames rl)"
+  eq "reverse reverses a string" "cba" "$(ptitles =rl:)"
+  end
+
   begin locals_errors
   fx <<'EOF'
 locals {

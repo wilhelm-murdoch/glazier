@@ -74,6 +74,7 @@ func Functions() map[string]function.Function {
 		"regexreplace": stdlib.RegexReplaceFunc,
 		"replace":      stdlib.ReplaceFunc,
 		"reverse":      stdlib.ReverseFunc,
+		"reverselist":  stdlib.ReverseListFunc,
 		"split":        stdlib.SplitFunc,
 		"strlen":       stdlib.StrlenFunc,
 		"substr":       stdlib.SubstrFunc,

@@ -13,6 +13,7 @@ t_cli_basics() {
   simple vf; gz up -v --detached --socket-name "$SOCK"
   eq "-v after a subcommand is a usage error (exit 2)" 2 "$RC"; no_server "-v after a subcommand"; rm -f .glaze
   gz --help; rc0 "--help"
+  match "--help shows the author as a name and an address" 'Wilhelm Murdoch <wilhelm@devilmayco.de>' "$OUT"
   for c in up down ls format save; do gz "$c" --help; rc0 "$c --help"; done
   gz bogus; rcnz "unknown subcommand"
   gz up --no-such-flag; rcnz "unknown flag"

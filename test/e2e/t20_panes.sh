@@ -593,20 +593,25 @@ session {
 EOF
   up; rcnz "unknown hook name fails"; info "unknown hook aftermath" "session_left=$(has hi && echo yes || echo no) err=[$ERR]"; end
 
-  begin hooks_session_created
+  # The README example: a client-attached hook on the session, which runs when a client attaches.
+  begin hooks_readme_example
   fx <<'EOF'
 session {
   name = "hc"
   hooks = {
-    "session-created" = "run-shell 'touch @WD@/h_created'"
+    "client-attached" = "run-shell 'touch @WD@/h_attached'"
   }
   window {
     pane {}
   }
 }
 EOF
-  up; rc0 "up"; sleep 1
-  if [[ -e $WD/h_created ]]; then ok "session-created hook (README example) fires"; else ko "session-created hook (README example) fires" "hook is set after new-session, so it can never fire for this session"; fi
+  up; rc0 "up"
+  {
+    for _ in {1..50}; do [[ -n $(tm lsc -t =hc) ]] && break; sleep 0.1; done
+    for _ in {1..50}; do [[ -e $WD/h_attached ]] && break; sleep 0.1; done
+  } | tm -C attach -t =hc >/dev/null
+  if [[ -e $WD/h_attached ]]; then ok "client-attached hook (README example) fires"; else ko "client-attached hook (README example) fires" "no file after a client attached"; fi
   end
 }
 
