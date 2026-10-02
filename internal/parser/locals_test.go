@@ -142,7 +142,7 @@ session {
 	ctx, ctxDiags := p.VariableContext(nil, "", true)
 	require.False(t, ctxDiags.HasErrors(), "unexpected diagnostics: %s", ctxDiags)
 
-	session, decodeDiags := p.Decode(spec.Session, ctx)
+	session, decodeDiags := p.Decode(spec.Session(""), ctx)
 	require.False(t, decodeDiags.HasErrors())
 	assert.Equal(t, "gig-watson", session.Name)
 }

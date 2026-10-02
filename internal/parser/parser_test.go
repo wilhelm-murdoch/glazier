@@ -54,7 +54,7 @@ func decode(t *testing.T, content string) (*decoders.Session, bool) {
 		return nil, true
 	}
 	ctx := BuildEvalContext(map[string]cty.Value{})
-	session, diags := p.Decode(spec.Session, ctx)
+	session, diags := p.Decode(spec.Session(""), ctx)
 	return session, diags.HasErrors()
 }
 
@@ -63,7 +63,7 @@ func TestDecodeWarnsAboutWindowAndPaneNames(t *testing.T) {
 	p, diags := New(path)
 	assert.False(t, diags.HasErrors())
 
-	_, diags = p.Decode(spec.Session, BuildEvalContext(map[string]cty.Value{}))
+	_, diags = p.Decode(spec.Session(""), BuildEvalContext(map[string]cty.Value{}))
 	assert.False(t, diags.HasErrors())
 
 	var summaries []string
@@ -78,7 +78,7 @@ func TestDecodeReturnsWarnings(t *testing.T) {
 	p, diags := New(path)
 	assert.False(t, diags.HasErrors())
 
-	session, diags := p.Decode(spec.Session, BuildEvalContext(map[string]cty.Value{}))
+	session, diags := p.Decode(spec.Session(""), BuildEvalContext(map[string]cty.Value{}))
 	assert.NotNil(t, session)
 	assert.False(t, diags.HasErrors())
 	if assert.Len(t, diags, 1) {
@@ -171,8 +171,10 @@ session {
 
 	// name falls back to the default element name.
 	assert.Equal(t, decoders.DefaultGlazeElementName, session.Name)
-	// starting_directory falls back to the working directory.
-	assert.NotEmpty(t, session.StartingDirectory)
+	// starting_directory stays empty, so that ResolveDirectories can tell an unset directory from a set one.
+	assert.Empty(t, session.StartingDirectory)
+	assert.Empty(t, session.Windows[0].StartingDirectory)
+	assert.Empty(t, session.Windows[0].Panes[0].StartingDirectory)
 
 	window := session.Windows[0]
 	// layout defaults to tiled when omitted.

@@ -1,6 +1,8 @@
 package actions
 
 import (
+	"path/filepath"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/urfave/cli/v3"
 
@@ -66,7 +68,7 @@ func (ba *ActionBase) decodeProfile() (*decoders.Session, hcl.Diagnostics) {
 		return nil, diags
 	}
 
-	profile, decodeDiags := ba.Parser.Decode(spec.Session, ctx)
+	profile, decodeDiags := ba.Parser.Decode(spec.Session(ba.profileDir()), ctx)
 
 	return profile, diags.Extend(decodeDiags)
 }
@@ -78,5 +80,19 @@ func (ba *ActionBase) loadProfile() (*decoders.Session, error) {
 		return nil, ba.DiagnosticsManager.Report(diags)
 	}
 
+	if err := profile.ResolveDirectories(ba.profileDir()); err != nil {
+		return nil, err
+	}
+
 	return profile, nil
+}
+
+// profileDir returns the absolute directory of the profile, which relative starting directories use as their base directory.
+func (ba *ActionBase) profileDir() string {
+	dir, err := filepath.Abs(filepath.Dir(ba.ProfilePath))
+	if err != nil {
+		return filepath.Dir(ba.ProfilePath)
+	}
+
+	return dir
 }

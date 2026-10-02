@@ -35,17 +35,20 @@ var (
 		Name: "commands",
 		Type: cty.List(cty.String),
 	}
+)
 
-	StartingDirectory = &hcldec.ValidateSpec{
+// startingDirectory returns the starting_directory attribute. A relative path is relative to baseDirectory, the directory of the profile.
+func startingDirectory(baseDirectory string) hcldec.Spec {
+	return &hcldec.ValidateSpec{
 		Wrapped: &hcldec.AttrSpec{
 			Name: "starting_directory",
 			Type: cty.String,
 		},
 		Func: func(value cty.Value) hcl.Diagnostics {
-			return diagnostics.DirectoryDiagnostic("starting directory", value)
+			return diagnostics.DirectoryDiagnostic("starting directory", value, baseDirectory)
 		},
 	}
-)
+}
 
 // nameSpec returns the name attribute of a window or a pane, which warns about characters that tmux rewrites.
 func nameSpec(kind string) hcldec.Spec {

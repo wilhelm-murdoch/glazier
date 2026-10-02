@@ -310,7 +310,7 @@ session {
 		ctx, ctxDiags := p.VariableContext(nil, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 
-		session, decodeDiags := p.Decode(spec.Session, ctx)
+		session, decodeDiags := p.Decode(spec.Session(""), ctx)
 		assert.False(t, decodeDiags.HasErrors())
 		assert.Equal(t, "gig-watson", session.Name)
 	})
@@ -331,7 +331,7 @@ session {
 		ctx, ctxDiags := p.VariableContext([]string{"district=arasaka"}, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 
-		session, decodeDiags := p.Decode(spec.Session, ctx)
+		session, decodeDiags := p.Decode(spec.Session(""), ctx)
 		assert.False(t, decodeDiags.HasErrors())
 		assert.Equal(t, "gig-arasaka", session.Name)
 	})
@@ -349,7 +349,7 @@ session {
 		p, _ := NewFromBytes([]byte(content), "test.glaze")
 		ctx, _ := p.VariableContext(nil, "", true)
 
-		_, decodeDiags := p.Decode(spec.Session, ctx)
+		_, decodeDiags := p.Decode(spec.Session(""), ctx)
 		assert.True(t, decodeDiags.HasErrors())
 	})
 }
