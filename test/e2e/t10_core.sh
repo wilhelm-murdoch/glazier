@@ -330,6 +330,46 @@ EOF
   eq "relative starting_directory is relative to the profile" "$WD/prof/sub" "$(ppaths =dr:)"
   end
 
+  # From a directory that was deleted, glaze reads the current directory only where the profile needs it.
+  begin dirs_deleted_cwd
+  mkdir -p prof gone
+  fx prof/with.glaze <<'EOF'
+session {
+  name = "dw"
+  starting_directory = "@WD@/prof"
+  window {
+    pane {}
+  }
+}
+EOF
+  fx prof/without.glaze <<'EOF'
+session {
+  name = "dn"
+  window {
+    pane {}
+  }
+}
+EOF
+  fx prof/pwd.glaze <<'EOF'
+session {
+  name = "dp"
+  starting_directory = path.pwd
+  window {
+    pane {}
+  }
+}
+EOF
+  cd gone; rmdir "$WD/gone"
+  gz format --validate --profile-path "$WD/prof/with.glaze"; rc0 "format --validate from a deleted directory"
+  up --profile-path "$WD/prof/with.glaze"; rc0 "up from a deleted directory"; exists "session from a deleted directory" dw
+  down --profile-path "$WD/prof/with.glaze"; rc0 "down from a deleted directory"; gone "down from a deleted directory kills the session" dw
+  up --profile-path "$WD/prof/without.glaze"; rcnz "up without a session directory from a deleted directory"
+  match "the error says the session needs a directory" 'no starting_directory' "$ERR"
+  gz format --validate --profile-path "$WD/prof/pwd.glaze"; rcnz "path.pwd from a deleted directory"
+  match "the error names the current directory" 'Current directory not available' "$ERR"
+  cd "$WD"
+  end
+
   begin dirs_missing
   fx <<'EOF'
 session {

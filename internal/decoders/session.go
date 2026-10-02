@@ -35,12 +35,18 @@ func NewSession(spec cty.Value) *Session {
 // ResolveDirectories sets the absolute starting directory of the session, each window and each pane.
 // A pane without one uses its window's, a window uses the session's, and the session uses the current directory.
 func (s *Session) ResolveDirectories(baseDirectory string) error {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("could not read current working directory: %w", err)
+	// Only a session without a directory needs the current one, which can be gone, for example after a delete.
+	if s.StartingDirectory == "" {
+		pwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("the session has no starting_directory, and glaze cannot read the current directory (%w); set starting_directory, or run glaze from a directory that exists", err)
+		}
+
+		s.StartingDirectory = pwd
 	}
 
-	if s.StartingDirectory, err = inherit(s.StartingDirectory, pwd, baseDirectory); err != nil {
+	var err error
+	if s.StartingDirectory, err = files.ResolveDirectory(s.StartingDirectory, baseDirectory); err != nil {
 		return err
 	}
 

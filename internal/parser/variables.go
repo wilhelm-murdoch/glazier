@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -15,6 +16,7 @@ import (
 const EnvVariablePrefix = "GLAZE_ENV_"
 
 // collectBaseVariables returns the env object (GLAZE_ENV_* without the prefix) and the path object.
+// Without a current directory, for example one that was deleted, there is no path object, and the error says why.
 func collectBaseVariables() (map[string]cty.Value, error) {
 	out := make(map[string]cty.Value)
 
@@ -22,7 +24,7 @@ func collectBaseVariables() (map[string]cty.Value, error) {
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("could not read current working directory: %w", err)
+		return out, err
 	}
 
 	// path.pwd is the working directory and path.base is its last element.
@@ -32,6 +34,35 @@ func collectBaseVariables() (map[string]cty.Value, error) {
 	})
 
 	return out, nil
+}
+
+// pathUnavailable returns an error for the first use of path.pwd or path.base, when there is no current directory.
+// A profile that does not use them needs no current directory.
+func (p *Parser) pathUnavailable(cause error) hcl.Diagnostics {
+	body, ok := p.File.Body.(*hclsyntax.Body)
+	if !ok {
+		return nil
+	}
+
+	var first *hcl.Range
+	_ = hclsyntax.VisitAll(body, func(node hclsyntax.Node) hcl.Diagnostics {
+		if expr, ok := node.(*hclsyntax.ScopeTraversalExpr); ok && first == nil && expr.Traversal.RootName() == "path" {
+			first = expr.SrcRange.Ptr()
+		}
+
+		return nil
+	})
+
+	if first == nil {
+		return nil
+	}
+
+	return hcl.Diagnostics{{
+		Severity: hcl.DiagError,
+		Summary:  "Current directory not available",
+		Detail:   fmt.Sprintf("The profile uses path.pwd or path.base, but glaze cannot read the current directory: %s. Run glaze from a directory that exists.", cause),
+		Subject:  first,
+	}}
 }
 
 // collectEnvVariables parses environment variables that start with prefix.
@@ -59,11 +90,9 @@ func collectEnvVariables(envs []string, prefix string) map[string]cty.Value {
 func (p *Parser) VariableContext(flags []string, varFile string, requireAll bool) (*hcl.EvalContext, hcl.Diagnostics) {
 	base, err := collectBaseVariables()
 	if err != nil {
-		return nil, hcl.Diagnostics{{
-			Severity: hcl.DiagError,
-			Summary:  "Could not collect variables",
-			Detail:   err.Error(),
-		}}
+		if diags := p.pathUnavailable(err); diags.HasErrors() {
+			return nil, diags
+		}
 	}
 
 	declared, diags := p.DecodeVariableBlocks()
