@@ -4,16 +4,6 @@ import "regexp"
 
 type Layout int
 
-// layoutStringPattern matches the structure of a tmux layout string, for example "bb62,80x24,0,0".
-// It cannot check the checksum, so tmux rejects a stale one at `up`.
-var layoutStringPattern = regexp.MustCompile(`^[0-9a-f]{4},[0-9]+x[0-9]+,[0-9]+,[0-9]+[0-9x,{}\[\]]*$`)
-
-// IsLayoutString reports whether s is a structurally valid tmux layout
-// coordinate string (as opposed to one of the named layout presets).
-func IsLayoutString(s string) bool {
-	return layoutStringPattern.MatchString(s)
-}
-
 const (
 	LayoutEvenHorizontal Layout = iota + 1
 	LayoutEvenVertical
@@ -32,13 +22,19 @@ const (
 	LayoutUnknownString        = "unknown"
 )
 
-var LayoutList = []string{
-	LayoutEvenHorizontalString,
-	LayoutEvenVerticalString,
-	LayoutMainHorizontalString,
-	LayoutMainVerticalString,
-	LayoutTiledString,
-}
+var (
+	LayoutList = []string{
+		LayoutEvenHorizontalString,
+		LayoutEvenVerticalString,
+		LayoutMainHorizontalString,
+		LayoutMainVerticalString,
+		LayoutTiledString,
+	}
+
+	// layoutStringPattern matches the structure of a tmux layout string, for example "bb62,80x24,0,0".
+	// It cannot check the checksum, so tmux rejects a stale one at `up`.
+	layoutStringPattern = regexp.MustCompile(`^[0-9a-f]{4},[0-9]+x[0-9]+,[0-9]+,[0-9]+[0-9x,{}\[\]]*$`)
+)
 
 // String returns the name of the layout preset.
 func (l Layout) String() string {
@@ -74,4 +70,10 @@ func LayoutFromString(s string) Layout {
 	}
 
 	return LayoutUnknown
+}
+
+// IsLayoutString reports whether s is a structurally valid tmux layout
+// coordinate string (as opposed to one of the named layout presets).
+func IsLayoutString(s string) bool {
+	return layoutStringPattern.MatchString(s)
 }

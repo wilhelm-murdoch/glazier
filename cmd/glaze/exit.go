@@ -25,6 +25,9 @@ const (
 	exitSignalBase = 128
 )
 
+// errUsage marks an error in the command line itself, for example an unknown flag.
+var errUsage = errors.New("usage error")
+
 // signalError is the cause of a run that SIGINT or SIGTERM stopped.
 type signalError struct {
 	signal syscall.Signal
@@ -38,9 +41,6 @@ func (e signalError) Error() string {
 
 	return "glaze stopped on " + name
 }
-
-// errUsage marks an error in the command line itself, for example an unknown flag.
-var errUsage = errors.New("usage error")
 
 // exitCode returns the exit code for the error that a command returned.
 func exitCode(err error) int {
