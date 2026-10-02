@@ -13,28 +13,9 @@ import (
 // resolveLocals evaluates all `locals` blocks, which can refer to env, path, var, the functions and each other in any order.
 // It repeats passes until one makes no progress, then reports the real errors. With requireAll false, it drops unresolved locals.
 func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[string]cty.Value, hcl.Diagnostics) {
-	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
-		Blocks: []hcl.BlockHeaderSchema{
-			{Type: "locals"},
-		},
-	})
+	unresolved, diags := p.localAttributes()
 	if diags.HasErrors() {
 		return nil, diags
-	}
-
-	unresolved := map[string]*hcl.Attribute{}
-
-	for _, block := range content.Blocks {
-		attrs, attrDiags := block.Body.JustAttributes()
-		diags = diags.Extend(attrDiags)
-
-		for name, attr := range attrs {
-			if previous, ok := unresolved[name]; ok {
-				diags = diags.Append(diagnostics.DuplicateLocal(name, previous.Range, attr.Range))
-				continue
-			}
-			unresolved[name] = attr
-		}
 	}
 
 	resolved := map[string]cty.Value{}
@@ -69,4 +50,33 @@ func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[
 	}
 
 	return resolved, diags
+}
+
+// localAttributes returns every attribute of every `locals` block by name, and reports a name that two blocks declare.
+func (p *Parser) localAttributes() (map[string]*hcl.Attribute, hcl.Diagnostics) {
+	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
+		Blocks: []hcl.BlockHeaderSchema{
+			{Type: "locals"},
+		},
+	})
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	locals := map[string]*hcl.Attribute{}
+
+	for _, block := range content.Blocks {
+		attrs, attrDiags := block.Body.JustAttributes()
+		diags = diags.Extend(attrDiags)
+
+		for name, attr := range attrs {
+			if previous, ok := locals[name]; ok {
+				diags = diags.Append(diagnostics.DuplicateLocal(name, previous.Range, attr.Range))
+				continue
+			}
+			locals[name] = attr
+		}
+	}
+
+	return locals, diags
 }

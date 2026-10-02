@@ -51,38 +51,6 @@ func (p *Parser) missingSession() *hcl.Diagnostic {
 	}
 }
 
-// DecodeSessionName evaluates only the `name` of the session block, for `down`.
-// A variable that only windows and panes use then needs no value.
-func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostics) {
-	content, _, diags := p.File.Body.PartialContent(&hcl.BodySchema{
-		Blocks: []hcl.BlockHeaderSchema{{Type: "session"}},
-	})
-	if diags.HasErrors() {
-		return "", diags
-	}
-
-	if len(content.Blocks) == 0 {
-		return "", append(diags, p.missingSession())
-	}
-
-	// The schema has only the session block, so the first block is the session.
-	attrs, _, attrDiags := content.Blocks[0].Body.PartialContent(&hcl.BodySchema{
-		Attributes: []hcl.AttributeSchema{{Name: "name", Required: true}},
-	})
-	diags = append(diags, attrDiags...)
-	if diags.HasErrors() {
-		return "", diags
-	}
-
-	value, valueDiags := attrs.Attributes["name"].Expr.Value(ctx)
-	diags = append(diags, valueDiags...)
-	if diags.HasErrors() {
-		return "", diags
-	}
-
-	return value.AsString(), diags
-}
-
 // sessionBlock returns the single session block, so that variable and locals blocks can sit beside it.
 func (p *Parser) sessionBlock() (*hcl.Block, hcl.Diagnostics) {
 	content, diags := p.File.Body.Content(topLevelSchema)
@@ -121,6 +89,11 @@ func (p *Parser) Decode(
 	ctx *hcl.EvalContext,
 ) (*decoders.Session, hcl.Diagnostics) {
 	block, diags := p.sessionBlock()
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	diags = diags.Extend(p.checkSessionName(block))
 	if diags.HasErrors() {
 		return nil, diags
 	}

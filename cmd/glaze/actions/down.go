@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -90,7 +91,7 @@ func (a *ActionDown) sessionName() (string, error) {
 		return "", a.base.DiagnosticsManager.Report(ctxDiags)
 	}
 
-	name, diags := a.base.Parser.DecodeSessionName(ctx)
+	name, diags := a.base.Parser.DecodeSessionName(spec.SessionName, ctx)
 	if diags.HasErrors() {
 		return "", a.base.DiagnosticsManager.Report(diags)
 	}

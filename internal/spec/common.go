@@ -24,6 +24,12 @@ var (
 		Type: cty.String,
 	}
 
+	// SessionName is the session `name`, which `up` and `down` decode the same way. It warns about characters that tmux rewrites.
+	SessionName = &hcldec.ValidateSpec{
+		Wrapped: Name,
+		Func:    diagnostics.SessionNameDiagnostic,
+	}
+
 	// Focus makes a window or a pane the active one.
 	Focus = &hcldec.AttrSpec{
 		Name: "focus",
