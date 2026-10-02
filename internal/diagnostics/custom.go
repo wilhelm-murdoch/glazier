@@ -2,6 +2,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"regexp"
 	"slices"
@@ -46,8 +47,12 @@ func LayoutDiagnostic(field string, value cty.Value, list []string) hcl.Diagnost
 	return Invalid(field, `The %s value of "%s" is not a supported preset (%s) nor a valid tmux layout string.`, field, value.AsString(), strings.Join(list, ", "))
 }
 
-// SessionNameDiagnostic warns when tmux would rewrite characters in a session name.
+// SessionNameDiagnostic rejects an empty session name, which some tmux versions refuse, and warns when tmux would rewrite characters in it.
 func SessionNameDiagnostic(value cty.Value) hcl.Diagnostics {
+	if value.IsKnown() && !value.IsNull() && value.AsString() == "" {
+		return Invalid("session name", `The session name must not be empty. Leave out "name" to use "default".`)
+	}
+
 	return renamedDiagnostic("session", `".", ":", "\", "$" or a control character`, value, tmux.SanitizeSessionName)
 }
 
@@ -137,4 +142,79 @@ func AmountDiagnostic(field string, value cty.Value) hcl.Diagnostics {
 	}
 
 	return Invalid(field, `The %s value "%s" should be 1 or more cells, for example 5. A percentage is not supported here.`, field, value.AsString())
+}
+
+// RequiredDiagnostic rejects a null value for a field that must have a value.
+func RequiredDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+	if !value.IsNull() {
+		return nil
+	}
+
+	return Invalid(field, `The %s must have a value, not null.`, field)
+}
+
+// NoNullsDiagnostic rejects a list or a map that holds a null, because glaze cannot pass a null to tmux.
+func NoNullsDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+	if value.IsNull() || !value.IsKnown() || !value.CanIterateElements() {
+		return nil
+	}
+
+	for it := value.ElementIterator(); it.Next(); {
+		key, element := it.Element()
+		if !element.IsNull() {
+			continue
+		}
+
+		// A list has number keys and a map has string keys.
+		var where string
+		if key.Type() == cty.Number {
+			where = fmt.Sprintf("index %s", key.AsBigFloat().String())
+		} else {
+			where = fmt.Sprintf("key %q", key.AsString())
+		}
+
+		return Invalid(field, `The %s must not contain null (%s). Remove the element or give it a value.`, field, where)
+	}
+
+	return nil
+}
+
+// HooksDiagnostic rejects a null hook command and a hook name that no tmux from 3.2a to 3.7c knows.
+func HooksDiagnostic(value cty.Value) hcl.Diagnostics {
+	if diags := NoNullsDiagnostic("hooks", value); diags.HasErrors() {
+		return diags
+	}
+
+	if value.IsNull() || !value.IsKnown() {
+		return nil
+	}
+
+	var diags hcl.Diagnostics
+	for _, name := range slices.Sorted(maps.Keys(value.AsValueMap())) {
+		if !enums.IsHook(name) {
+			diags = diags.Extend(Invalid("hook", `No tmux from 3.2a to 3.7c knows the hook "%s". Check the name, for example "session-created" or "after-new-window".`, name))
+		}
+	}
+
+	return diags
+}
+
+// LayoutCellsDiagnostic rejects a raw layout string that describes a different number of panes than the window declares.
+// tmux applies such a layout only in part, or rejects it while `up` builds the session.
+func LayoutCellsDiagnostic(window cty.Value) hcl.Diagnostics {
+	if window.IsNull() || !window.IsKnown() {
+		return nil
+	}
+
+	layout, panes := window.GetAttr("layout"), window.GetAttr("panes")
+	if layout.IsNull() || !layout.IsKnown() || !enums.IsLayoutString(layout.AsString()) || panes.IsNull() || !panes.IsKnown() {
+		return nil
+	}
+
+	cells, declared := enums.LayoutCellCount(layout.AsString()), panes.LengthInt()
+	if cells == declared {
+		return nil
+	}
+
+	return Invalid("layout", `The raw layout describes %d panes, but the window declares %d. tmux applies such a layout only in part, or rejects it.`, cells, declared)
 }

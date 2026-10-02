@@ -108,3 +108,41 @@ func TestAdjustmentResizeFlag(t *testing.T) {
 		t.Error("expected no flag for AdjustmentUnknown")
 	}
 }
+
+func TestIsHook(t *testing.T) {
+	for _, name := range []string{"session-created", "pane-died", "client-light-theme", "after-new-window", "after-split-window", "session-created[1]", "pane-exited[12]"} {
+		if !IsHook(name) {
+			t.Errorf("IsHook(%q) is false, want true", name)
+		}
+	}
+
+	for _, name := range []string{"", "unknown", "session-create", "after-nothing", "session-created[x]", "[1]", "Session-Created"} {
+		if IsHook(name) {
+			t.Errorf("IsHook(%q) is true, want false", name)
+		}
+	}
+}
+
+func TestAdjustmentListLeavesOutUnknown(t *testing.T) {
+	for _, s := range AdjustmentList {
+		if s == AdjustmentUnknownString {
+			t.Errorf("AdjustmentList contains %q, which a profile must not use", s)
+		}
+	}
+}
+
+func TestLayoutCellCount(t *testing.T) {
+	for layout, want := range map[string]int{
+		// Real layouts from tmux 3.7c.
+		"aca3,200x50,0,0,6":                           1,
+		"e55d,200x50,0,0[200x25,0,0,4,200x24,0,26,5]": 2,
+		"8247,200x50,0,0{100x50,0,0,0,99x50,101,0[99x25,101,0,1,99x24,101,26{49x24,101,26,2,49x24,151,26,3}]}": 4,
+		// tmux also accepts a cell without a pane id.
+		"bb62,80x24,0,0":                       1,
+		"e5be,80x24,0,0{40x24,0,0,39x24,41,0}": 2,
+	} {
+		if got := LayoutCellCount(layout); got != want {
+			t.Errorf("LayoutCellCount(%q) = %d, want %d", layout, got, want)
+		}
+	}
+}
