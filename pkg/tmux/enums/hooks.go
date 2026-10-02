@@ -1,5 +1,10 @@
 package enums
 
+import (
+	"regexp"
+	"slices"
+)
+
 type Hook int
 
 const (
@@ -8,9 +13,11 @@ const (
 	HookAlertSilence
 	HookClientActive
 	HookClientAttached
+	HookClientDarkTheme
 	HookClientDetached
 	HookClientFocusIn
 	HookClientFocusOut
+	HookClientLightTheme
 	HookClientResized
 	HookClientSessionChanged
 	HookCommandError
@@ -18,11 +25,16 @@ const (
 	HookPaneExited
 	HookPaneFocusIn
 	HookPaneFocusOut
+	HookPaneModeChanged
 	HookPaneSetClipboard
-	HookSessionCreated
+	HookPaneTitleChanged
 	HookSessionClosed
+	HookSessionCreated
 	HookSessionRenamed
+	HookSessionWindowChanged
+	HookWindowLayoutChanged
 	HookWindowLinked
+	HookWindowPaneChanged
 	HookWindowRenamed
 	HookWindowResized
 	HookWindowUnlinked
@@ -35,9 +47,11 @@ const (
 	HookAlertSilenceString         = "alert-silence"
 	HookClientActiveString         = "client-active"
 	HookClientAttachedString       = "client-attached"
+	HookClientDarkThemeString      = "client-dark-theme"
 	HookClientDetachedString       = "client-detached"
 	HookClientFocusInString        = "client-focus-in"
 	HookClientFocusOutString       = "client-focus-out"
+	HookClientLightThemeString     = "client-light-theme"
 	HookClientResizedString        = "client-resized"
 	HookClientSessionChangedString = "client-session-changed"
 	HookCommandErrorString         = "command-error"
@@ -45,42 +59,102 @@ const (
 	HookPaneExitedString           = "pane-exited"
 	HookPaneFocusInString          = "pane-focus-in"
 	HookPaneFocusOutString         = "pane-focus-out"
+	HookPaneModeChangedString      = "pane-mode-changed"
 	HookPaneSetClipboardString     = "pane-set-clipboard"
-	HookSessionCreatedString       = "session-created"
+	HookPaneTitleChangedString     = "pane-title-changed"
 	HookSessionClosedString        = "session-closed"
+	HookSessionCreatedString       = "session-created"
 	HookSessionRenamedString       = "session-renamed"
+	HookSessionWindowChangedString = "session-window-changed"
+	HookWindowLayoutChangedString  = "window-layout-changed"
 	HookWindowLinkedString         = "window-linked"
+	HookWindowPaneChangedString    = "window-pane-changed"
 	HookWindowRenamedString        = "window-renamed"
 	HookWindowResizedString        = "window-resized"
 	HookWindowUnlinkedString       = "window-unlinked"
 	HookUnknownString              = "unknown"
 )
 
-var HookList = []string{
-	HookAlertActivityString,
-	HookAlertBellString,
-	HookAlertSilenceString,
-	HookClientActiveString,
-	HookClientAttachedString,
-	HookClientDetachedString,
-	HookClientFocusInString,
-	HookClientFocusOutString,
-	HookClientResizedString,
-	HookClientSessionChangedString,
-	HookCommandErrorString,
-	HookPaneDiedString,
-	HookPaneExitedString,
-	HookPaneFocusInString,
-	HookPaneFocusOutString,
-	HookPaneSetClipboardString,
-	HookSessionCreatedString,
-	HookSessionClosedString,
-	HookSessionRenamedString,
-	HookWindowLinkedString,
-	HookWindowRenamedString,
-	HookWindowResizedString,
-	HookWindowUnlinkedString,
-}
+var (
+	// HookList is every hook name, other than an after- hook, that tmux 3.2a to 3.7c know. Some exist only in later versions.
+	HookList = []string{
+		HookAlertActivityString,
+		HookAlertBellString,
+		HookAlertSilenceString,
+		HookClientActiveString,
+		HookClientAttachedString,
+		HookClientDarkThemeString,
+		HookClientDetachedString,
+		HookClientFocusInString,
+		HookClientFocusOutString,
+		HookClientLightThemeString,
+		HookClientResizedString,
+		HookClientSessionChangedString,
+		HookCommandErrorString,
+		HookPaneDiedString,
+		HookPaneExitedString,
+		HookPaneFocusInString,
+		HookPaneFocusOutString,
+		HookPaneModeChangedString,
+		HookPaneSetClipboardString,
+		HookPaneTitleChangedString,
+		HookSessionClosedString,
+		HookSessionCreatedString,
+		HookSessionRenamedString,
+		HookSessionWindowChangedString,
+		HookWindowLayoutChangedString,
+		HookWindowLinkedString,
+		HookWindowPaneChangedString,
+		HookWindowRenamedString,
+		HookWindowResizedString,
+		HookWindowUnlinkedString,
+	}
+
+	// AfterHookList is every after- hook that tmux 3.2a to 3.7c know: one for each command that has one.
+	AfterHookList = []string{
+		"after-bind-key",
+		"after-capture-pane",
+		"after-copy-mode",
+		"after-display-message",
+		"after-display-panes",
+		"after-kill-pane",
+		"after-list-buffers",
+		"after-list-clients",
+		"after-list-keys",
+		"after-list-panes",
+		"after-list-sessions",
+		"after-list-windows",
+		"after-load-buffer",
+		"after-lock-server",
+		"after-new-session",
+		"after-new-window",
+		"after-paste-buffer",
+		"after-pipe-pane",
+		"after-queue",
+		"after-refresh-client",
+		"after-rename-session",
+		"after-rename-window",
+		"after-resize-pane",
+		"after-resize-window",
+		"after-save-buffer",
+		"after-select-layout",
+		"after-select-pane",
+		"after-select-window",
+		"after-send-keys",
+		"after-set-buffer",
+		"after-set-environment",
+		"after-set-hook",
+		"after-set-option",
+		"after-show-environment",
+		"after-show-messages",
+		"after-show-options",
+		"after-split-window",
+		"after-unbind-key",
+	}
+
+	// hookIndexPattern matches the array index that tmux allows after a hook name, for example session-created[1].
+	hookIndexPattern = regexp.MustCompile(`\[[0-9]+\]$`)
+)
 
 // String returns the tmux name of the hook.
 func (h Hook) String() string {
@@ -95,12 +169,16 @@ func (h Hook) String() string {
 		return HookClientActiveString
 	case HookClientAttached:
 		return HookClientAttachedString
+	case HookClientDarkTheme:
+		return HookClientDarkThemeString
 	case HookClientDetached:
 		return HookClientDetachedString
 	case HookClientFocusIn:
 		return HookClientFocusInString
 	case HookClientFocusOut:
 		return HookClientFocusOutString
+	case HookClientLightTheme:
+		return HookClientLightThemeString
 	case HookClientResized:
 		return HookClientResizedString
 	case HookClientSessionChanged:
@@ -115,16 +193,26 @@ func (h Hook) String() string {
 		return HookPaneFocusInString
 	case HookPaneFocusOut:
 		return HookPaneFocusOutString
+	case HookPaneModeChanged:
+		return HookPaneModeChangedString
 	case HookPaneSetClipboard:
 		return HookPaneSetClipboardString
-	case HookSessionCreated:
-		return HookSessionCreatedString
+	case HookPaneTitleChanged:
+		return HookPaneTitleChangedString
 	case HookSessionClosed:
 		return HookSessionClosedString
+	case HookSessionCreated:
+		return HookSessionCreatedString
 	case HookSessionRenamed:
 		return HookSessionRenamedString
+	case HookSessionWindowChanged:
+		return HookSessionWindowChangedString
+	case HookWindowLayoutChanged:
+		return HookWindowLayoutChangedString
 	case HookWindowLinked:
 		return HookWindowLinkedString
+	case HookWindowPaneChanged:
+		return HookWindowPaneChangedString
 	case HookWindowRenamed:
 		return HookWindowRenamedString
 	case HookWindowResized:
@@ -149,12 +237,16 @@ func HookFromString(s string) Hook {
 		return HookClientActive
 	case HookClientAttachedString:
 		return HookClientAttached
+	case HookClientDarkThemeString:
+		return HookClientDarkTheme
 	case HookClientDetachedString:
 		return HookClientDetached
 	case HookClientFocusInString:
 		return HookClientFocusIn
 	case HookClientFocusOutString:
 		return HookClientFocusOut
+	case HookClientLightThemeString:
+		return HookClientLightTheme
 	case HookClientResizedString:
 		return HookClientResized
 	case HookClientSessionChangedString:
@@ -169,16 +261,26 @@ func HookFromString(s string) Hook {
 		return HookPaneFocusIn
 	case HookPaneFocusOutString:
 		return HookPaneFocusOut
+	case HookPaneModeChangedString:
+		return HookPaneModeChanged
 	case HookPaneSetClipboardString:
 		return HookPaneSetClipboard
-	case HookSessionCreatedString:
-		return HookSessionCreated
+	case HookPaneTitleChangedString:
+		return HookPaneTitleChanged
 	case HookSessionClosedString:
 		return HookSessionClosed
+	case HookSessionCreatedString:
+		return HookSessionCreated
 	case HookSessionRenamedString:
 		return HookSessionRenamed
+	case HookSessionWindowChangedString:
+		return HookSessionWindowChanged
+	case HookWindowLayoutChangedString:
+		return HookWindowLayoutChanged
 	case HookWindowLinkedString:
 		return HookWindowLinked
+	case HookWindowPaneChangedString:
+		return HookWindowPaneChanged
 	case HookWindowRenamedString:
 		return HookWindowRenamed
 	case HookWindowResizedString:
@@ -188,4 +290,11 @@ func HookFromString(s string) Hook {
 	}
 
 	return HookUnknown
+}
+
+// IsHook reports whether some tmux from 3.2a to 3.7c knows the hook name. An index such as [1] may follow the name.
+func IsHook(name string) bool {
+	name = hookIndexPattern.ReplaceAllString(name, "")
+
+	return slices.Contains(HookList, name) || slices.Contains(AfterHookList, name)
 }

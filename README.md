@@ -310,10 +310,10 @@ session {
 
 | Attribute | Type | Notes |
 |-----------|------|-------|
-| `name` | string | The session name. The default value is `default`. A number or a bool becomes a string. The name must not use `random()`, directly or through a local, because `glaze down` computes the name again. |
+| `name` | string | The session name. The default value is `default`. The name must not be empty. A number or a bool becomes a string. The name must not use `random()`, directly or through a local, because `glaze down` computes the name again. |
 | `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. |
 | `envs` | map(string) | Environment variables for the session. |
-| `hooks` | map(string) | A map of a tmux hook name to a command. |
+| `hooks` | map(string) | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows, for example `session-created` or `after-new-window`. An index such as `session-created[1]` is allowed. |
 | `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
 | `commands` | list(string) | Commands that run in the active pane after Glazier creates all windows and panes. See [Commands](#commands). |
 | `window` | block(s) | One or more windows. At least one window is required. |
@@ -326,6 +326,8 @@ tmux rewrites some characters in names. Thus Glazier replaces these characters w
 - In a window name or a pane name: a backslash and control characters.
 
 `glaze format --validate` shows the same warning with the file and the line.
+
+A list or a map, for example `commands`, `envs`, `hooks` or `options`, must not contain `null`. Glazier reports the element, because tmux cannot get a null value.
 
 tmux keeps each option on a session, a window or a pane. Glazier asks tmux where it keeps an option and applies the option there. A session option, for example `history-limit`, on a window or a pane applies to the whole session, and Glazier shows a warning.
 
@@ -348,7 +350,7 @@ window {
 }
 ```
 
-The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a **raw tmux layout string**, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window when no named preset applies. The `glaze up` command replays the string verbatim. Glazier validates the structure of the string at parse time. A malformed string fails fast. tmux recomputes the leading checksum. If you edit the geometry by hand and make an error, tmux rejects the layout when `up` runs. For a hand-authored profile, use a named preset. The raw string is exact but not easy to read. A raw string also fixes the size of each pane, so Glazier ignores `size` and `adjust` in that window.
+The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a **raw tmux layout string**, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window when no named preset applies. The `glaze up` command replays the string verbatim. Glazier validates the structure of the string at parse time. A malformed string fails fast. tmux recomputes the leading checksum. If you edit the geometry by hand and make an error, tmux rejects the layout when `up` runs. For a hand-authored profile, use a named preset. The raw string is exact but not easy to read. A raw string also fixes the size of each pane, so Glazier ignores `size` and `adjust` in that window. A raw string must describe as many panes as the window declares, because tmux applies a raw layout only in part or rejects it when the numbers differ.
 
 ### Pane
 

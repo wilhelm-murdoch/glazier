@@ -80,7 +80,8 @@ t_size() {
         direction = "unknown"
         amount = "5"
       }'
-  up; rcnz "adjust direction 'unknown' rejected"; info "unknown direction result" "rc=$RC err=[$ERR]"; end
+  up; rcnz "adjust direction 'unknown' rejected"; no_server "unknown direction"
+  match "unknown direction diagnostic" 'not supported' "$ERR"; end
 
   begin adjust_bad_direction
   size_fixture "" '      adjust {

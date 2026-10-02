@@ -34,11 +34,11 @@ session {
 
 | Attribute            | Type         | Notes                                                          |
 | -------------------- | ------------ | -------------------------------------------------------------- |
-| `name`               | string       | The session name. The default value is `default`.              |
+| `name`               | string       | The session name. The default value is `default`. It must not be empty. |
 | `starting_directory` | string       | The directory must exist. The default value is the current directory. |
 | `commands`           | list(string) | Commands for the active pane of the session. See 1.4.          |
 | `envs`               | map(string)  | Environment variables for the session.                         |
-| `hooks`              | map(string)  | A map of a tmux hook name to a command.                        |
+| `hooks`              | map(string)  | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows. |
 | `options`            | map(string)  | A map of a tmux option name to a value.                        |
 | `window`             | block(s)     | One or more windows. At least one window is required.          |
 
@@ -67,11 +67,11 @@ window {
 | `starting_directory` | string      | The directory must exist. The default value is the current directory. |
 | `layout`             | string      | A named preset or a raw tmux layout string. See below.         |
 | `focus`              | bool        | Make this the active window.                                   |
-| `hooks`              | map(string) | A map of a tmux hook name to a command.                        |
+| `hooks`              | map(string) | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows. |
 | `options`            | map(string) | A map of a tmux option name to a value.                        |
 | `pane`               | block(s)    | One or more panes. At least one pane is required.              |
 
-The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a raw tmux layout string, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window. The `glaze up` command replays the string without change. Glazier validates the structure of the string at parse time. A malformed string causes an error.
+The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a raw tmux layout string, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window. The `glaze up` command replays the string without change. Glazier validates the structure of the string at parse time. A malformed string causes an error. The string must also describe as many panes as the window declares.
 
 ### 1.3 `pane`
 
@@ -101,14 +101,14 @@ pane {
 | `starting_directory` | string       | The directory must exist. The default value is the current directory. |
 | `focus`              | bool         | Make this the active pane.                                     |
 | `commands`           | list(string) | Commands for the pane, in order. See 1.4.                      |
-| `hooks`              | map(string)  | A map of a tmux hook name to a command.                        |
+| `hooks`              | map(string)  | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows. |
 | `options`            | map(string)  | A map of a tmux option name to a value.                        |
 | `size`               | block        | An absolute resize. See below.                                 |
 | `adjust`             | block(s)     | A directional resize. A maximum of four blocks. See below.     |
 
 A `size` block must contain `x`, `y` or both. A value is a count of cells, for example `"80"`. A value can also be a percentage, for example `"60%"`. A count must be a positive integer.
 
-An `adjust` block must contain `direction` and `amount`. The `direction` value is `up`, `down`, `left` or `right`. The `amount` value has the same format as a `size` value. Glazier applies the `size` block first. Glazier then applies each `adjust` block in declaration order.
+An `adjust` block must contain `direction` and `amount`. The `direction` value is `up`, `down`, `left` or `right`. The `amount` value is 1 or more cells. It cannot be a percentage. Glazier applies the `size` block first. Glazier then applies each `adjust` block in declaration order.
 
 ### 1.4 Command execution
 
