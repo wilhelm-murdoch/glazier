@@ -92,6 +92,40 @@ func TestCommandLogsAtDebugLevel(t *testing.T) {
 	assert.Contains(t, logs.String(), "true -u lsw")
 }
 
+func TestRedactSecrets(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want []string
+	}{
+		{"an env value", []string{"setenv", "-t", "$1", "TOKEN", "hunter2"}, []string{"setenv", "-t", "$1", "TOKEN", redacted}},
+		{"the long command name", []string{"set-environment", "-g", "TOKEN", "hunter2"}, []string{"set-environment", "-g", "TOKEN", redacted}},
+		{"a value that looks like a flag", []string{"setenv", "-t", "$1", "OPT", "-t"}, []string{"setenv", "-t", "$1", "OPT", redacted}},
+		{"after the socket flags", []string{"-L", "s", "setenv", "K", "v"}, []string{"-L", "s", "setenv", "K", redacted}},
+		{"an unset has no value", []string{"setenv", "-u", "-t", "$1", "TOKEN"}, []string{"setenv", "-u", "-t", "$1", "TOKEN"}},
+		{"another command", []string{"set-option", "-t", "$1", "status", "off"}, []string{"set-option", "-t", "$1", "status", "off"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, redactSecrets(tc.args))
+		})
+	}
+}
+
+func TestCommandRedactsEnvValues(t *testing.T) {
+	var logs bytes.Buffer
+	logger := slog.New(slog.NewTextHandler(&logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	cmd := NewCommand(Client{tmuxPath: "false", logger: logger}, "setenv", "-t", "$1", "TOKEN", "hunter2")
+	assert.Equal(t, "hunter2", cmd.args[len(cmd.args)-1], "tmux must still get the value")
+
+	err := cmd.Exec()
+	assert.Error(t, err)
+	assert.NotContains(t, err.Error(), "hunter2")
+	assert.Contains(t, err.Error(), "TOKEN "+redacted)
+	assert.NotContains(t, logs.String(), "hunter2")
+	assert.Contains(t, cmd.String(), "TOKEN "+redacted)
+}
+
 func TestCommandContext(t *testing.T) {
 	t.Run("a cancelled context stops the command with SIGTERM", func(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())

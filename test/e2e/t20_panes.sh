@@ -610,6 +610,45 @@ EOF
 }
 
 t_envs() {
+  begin envs_debug_redacted
+  fx <<'EOF'
+session {
+  name = "er"
+  envs = {
+    TOKEN = "hunter2"
+  }
+  window {
+    name = "w"
+    pane {}
+  }
+}
+EOF
+  gz up --detached --debug --socket-name "$SOCK"; rc0 "up --debug with envs"
+  nomatch "--debug does not print an env value" 'hunter2' "$OUT$ERR"
+  match "--debug shows the env key with the value redacted" 'TOKEN <redacted>' "$OUT$ERR"
+  eq "the session still gets the env value" "TOKEN=hunter2" "$(tm showenv -t er TOKEN)"
+  end
+
+  begin cmds_text_at_debug
+  fx <<'EOF'
+session {
+  name = "ct"
+  window {
+    name = "w"
+    pane {
+      commands = ["true hunter3"]
+    }
+  }
+}
+EOF
+  up; rc0 "up with a command"
+  nomatch "the default log level does not print command text" 'hunter3' "$OUT$ERR"
+  match "the default log level counts the commands" 'running pane commands.*count=1' "$OUT$ERR"
+  tm kill-server
+  gz up --detached --debug --socket-name "$SOCK"; rc0 "up --debug with a command"
+  match "--debug prints command text" 'hunter3' "$OUT$ERR"
+  end
+
   begin envs_session
   fx <<'EOF'
 session {

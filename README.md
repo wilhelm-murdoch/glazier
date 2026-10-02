@@ -163,13 +163,15 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--detached` | Create the session and do not attach to it. |
 | `--clear` | First kill an existing session that has the same name. Glazier refuses when it runs inside that session, because the kill would also end Glazier. |
 | `--keep-on-failure` | Keep the partly built session when `up` fails, so that you can examine it. Run `glaze up --clear` to build it again. |
-| `--debug` | Print each command that Glazier sends to the tmux socket. |
+| `--debug` | Print each command that Glazier sends to the tmux socket, and the text of each pane and session command. Env values show as `<redacted>`. |
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |
 | `--socket-name` | The name of a custom tmux socket. |
 | `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
+
+A command or a hook can contain a secret from a variable. At the default log level, `up` shows only how many commands it runs in each pane. With `--debug`, it also shows the text of each command and hook, so check `--debug` output before you share it. Glazier never shows an env value: the log and the error messages show `<redacted>`. tmux gets each env value as a command argument, so another user on the same host can see it with `ps` for a moment.
 
 Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead.
 

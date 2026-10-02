@@ -406,8 +406,10 @@ func (a *ActionUp) runCommands(kind, name, target string, commands []string) err
 		a.runner = runner
 	}
 
+	// A command can hold a secret from a variable, so only --debug shows its text.
+	a.Logger.Info(fmt.Sprintf("running %s commands", kind), "count", len(commands), "name", name)
 	for _, cmd := range commands {
-		a.Logger.Info(fmt.Sprintf("setting %s command", kind), "cmd", cmd, "name", name)
+		a.Logger.Debug(fmt.Sprintf("%s command", kind), "cmd", cmd, "name", name)
 	}
 
 	err := a.runner.Run(target, commands)
