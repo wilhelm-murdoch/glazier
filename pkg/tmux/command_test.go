@@ -98,10 +98,10 @@ func TestRedactSecrets(t *testing.T) {
 		args []string
 		want []string
 	}{
-		{"an env value", []string{"setenv", "-t", "$1", "TOKEN", "hunter2"}, []string{"setenv", "-t", "$1", "TOKEN", redacted}},
-		{"the long command name", []string{"set-environment", "-g", "TOKEN", "hunter2"}, []string{"set-environment", "-g", "TOKEN", redacted}},
-		{"a value that looks like a flag", []string{"setenv", "-t", "$1", "OPT", "-t"}, []string{"setenv", "-t", "$1", "OPT", redacted}},
-		{"after the socket flags", []string{"-L", "s", "setenv", "K", "v"}, []string{"-L", "s", "setenv", "K", redacted}},
+		{"an env value", []string{"setenv", "-t", "$1", "TOKEN", "hunter2"}, []string{"setenv", "-t", "$1", "TOKEN", redactedValue}},
+		{"the long command name", []string{"set-environment", "-g", "TOKEN", "hunter2"}, []string{"set-environment", "-g", "TOKEN", redactedValue}},
+		{"a value that looks like a flag", []string{"setenv", "-t", "$1", "OPT", "-t"}, []string{"setenv", "-t", "$1", "OPT", redactedValue}},
+		{"after the socket flags", []string{"-L", "s", "setenv", "K", "v"}, []string{"-L", "s", "setenv", "K", redactedValue}},
 		{"an unset has no value", []string{"setenv", "-u", "-t", "$1", "TOKEN"}, []string{"setenv", "-u", "-t", "$1", "TOKEN"}},
 		{"another command", []string{"set-option", "-t", "$1", "status", "off"}, []string{"set-option", "-t", "$1", "status", "off"}},
 	} {
@@ -121,9 +121,9 @@ func TestCommandRedactsEnvValues(t *testing.T) {
 	err := cmd.Exec()
 	assert.Error(t, err)
 	assert.NotContains(t, err.Error(), "hunter2")
-	assert.Contains(t, err.Error(), "TOKEN "+redacted)
+	assert.Contains(t, err.Error(), "TOKEN "+redactedValue)
 	assert.NotContains(t, logs.String(), "hunter2")
-	assert.Contains(t, cmd.String(), "TOKEN "+redacted)
+	assert.Contains(t, cmd.String(), "TOKEN "+redactedValue)
 }
 
 func TestCommandContext(t *testing.T) {

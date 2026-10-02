@@ -11,14 +11,8 @@ import (
 	"time"
 )
 
-// Commander is an interface that represents what kind of actions a Command, and
-// other implemenations, can perform.
-type Commander interface {
-	fmt.Stringer
-	Exec() error
-	ExecWithOutput() (string, error)
-	ExecWithInput(input string) error
-}
+// redactedValue replaces a secret value in logs and errors.
+const redactedValue = "<redacted>"
 
 var (
 	// Ensure Command properly implements the Commander interface.
@@ -29,7 +23,19 @@ var (
 	newCommand = func(client Client, args ...string) Commander {
 		return NewCommand(client, args...)
 	}
+
+	// cancelGracePeriod is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
+	cancelGracePeriod = 5 * time.Second
 )
+
+// Commander is an interface that represents what kind of actions a Command, and
+// other implemenations, can perform.
+type Commander interface {
+	fmt.Stringer
+	Exec() error
+	ExecWithOutput() (string, error)
+	ExecWithInput(input string) error
+}
 
 // OverrideCommandFactory replaces the factory for tmux commands and returns a function that restores it.
 // It lets tests in other packages fake tmux. Production code must not call it.
@@ -77,13 +83,10 @@ func NewCommand(client Client, args ...string) *Command {
 
 	// A tmux client restores the terminal on SIGTERM, but not on the SIGKILL that a cancelled context sends by default.
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
-	cmd.WaitDelay = cancelGrace
+	cmd.WaitDelay = cancelGracePeriod
 
 	return &Command{args: args, shown: shown, cmd: cmd, logger: client.logger}
 }
-
-// redacted replaces a secret value in logs and errors.
-const redacted = "<redacted>"
 
 // redactSecrets returns a copy of args with the value of `setenv NAME VALUE` replaced, because an env value is often a secret.
 func redactSecrets(args []string) []string {
@@ -104,14 +107,11 @@ func redactSecrets(args []string) []string {
 	}
 
 	if len(operands) == 2 {
-		shown[operands[1]] = redacted
+		shown[operands[1]] = redactedValue
 	}
 
 	return shown
 }
-
-// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
-var cancelGrace = 5 * time.Second
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
 func subcommandOf(args []string) string {
