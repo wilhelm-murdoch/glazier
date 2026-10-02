@@ -58,3 +58,25 @@ func TestRandomFunction(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+func TestRandomRejectsAMapAndAnObject(t *testing.T) {
+	random := Functions()["random"]
+
+	for _, value := range []cty.Value{
+		cty.MapVal(map[string]cty.Value{"a": cty.StringVal("x")}),
+		cty.ObjectVal(map[string]cty.Value{"a": cty.StringVal("x")}),
+		cty.StringVal("x"),
+	} {
+		// Before, Index panicked on a map or an object, and the error held a Go stack dump.
+		_, err := random.Call([]cty.Value{value})
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "random requires a non-empty list")
+		assert.NotContains(t, err.Error(), "goroutine")
+	}
+}
+
+func TestRandomPicksFromASet(t *testing.T) {
+	got, err := Functions()["random"].Call([]cty.Value{cty.SetVal([]cty.Value{cty.StringVal("a"), cty.StringVal("b")})})
+	require.NoError(t, err)
+	assert.Contains(t, []string{"a", "b"}, got.AsString())
+}

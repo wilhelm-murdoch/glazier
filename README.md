@@ -273,6 +273,8 @@ $ glaze save --force                # replace an existing ./.glaze
 - `.glaze` in the current working directory
 - `$GLAZE_PATH/.glaze`
 
+`GLAZE_PATH` names the directory that holds `.glaze`, not the file. When a path names a directory where glaze expects a file, or the other way round, the error says so.
+
 > [!NOTE]
 > Glazier expands `~` and `~/` to your home directory in `--profile-path`, `$GLAZE_PATH` and `starting_directory`. It does not expand `~user`.
 
@@ -599,7 +601,7 @@ The functions are thin wrappers around the `go-cty` standard library, plus `rand
 - `trimsuffix`
 - `upper`
 
-The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns a random element of a list, with a new choice on each run. It pairs naturally with a comprehension (`random([for e in local.editors : e])`). Use it in a window name, a pane name or a command, not in the session `name`: `glaze down` computes the session name again, so it would look for a different session.
+The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns a random element of a list, with a new choice on each run. A map or an object is not a list, and `random` reports an error for it. It pairs naturally with a comprehension (`random([for e in local.editors : e])`). Use it in a window name, a pane name or a command, not in the session `name`: `glaze down` computes the session name again, so it would look for a different session.
 
 See [SPEC.md](SPEC.md) for the full profile reference: blocks, variables, `locals`, built-in namespaces and the expression language.
 

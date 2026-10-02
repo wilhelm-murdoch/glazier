@@ -177,3 +177,46 @@ func chdir(t *testing.T, dir string) {
 		_ = os.Chdir(prev)
 	})
 }
+
+func TestResolveProfilePathSaysWhatIsWrong(t *testing.T) {
+	t.Run("--profile-path is a directory", func(t *testing.T) {
+		_, err := ResolveProfilePath(t.TempDir())
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.ErrorContains(t, err, "is a directory; --profile-path must name a profile file")
+	})
+
+	t.Run(".glaze in the current directory is a directory", func(t *testing.T) {
+		cwd := t.TempDir()
+		assert.NoError(t, os.Mkdir(filepath.Join(cwd, ".glaze"), 0o700))
+		chdir(t, cwd)
+		t.Setenv("GLAZE_PATH", "")
+
+		_, err := ResolveProfilePath("")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.ErrorContains(t, err, "is a directory, not a profile")
+	})
+
+	t.Run("GLAZE_PATH names the profile file, not its directory", func(t *testing.T) {
+		dir := t.TempDir()
+		profile := filepath.Join(dir, ".glaze")
+		assert.NoError(t, os.WriteFile(profile, []byte("session {}"), 0o600))
+		chdir(t, t.TempDir())
+		t.Setenv("GLAZE_PATH", profile)
+
+		_, err := ResolveProfilePath("")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.ErrorContains(t, err, "GLAZE_PATH must be a directory")
+		assert.ErrorContains(t, err, "set GLAZE_PATH to `"+dir+"`")
+	})
+
+	t.Run(".glaze in GLAZE_PATH is a directory", func(t *testing.T) {
+		dir := t.TempDir()
+		assert.NoError(t, os.Mkdir(filepath.Join(dir, ".glaze"), 0o700))
+		chdir(t, t.TempDir())
+		t.Setenv("GLAZE_PATH", dir)
+
+		_, err := ResolveProfilePath("")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.ErrorContains(t, err, "is a directory, not a profile")
+	})
+}

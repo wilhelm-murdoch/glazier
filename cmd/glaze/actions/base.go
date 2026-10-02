@@ -31,9 +31,15 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 		return nil, err
 	}
 
-	parser, parserDiags := parser.New(profilePath)
+	src, parserDiags := parser.ReadProfile(profilePath)
 	if parserDiags.HasErrors() {
 		return nil, diagnostics.New(profilePath, nil).Report(parserDiags)
+	}
+
+	// A file with a syntax error has no parsed form, so the source alone lets the diagnostic show the line.
+	parser, parserDiags := parser.NewFromBytes(src, profilePath)
+	if parserDiags.HasErrors() {
+		return nil, diagnostics.New(profilePath, &hcl.File{Bytes: src}).Report(parserDiags)
 	}
 
 	return &ActionBase{

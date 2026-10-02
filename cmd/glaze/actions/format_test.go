@@ -66,6 +66,18 @@ func newFormatAt(t *testing.T, path string, flags map[string]string) (*ActionFor
 	return action, actErr
 }
 
+func TestNewActionBaseShowsTheSourceOfASyntaxError(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".glaze")
+	assert.NoError(t, os.WriteFile(path, []byte("session {\n  window { pane {} name = \"x\"\n  }\n}\n"), 0o600))
+
+	var err error
+	stderr := capture(t, &os.Stderr, func() { _, err = newFormatAt(t, path, nil) })
+
+	assert.ErrorIs(t, err, diagnostics.ErrHasDiagnostics)
+	assert.Contains(t, stderr, `window { pane {} name = "x"`)
+	assert.NotContains(t, stderr, "source code not available")
+}
+
 func TestActionFormatRun(t *testing.T) {
 	t.Run("leaves a formatted profile untouched", func(t *testing.T) {
 		action := buildFormat(t, validProfile, nil)
@@ -215,21 +227,28 @@ session {
 func captureStdout(t *testing.T, fn func()) string {
 	t.Helper()
 
+	return capture(t, &os.Stdout, fn)
+}
+
+// capture returns what fn writes to stream, which is &os.Stdout or &os.Stderr.
+func capture(t *testing.T, stream **os.File, fn func()) string {
+	t.Helper()
+
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatalf("could not create a pipe: %v", err)
 	}
 
-	previous := os.Stdout
-	os.Stdout = w
-	defer func() { os.Stdout = previous }()
+	previous := *stream
+	*stream = w
+	defer func() { *stream = previous }()
 
 	fn()
 	_ = w.Close()
 
 	out, err := io.ReadAll(r)
 	if err != nil {
-		t.Fatalf("could not read stdout: %v", err)
+		t.Fatalf("could not read the output: %v", err)
 	}
 
 	return string(out)
