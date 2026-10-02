@@ -32,6 +32,9 @@ type ActionUp struct {
 
 	// commandTimeout limits how long glaze waits for the commands of one pane. Zero waits with no limit.
 	commandTimeout time.Duration
+
+	// windowNames holds the name that glaze gave each window it created, so it can see a window that tmux renamed.
+	windowNames map[tmux.WindowId]string
 }
 
 // NewUp returns the up action, with the profile parsed and a tmux client.
@@ -142,6 +145,8 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		return err
 	}
 
+	a.warnRenamedWindows()
+
 	// Session commands run in the session's active pane, once all windows and panes exist.
 	if len(profile.Commands) > 0 {
 		pane, err := a.session.ActivePane()
@@ -155,6 +160,22 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 	}
 
 	return nil
+}
+
+// warnRenamedWindows warns for each window that tmux renamed after glaze created it, for example with a hook in tmux.conf.
+// glaze does not rename it back, because the user's tmux configuration may do it again.
+func (a *ActionUp) warnRenamedWindows() {
+	windows, err := a.tmux.Windows(a.session)
+	if err != nil {
+		a.Logger.Warn("could not check the window names", "error", err)
+		return
+	}
+
+	for _, window := range windows {
+		if want, ok := a.windowNames[window.Id]; ok && window.Name != want {
+			a.Logger.Warn("tmux renamed the window after glaze created it, for example with a hook in tmux.conf", "window", want, "name", window.Name)
+		}
+	}
 }
 
 // applySessionSettings applies the environment variables and hooks defined on
@@ -190,6 +211,11 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 		if err != nil {
 			return err
 		}
+
+		if a.windowNames == nil {
+			a.windowNames = map[tmux.WindowId]string{}
+		}
+		a.windowNames[wtmx.Id] = wtmx.Name
 
 		if err := a.applyWindowOptions(ws, wtmx); err != nil {
 			return err

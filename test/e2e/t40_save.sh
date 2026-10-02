@@ -168,8 +168,39 @@ EOF
 
   begin save_deleted_dir
   mkdir -p gonedir; tm new-session -d -s dd -c "$WD/gonedir"; rmdir gonedir
-  gz save --session dd --profile-path dd.glaze --socket-name "$SOCK"; info "save of pane whose cwd was deleted" "rc=$RC"
-  gz format --validate --profile-path dd.glaze; info "validate that saved profile" "rc=$RC err=[$ERR]"
+  gz save --session dd --profile-path dd.glaze --socket-name "$SOCK"; rc0 "save of a pane whose directory was deleted"
+  match "save warns about the deleted directory" 'no longer exists' "$ERR"
+  nomatch "save leaves the deleted directory out" 'gonedir' "$(cat dd.glaze)"
+  gz format --validate --profile-path dd.glaze; rc0 "the saved profile validates"
+  end
+
+  # tmux titles a new pane with the host name and names a window after its program; neither belongs in a profile.
+  begin save_default_names
+  tm new-session -d -s raw; tm neww -t =raw: -n two
+  local auto; auto=$(tm display -p -t =raw:^ '#{window_name}')
+  gz save --session raw --stdout --socket-name "$SOCK"; rc0 "save of a session with default names"
+  nomatch "save leaves out the host name" "\"$(tm display -p -t =raw: '#{host}')\"" "$OUT"
+  nomatch "save leaves out the automatic window name" "name += \"$auto\"" "$OUT"
+  match "save keeps a window name that someone chose" 'name += "two"' "$OUT"
+  end
+
+  begin up_renamed_window
+  printf "set-hook -g after-new-window 'rename-window renamed'\n" >"$HOME/.tmux.conf"
+  fx <<'EOF'
+session {
+  name = "rw"
+  window {
+    name = "first"
+    pane {}
+  }
+  window {
+    name = "second"
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up with a tmux.conf hook that renames windows"
+  match "up warns that tmux renamed a window" 'tmux renamed the window.*window=second.*name=renamed' "$ERR"
   end
 }
 

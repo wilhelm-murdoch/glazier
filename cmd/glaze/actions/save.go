@@ -144,7 +144,13 @@ func (a *ActionSave) resolveSession() (*tmux.Session, error) {
 func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error) {
 	captured := savedSession{
 		Name:              session.Name,
-		StartingDirectory: session.StartingDirectory,
+		StartingDirectory: a.existingDirectory(session.StartingDirectory, "session", session.Name),
+	}
+
+	// tmux titles a new pane with the host name, so that title says nothing about the pane.
+	host, err := session.Host()
+	if err != nil {
+		return captured, err
 	}
 
 	windows, err := a.tmux.Windows(session)
@@ -155,8 +161,19 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 	for _, window := range windows {
 		a.Logger.Info("capturing window", "name", window.Name)
 
+		// A window that tmux names after its program gets a different name on each run, so the profile leaves it out.
+		automatic, err := window.AutomaticName()
+		if err != nil {
+			return captured, err
+		}
+
+		name := window.Name
+		if automatic {
+			name = ""
+		}
+
 		sw := savedWindow{
-			Name: window.Name,
+			Name: name,
 
 			// tmux reports a layout only as a coordinate string, so save keeps the string as it is.
 			// `up` replays it with select-layout, and validation accepts a well-formed layout string.
@@ -171,9 +188,15 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 
 		for _, pane := range panes {
 			a.Logger.Info("capturing pane", "name", pane.Name)
+
+			name := pane.Name
+			if name == host {
+				name = ""
+			}
+
 			sw.Panes = append(sw.Panes, savedPane{
-				Name:              pane.Name,
-				StartingDirectory: pane.StartingDirectory,
+				Name:              name,
+				StartingDirectory: a.existingDirectory(pane.StartingDirectory, "pane", pane.Name),
 				Focus:             pane.IsActive, // The active pane is the one tmux would focus within the window.
 			})
 		}
@@ -182,6 +205,23 @@ func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error)
 	}
 
 	return captured, nil
+}
+
+// existingDirectory returns dir, or "" with a warning when dir no longer exists, because the profile would then fail validation.
+// The block without a directory uses the directory of its window or session.
+func (a *ActionSave) existingDirectory(dir, kind, name string) string {
+	if dir == "" {
+		return dir
+	}
+
+	// The directory comes from tmux, which reports where the shell of the pane is.
+	if info, err := os.Stat(dir); err == nil && info.IsDir() { //nolint:gosec // G703
+		return dir
+	}
+
+	a.Logger.Warn("the directory no longer exists, so the profile leaves it out", kind, name, "directory", dir)
+
+	return ""
 }
 
 // generateProfile renders the captured session as a formatted profile, with names, directories, focus and layout only.
@@ -201,7 +241,10 @@ func generateProfile(session savedSession) []byte {
 
 		windowBlock := sessionBody.AppendNewBlock("window", nil)
 		windowBody := windowBlock.Body()
-		windowBody.SetAttributeValue("name", cty.StringVal(window.Name))
+		if window.Name != "" {
+			windowBody.SetAttributeValue("name", cty.StringVal(window.Name))
+		}
+
 		if window.Layout != "" {
 			windowBody.SetAttributeValue("layout", cty.StringVal(window.Layout))
 		}
@@ -215,7 +258,10 @@ func generateProfile(session savedSession) []byte {
 
 			paneBlock := windowBody.AppendNewBlock("pane", nil)
 			paneBody := paneBlock.Body()
-			paneBody.SetAttributeValue("name", cty.StringVal(pane.Name))
+			if pane.Name != "" {
+				paneBody.SetAttributeValue("name", cty.StringVal(pane.Name))
+			}
+
 			if pane.StartingDirectory != "" {
 				paneBody.SetAttributeValue("starting_directory", cty.StringVal(pane.StartingDirectory))
 			}

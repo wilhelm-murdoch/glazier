@@ -154,3 +154,21 @@ func TestGenerateProfileWithoutLayoutValidates(t *testing.T) {
 	_, decodeDiags := p.Decode(spec.Session(""), parser.BuildEvalContext(map[string]cty.Value{}))
 	assert.False(t, decodeDiags.HasErrors())
 }
+
+func TestGenerateProfileLeavesOutEmptyNames(t *testing.T) {
+	captured := savedSession{
+		Name: "raw",
+		Windows: []savedWindow{
+			{Layout: "tiled", Panes: []savedPane{{}, {Name: "tail"}}},
+		},
+	}
+
+	output := string(generateProfile(captured))
+	assert.Equal(t, 2, strings.Count(output, "name"), "only the session and the named pane have a name:\n"+output)
+
+	p, diags := parser.NewFromBytes([]byte(output), "saved.glaze")
+	assert.False(t, diags.HasErrors(), diags.Error())
+
+	_, diags = p.Decode(spec.Session(""), parser.BuildEvalContext(map[string]cty.Value{}))
+	assert.False(t, diags.HasErrors(), diags.Error())
+}

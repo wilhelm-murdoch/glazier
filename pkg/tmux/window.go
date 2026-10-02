@@ -79,6 +79,17 @@ func (w *Window) Rename(name string) error {
 	return nil
 }
 
+// AutomaticName reports whether tmux names the window after the program that runs in it (automatic-rename).
+// A window that glaze or a user named has automatic-rename off.
+func (w Window) AutomaticName() (bool, error) {
+	value, err := w.Session.Client.output("display-message", "-p", "-t", w.Target(), "#{automatic-rename}")
+	if err != nil {
+		return false, err
+	}
+
+	return value == "1", nil
+}
+
 // Select makes the window the active window of its session.
 func (w Window) Select() error {
 	return w.Session.Client.run("selectw", "-t", w.Target())

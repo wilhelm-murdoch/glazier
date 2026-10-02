@@ -1,14 +1,19 @@
 package actions
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
@@ -155,6 +160,44 @@ func TestActionSaveRun(t *testing.T) {
 		assert.Contains(t, string(contents), `"demo"`)
 	})
 
+	t.Run("leaves out names that tmux chose and directories that no longer exist", func(t *testing.T) {
+		dir := t.TempDir()
+		gone := filepath.Join(dir, "gone")
+		save, rec := buildSave(t, map[string]string{"session": "raw", "stdout": "true"})
+
+		var logs bytes.Buffer
+		save.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;raw;" + dir})
+		rec.On("display-message", tmuxtest.Result{Output: "buildhost"}) // #{host}
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;zsh;tiled;1\n@2;2;logs;tiled;0"})
+		rec.On("display-message", tmuxtest.Result{Output: "1"}) // @1 has automatic-rename on
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;buildhost;1;" + gone})
+		rec.On("display-message", tmuxtest.Result{Output: "0"}) // @2 was named
+		rec.On("lsp", tmuxtest.Result{Output: "%2;1;tail;1;" + dir})
+
+		session, err := save.resolveSession()
+		require.NoError(t, err)
+
+		captured, err := save.captureSession(session)
+		require.NoError(t, err)
+
+		assert.Empty(t, captured.Windows[0].Name, "tmux named this window after its program")
+		assert.Empty(t, captured.Windows[0].Panes[0].Name, "the host name is the default title of a pane")
+		assert.Empty(t, captured.Windows[0].Panes[0].StartingDirectory, "the directory no longer exists")
+		assert.Equal(t, "logs", captured.Windows[1].Name)
+		assert.Equal(t, "tail", captured.Windows[1].Panes[0].Name)
+		assert.Equal(t, dir, captured.Windows[1].Panes[0].StartingDirectory)
+		assert.Contains(t, logs.String(), "the directory no longer exists")
+		assert.Contains(t, logs.String(), gone)
+
+		profile := string(generateProfile(captured))
+		assert.NotContains(t, profile, `"zsh"`)
+		assert.NotContains(t, profile, `"buildhost"`)
+		assert.NotContains(t, profile, gone)
+	})
+
 	t.Run("does not mark inactive windows or panes as focused", func(t *testing.T) {
 		save, rec := buildSave(t, map[string]string{"stdout": "true"})
 		insidePane(t)
@@ -205,8 +248,13 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;p;1;/srv"})
 
 		assert.NoError(t, save.Run(context.Background()))
-		// --session bypasses the current-session lookup.
-		assert.False(t, rec.Called("display-message"))
+		// --session bypasses the current-session lookup, which reads the socket path and the session of the pane.
+		for _, call := range rec.Calls {
+			if call[0] == "display-message" {
+				assert.NotContains(t, strings.Join(call, " "), "socket_path")
+				assert.NotContains(t, strings.Join(call, " "), "session_id")
+			}
+		}
 	})
 
 	t.Run("errors when the target session cannot be found", func(t *testing.T) {

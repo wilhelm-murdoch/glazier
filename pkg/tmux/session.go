@@ -65,6 +65,11 @@ func (s Session) SetOption(option, value string) error {
 	return s.Client.setScoped("set-option", "", s.Target(), option, value)
 }
 
+// Host returns the host name that tmux reports, which is also the title that tmux gives a new pane.
+func (s Session) Host() (string, error) {
+	return s.Client.output("display-message", "-p", "-t", s.Target(), "#{host}")
+}
+
 // ActivePane returns the id of the active pane of the session.
 func (s Session) ActivePane() (string, error) {
 	pane, err := s.Client.output("display-message", "-p", "-t", s.Target(), "#{pane_id}")

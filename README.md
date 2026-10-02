@@ -176,6 +176,8 @@ $ glaze up --var district=watson --var fixer=wakako
 
 A command or a hook can contain a secret from a variable. At the default log level, `up` shows only how many commands it runs in each pane. With `--debug`, it also shows the text of each command and hook, so check `--debug` output before you share it. Glazier never shows an env value: the log and the error messages show `<redacted>`. tmux gets each env value as a command argument, so another user on the same host can see it with `ps` for a moment.
 
+A hook or an option in your `tmux.conf` can rename a window after Glazier creates it, for example `set-hook -g after-new-window 'rename-window x'`. `up` then shows a warning with the declared name and the new name. Glazier does not rename the window back, because your configuration can rename it again.
+
 Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead.
 
 ### `glaze down`
@@ -262,6 +264,8 @@ $ glaze save --force                # replace an existing ./.glaze
 > - An exported **command** runs again on the next `glaze up`. A **hook** is a command bound to an event, thus the same risk applies. A destructive command from a forgotten pane can delete your filesystem or overload a database on replay.
 > - Glazier can read **environment variables** only as the full session environment. That environment includes secrets from your shell, for example tokens and keys. An export writes those secrets into a file that you could commit.
 > - **Options** read back as effective state. They mix your `tmux.conf` and your manual changes with the values that glaze set. To apply that state again on `up` gives unwanted results.
+>
+> `save` leaves out what tmux set by default and what no longer exists, so the profile stays valid and portable. A pane title that is the host name is tmux's default title, and a window that tmux names after its program (`automatic-rename`) gets a different name on each run, so `save` writes neither. A directory that no longer exists is left out with a warning, and the pane then uses the directory of its session.
 >
 > Treat a saved profile as a scaffold. It recreates your layout. You add the commands, the environment variables and the options by hand. A saved raw layout string is exact but not easy to read. You can replace it with a named preset, for example `tiled` or `main-vertical`, in a profile that you edit by hand.
 
