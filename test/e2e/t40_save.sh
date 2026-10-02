@@ -225,8 +225,8 @@ session {
 }
 EOF
     TO=10 up
-    # glaze replaces the characters that tmux rewrites in a session name with -.
-    local want="${n//[.:\\\$]/-}" tmuxname; tmuxname=$(tm ls -F '#S')
+    # glaze replaces the characters that tmux rewrites in a session name, and each control character, with -.
+    local want="${n//[.:\\\$[:cntrl:]]/-}" tmuxname; tmuxname=$(tm ls -F '#S')
     if [[ "$want" != "$n" ]]; then match "warns about the renamed session [${n:0:20}]" "replacing them with hyphens" "$OUT$ERR"; fi
     if [[ $RC -eq 0 && "$tmuxname" == "$want" ]]; then ok "session name [${n:0:20}] works"
     else ko "session name [${n:0:20}] works" "rc=$RC tmux has [${tmuxname:0:40}] windows=[$(tm lsw -a -F '#W' | paste -sd, -)] err=[${ERR:0:300}]"; fi
