@@ -80,7 +80,7 @@ func TestBuildEvalContext(t *testing.T) {
 	expected := []string{
 		"chomp", "coalesce", "concat", "csvdecode", "format", "join",
 		"jsondecode", "len", "lower", "random", "regexreplace", "replace",
-		"reverse", "split", "strlen", "substr", "title", "trim",
+		"reverse", "reverselist", "split", "strlen", "substr", "title", "trim",
 		"trimprefix", "trimspace", "trimsuffix", "upper",
 	}
 	assert.Len(t, ctx.Functions, len(expected))

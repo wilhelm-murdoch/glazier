@@ -99,7 +99,6 @@ $ make build
 All subcommands have their own `--help` output.
 ```console
 $ glaze --help
-$ go run cmd/glaze/main.go --help
 NAME:
    glaze - easily manage tmux sessions, windows and panes
 
@@ -110,7 +109,7 @@ VERSION:
    dev
 
 AUTHOR:
-   {Wilhelm Murdoch wilhelm@devilmayco.de}
+   Wilhelm Murdoch <wilhelm@devilmayco.de>
 
 COMMANDS:
    up       apply the specified glaze profile
@@ -299,7 +298,7 @@ session {
   }
 
   hooks = {
-    "session-created" = "run-shell 'echo jacked-in'"
+    "client-attached" = "run-shell 'echo jacked-in'"
   }
 
   options = {
@@ -317,7 +316,7 @@ session {
 | `name` | string | The session name. The default value is `default`. The name must not be empty. A number or a bool becomes a string. The name must not use `random()`, directly or through a local, because `glaze down` computes the name again. |
 | `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. |
 | `envs` | map(string) | Environment variables for the session. |
-| `hooks` | map(string) | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows, for example `session-created` or `after-new-window`. An index such as `session-created[1]` is allowed. |
+| `hooks` | map(string) | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows, for example `session-created` or `after-new-window`. An index such as `session-created[1]` is allowed. Glazier sets the hooks after it creates the session, so a `session-created` hook fires only for sessions that tmux creates later. |
 | `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
 | `commands` | list(string) | Commands that run in the active pane after Glazier creates all windows and panes. See [Commands](#commands). |
 | `window` | block(s) | One or more windows. At least one window is required. |
@@ -578,7 +577,7 @@ session {
 ```
 
 - `base_index` is a number. Glazier rejects `--var base_index=two` before the session starts. The message says that "two" is not a number.
-- `verbose` is a boolean. `--var verbose=true` lands as `--verbose=true`. Glazier refuses each value that is not `true` or `false`.
+- `verbose` is a boolean. `--var verbose=true` lands as `--verbose=true`. A `--var` value is text, so Glazier converts it: `true` and `1` become true, and `false` and `0` become false. Glazier refuses each other value, for example `TRUE` or `yes`.
 
 You declare the inputs. Glazier makes sure that the profile sees only values of the correct type.
 
@@ -597,6 +596,7 @@ The functions are thin wrappers around the `go-cty` standard library, plus `rand
 - `regexreplace`
 - `replace`
 - `reverse`
+- `reverselist`
 - `split`
 - `strlen`
 - `substr`
@@ -607,7 +607,7 @@ The functions are thin wrappers around the `go-cty` standard library, plus `rand
 - `trimsuffix`
 - `upper`
 
-The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns a random element of a list, with a new choice on each run. A map or an object is not a list, and `random` reports an error for it. It pairs naturally with a comprehension (`random([for e in local.editors : e])`). Use it in a window name, a pane name or a command, not in the session `name`: `glaze down` computes the session name again, so it would look for a different session.
+The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `reverse` function reverses the characters of a string. The `reverselist` function reverses the order of a list, for example `reverselist(local.editors)`. The `random(list)` function returns a random element of a list, with a new choice on each run. A map or an object is not a list, and `random` reports an error for it. It pairs naturally with a comprehension (`random([for e in local.editors : e])`). Use it in a window name, a pane name or a command, not in the session `name`: `glaze down` computes the session name again, so it would look for a different session.
 
 See [SPEC.md](SPEC.md) for the full profile reference: blocks, variables, `locals`, built-in namespaces and the expression language.
 

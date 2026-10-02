@@ -23,7 +23,7 @@ session {
     ICE_TARGET = "arasaka-mainframe"
   }
 
-  hooks   = { "session-created" = "run-shell 'echo jacked-in'" }
+  hooks   = { "client-attached" = "run-shell 'echo jacked-in'" }
   options = { "base-index" = "1" }
 
   window {
@@ -190,6 +190,7 @@ The functions are thin wrappers around the [go-cty](https://github.com/zclconf/g
 - `regexreplace`
 - `replace`
 - `reverse`
+- `reverselist`
 - `split`
 - `strlen`
 - `substr`
@@ -200,7 +201,7 @@ The functions are thin wrappers around the [go-cty](https://github.com/zclconf/g
 - `trimsuffix`
 - `upper`
 
-The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `random(list)` function returns one random element of a list as a string. The result changes between runs. An empty list causes an error. The function pairs naturally with a comprehension:
+The `len` function counts the elements of a collection. The `strlen` function counts the characters of a string. The `reverse` function reverses the characters of a string. The `reverselist` function reverses the order of a list, for example `reverselist(local.editors)`. The `random(list)` function returns one random element of a list as a string. The result changes between runs. An empty list causes an error. The function pairs naturally with a comprehension:
 
 ```hcl
 locals {

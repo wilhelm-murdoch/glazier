@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/mail"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -186,9 +185,8 @@ func newApp() *cli.Command {
 		Name:    "glaze",
 		Usage:   "easily manage tmux sessions, windows and panes",
 		Version: Version,
-		Authors: []any{
-			mail.Address{Name: "Wilhelm Murdoch", Address: "wilhelm@devilmayco.de"},
-		},
+		// A plain string, because the help template prints an author with %v, which shows a struct field by field.
+		Authors:   []any{"Wilhelm Murdoch <wilhelm@devilmayco.de>"},
 		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
 		// glaze picks the exit code itself, so the CLI library must not exit the process.
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},

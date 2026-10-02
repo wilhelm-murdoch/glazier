@@ -63,6 +63,7 @@ t_save() {
   save_rich; up; rc0 "up rich profile"; sleep 0.3
   local s1; s1=$(snap sv)
   gz save --session sv --profile-path saved.glaze --socket-name "$SOCK"; rc0 "save to file"
+  nomatch "save shows no EXPERIMENTAL warning" 'EXPERIMENTAL' "$ERR"
   cp saved.glaze "$OUT_DIR/logs/saved_roundtrip.glaze"
   gz format --validate --profile-path saved.glaze; rc0 "saved profile validates"
   down; up --profile-path saved.glaze; rc0 "up from saved profile"; sleep 0.3
