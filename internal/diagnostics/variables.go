@@ -2,6 +2,7 @@ package diagnostics
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/hashicorp/hcl/v2"
 )
@@ -85,6 +86,21 @@ func RequiredVariable(name string, subject hcl.Range) *hcl.Diagnostic {
 		Severity: hcl.DiagError,
 		Summary:  "Required variable not set",
 		Detail:   fmt.Sprintf("Variable %q declares no default, so a value must be supplied with --var %s=... or via --var-file.", name, name),
+		Subject:  &subject,
+	}
+}
+
+// LocalCycle flags locals that refer to each other, so that none of them can have a value.
+func LocalCycle(names []string, subject hcl.Range) *hcl.Diagnostic {
+	quoted := make([]string, len(names))
+	for i, name := range names {
+		quoted[i] = "local." + name
+	}
+
+	return &hcl.Diagnostic{
+		Severity: hcl.DiagError,
+		Summary:  "Circular reference between locals",
+		Detail:   fmt.Sprintf("These locals refer to each other, so none of them can have a value: %s.", strings.Join(quoted, ", ")),
 		Subject:  &subject,
 	}
 }

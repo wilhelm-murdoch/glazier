@@ -69,6 +69,10 @@ func ResolveProfilePath(profilePath string) (string, error) {
 			return profilePath, fmt.Errorf("%w: %w", ErrProfileNotFound, err)
 		}
 
+		if isDir(expanded) {
+			return profilePath, fmt.Errorf("%w: `%s` is a directory; --profile-path must name a profile file", ErrProfileNotFound, profilePath)
+		}
+
 		if !FileExists(expanded) {
 			return profilePath, fmt.Errorf("%w: `%s` does not exist", ErrProfileNotFound, profilePath)
 		}
@@ -81,22 +85,47 @@ func ResolveProfilePath(profilePath string) (string, error) {
 		return profilePath, fmt.Errorf("could not read current working directory: %w", err)
 	}
 
-	profilePath = filepath.Join(cwd, ".glaze")
-	if glazePath := os.Getenv("GLAZE_PATH"); !FileExists(profilePath) && glazePath != "" {
+	local := filepath.Join(cwd, ".glaze")
+	if FileExists(local) {
+		return local, nil
+	}
+
+	if isDir(local) {
+		return local, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, local)
+	}
+
+	if glazePath := os.Getenv("GLAZE_PATH"); glazePath != "" {
 		// A GLAZE_PATH that glaze cannot expand stays as it is, so the search below fails with the usual message.
 		if expanded, err := ExpandPath(glazePath); err == nil {
 			glazePath = expanded
 		}
 
-		profilePath = filepath.Join(glazePath, ".glaze")
+		// GLAZE_PATH names the directory that holds .glaze, so a path to the file itself is a common mistake.
+		if FileExists(glazePath) {
+			return glazePath, fmt.Errorf("%w: GLAZE_PATH must be a directory, but `%s` is a file; set GLAZE_PATH to `%s`",
+				ErrProfileNotFound, glazePath, filepath.Dir(glazePath))
+		}
+
+		profile := filepath.Join(glazePath, ".glaze")
+		if FileExists(profile) {
+			return profile, nil
+		}
+
+		if isDir(profile) {
+			return profile, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, profile)
+		}
 	}
 
-	if !FileExists(profilePath) {
-		return profilePath, fmt.Errorf(
-			"%w:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
-			ErrProfileNotFound,
-		)
-	}
+	return local, fmt.Errorf(
+		"%w:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
+		ErrProfileNotFound,
+	)
+}
 
-	return profilePath, nil
+// isDir reports whether path, after symlinks, is a directory.
+func isDir(path string) bool {
+	// The path is the user's own --profile-path, GLAZE_PATH or current directory.
+	info, err := os.Stat(path) //nolint:gosec // G703
+
+	return err == nil && info.IsDir()
 }

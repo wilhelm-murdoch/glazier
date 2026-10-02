@@ -48,14 +48,91 @@ func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[
 	}
 
 	// What is left cannot resolve, so report the errors of each attribute, unless the pass is lenient.
+	// A local in a cycle, or one that depends on a cycle, gets the cycle error in place of "Unsupported attribute".
 	if requireAll {
+		cycles, blocked := localCycles(unresolved)
+		for _, cycle := range cycles {
+			diags = diags.Append(diagnostics.LocalCycle(cycle, unresolved[cycle[0]].Range))
+		}
+
 		for _, name := range slices.Sorted(maps.Keys(unresolved)) {
+			if blocked[name] {
+				continue
+			}
+
 			_, valueDiags := unresolved[name].Expr.Value(evalContext())
 			diags = diags.Extend(valueDiags)
 		}
 	}
 
 	return resolved, diags
+}
+
+// localCycles returns each group of unresolved locals that refer to each other, sorted, and the set of locals
+// that are in a group or depend on one. A local is in a cycle when it can reach itself through local references.
+func localCycles(unresolved map[string]*hcl.Attribute) ([][]string, map[string]bool) {
+	refs := map[string][]string{}
+	for name, attr := range unresolved {
+		for _, traversal := range attr.Expr.Variables() {
+			if step, ok := attrStep(traversal, "local"); ok {
+				if _, open := unresolved[step]; open {
+					refs[name] = append(refs[name], step)
+				}
+			}
+		}
+	}
+
+	reaches := func(from, to string) bool {
+		seen := map[string]bool{}
+		stack := slices.Clone(refs[from])
+		for len(stack) > 0 {
+			next := stack[len(stack)-1]
+			stack = stack[:len(stack)-1]
+			if next == to {
+				return true
+			}
+			if !seen[next] {
+				seen[next] = true
+				stack = append(stack, refs[next]...)
+			}
+		}
+
+		return false
+	}
+
+	var cycles [][]string
+	inCycle := map[string]bool{}
+	for _, name := range slices.Sorted(maps.Keys(unresolved)) {
+		if inCycle[name] || !reaches(name, name) {
+			continue
+		}
+
+		var cycle []string
+		for _, other := range slices.Sorted(maps.Keys(unresolved)) {
+			if other == name || (reaches(name, other) && reaches(other, name)) {
+				cycle = append(cycle, other)
+				inCycle[other] = true
+			}
+		}
+		cycles = append(cycles, cycle)
+	}
+
+	blocked := map[string]bool{}
+	for name := range unresolved {
+		if inCycle[name] {
+			blocked[name] = true
+			continue
+		}
+
+		for member := range inCycle {
+			if reaches(name, member) {
+				blocked[name] = true
+				break
+			}
+		}
+	}
+
+	return cycles, blocked
 }
 
 // localAttributes returns every attribute of every `locals` block by name, and reports a name that two blocks declare.

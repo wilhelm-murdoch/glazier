@@ -20,9 +20,11 @@ var randomFunc = function.New(&function.Spec{
 	}},
 	Type: function.StaticReturnType(cty.String),
 	Impl: func(args []cty.Value, _ cty.Type) (cty.Value, error) {
+		// A map or an object can iterate too, but it is not a list.
 		list := args[0]
-		if list.IsNull() || !list.CanIterateElements() {
-			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
+		ty := list.Type()
+		if list.IsNull() || !list.IsKnown() || (!ty.IsListType() && !ty.IsTupleType() && !ty.IsSetType()) {
+			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list. The value has the type %s", ty.FriendlyName())
 		}
 
 		length := list.LengthInt()
@@ -30,9 +32,14 @@ var randomFunc = function.New(&function.Spec{
 			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
 		}
 
-		// The choice is cosmetic (picking a session name flourish), not a
-		// security decision, so math/rand/v2 is the right generator.
-		choice := list.Index(cty.NumberIntVal(int64(rand.IntN(length)))) //nolint:gosec // G404
+		// The choice is cosmetic, for example a window name, not a security decision, so math/rand/v2 is the right generator.
+		// A set has no index, so walk to the chosen element.
+		var choice cty.Value
+		it := list.ElementIterator()
+		for range rand.IntN(length) + 1 { //nolint:gosec // G404
+			it.Next()
+		}
+		_, choice = it.Element()
 
 		result, err := convert.Convert(choice, cty.String)
 		if err != nil {

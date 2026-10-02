@@ -27,6 +27,16 @@ type Parser struct {
 
 // New parses the profile at path.
 func New(path string) (*Parser, hcl.Diagnostics) {
+	src, diags := ReadProfile(path)
+	if diags.HasErrors() {
+		return nil, diags
+	}
+
+	return NewFromBytes(src, path)
+}
+
+// ReadProfile reads the profile at path once, so a caller can keep the source to show it in a diagnostic.
+func ReadProfile(path string) ([]byte, hcl.Diagnostics) {
 	// The path is the user's own profile, found by ResolveProfilePath.
 	src, err := os.ReadFile(path) //nolint:gosec // G304
 	if err != nil {
@@ -37,7 +47,7 @@ func New(path string) (*Parser, hcl.Diagnostics) {
 		}}
 	}
 
-	return NewFromBytes(src, path)
+	return src, nil
 }
 
 // NewFromBytes parses a profile in memory. The filename only labels the diagnostics.

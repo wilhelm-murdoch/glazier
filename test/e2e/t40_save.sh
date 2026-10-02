@@ -448,7 +448,6 @@ t_scale() {
 }
 
 t_malformed() {
-  # A chain of locals that each double the one before; 22 steps is 32 MiB, small enough for a build without the limit.
   begin null_element
   fx <<'EOF'
 session {
@@ -516,6 +515,73 @@ EOF
   match "raw layout diagnostic gives both counts" 'describes 2 panes, but the window declares 3' "$ERR"
   end
 
+  begin diag_syntax_snippet
+  printf 'session {\n  window { pane {} name = "x"\n  }\n}\n' >.glaze
+  gz format --validate; rcnz "syntax error rejected"
+  nomatch "syntax error shows the source" 'source code not available' "$ERR"
+  match "syntax error quotes the line" 'window \{ pane \{\} name = "x"' "$ERR"
+  end
+
+  begin diag_glaze_path_file
+  mkdir -p gp empty; simple gpf gp/.glaze; cd empty
+  GLAZE_PATH="$WD/gp/.glaze" gz format --validate; rcnz "GLAZE_PATH that names a file rejected"
+  match "GLAZE_PATH hint" 'GLAZE_PATH must be a directory' "$ERR"
+  cd "$WD"; mkdir -p dotdir/.glaze; cd dotdir; gz format --validate; rcnz ".glaze directory rejected"
+  match ".glaze directory hint" 'is a directory, not a profile' "$ERR"
+  end
+
+  begin diag_down_required_var
+  fx <<'EOF'
+variable "region" {
+  type = string
+}
+session {
+  name = "svc-${var.region}"
+  window {
+    pane {}
+  }
+}
+EOF
+  down; rcnz "down without a required variable"
+  match "down names the required variable" 'Required variable not set' "$ERR"
+  nomatch "down does not say Unsupported attribute" 'Unsupported attribute' "$ERR"
+  end
+
+  begin diag_locals_cycle
+  fx <<'EOF'
+locals {
+  a = local.b
+  b = local.c
+  c = local.a
+}
+session {
+  name = "lc"
+  window {
+    pane {}
+  }
+}
+EOF
+  gz format --validate; rcnz "locals cycle rejected"
+  match "locals cycle reported as a cycle" 'Circular reference between locals' "$ERR"
+  nomatch "locals cycle has no Unsupported attribute" 'Unsupported attribute' "$ERR"
+  end
+
+  begin diag_random_map
+  fx <<'EOF'
+session {
+  name = "rm"
+  window {
+    name = random({ a = "x" })
+    pane {}
+  }
+}
+EOF
+  gz format --validate; rcnz "random() of a map rejected"
+  match "random() of a map says it needs a list" 'random requires a non-empty list' "$ERR"
+  nomatch "random() of a map shows no stack dump" 'goroutine' "$ERR"
+  end
+
+  # A chain of locals that each double the one before; 22 steps is 32 MiB, small enough for a build without the limit.
   begin limits_locals
   { echo 'locals {'; echo '  a0 = "xxxxxxxx"'; for i in $(seq 1 22); do echo "  a$i = \"\${local.a$((i - 1))}\${local.a$((i - 1))}\""; done; echo '}'; } >.glaze
   printf 'session {\n  name = "lb"\n  window {\n    pane {}\n  }\n}\n' >>.glaze
