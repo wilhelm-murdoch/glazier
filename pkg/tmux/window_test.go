@@ -233,3 +233,24 @@ func TestWindowSetOption(t *testing.T) {
 		assert.Error(t, window.SetOption("automatic-rename", "off"))
 	})
 }
+
+func TestWindowAutomaticName(t *testing.T) {
+	for output, want := range map[string]bool{"1": true, "0": false} {
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: output})
+
+		window := testWindow(testSession(testClient()))
+		automatic, err := window.AutomaticName()
+		assert.NoError(t, err)
+		assert.Equal(t, want, automatic, output)
+		assert.Subset(t, rec.ArgsFor("display-message"), []string{"-t", window.Target(), "#{automatic-rename}"})
+	}
+
+	t.Run("returns the error of tmux", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Err: errors.New("boom")})
+
+		_, err := testWindow(testSession(testClient())).AutomaticName()
+		assert.Error(t, err)
+	})
+}

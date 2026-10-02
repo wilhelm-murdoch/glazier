@@ -550,3 +550,39 @@ func TestActionUpLogsCommandTextOnlyAtDebug(t *testing.T) {
 		})
 	}
 }
+
+func TestActionUpWarnsWhenTmuxRenamesAWindow(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	// generateWindows records the name that glaze gave the window.
+	rec.On("neww", tmuxtest.Result{Output: "@1;1;editor;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+	assert.NoError(t, up.generateWindows([]*decoders.Window{windowWithPane("editor", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "a"}})}, nil))
+	assert.Equal(t, "editor", up.windowNames[1])
+
+	// A tmux.conf hook renamed @1, and a window that glaze did not create (@9) is left alone.
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;x;tiled;1\n@9;2;other;tiled;0"})
+	up.warnRenamedWindows()
+
+	assert.Contains(t, logs.String(), "tmux renamed the window")
+	assert.Contains(t, logs.String(), "window=editor")
+	assert.Contains(t, logs.String(), "name=x")
+	assert.NotContains(t, logs.String(), "other")
+}
+
+func TestActionUpDoesNotWarnWhenTheNamesMatch(t *testing.T) {
+	up, rec := newTestUp(t)
+
+	var logs bytes.Buffer
+	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+	up.windowNames = map[tmux.WindowId]string{1: "editor"}
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;editor;tiled;1"})
+	up.warnRenamedWindows()
+
+	assert.NotContains(t, logs.String(), "renamed")
+}

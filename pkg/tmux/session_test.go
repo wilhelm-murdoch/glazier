@@ -198,3 +198,13 @@ func TestSessionActivePane(t *testing.T) {
 		assert.Error(t, err)
 	})
 }
+
+func TestSessionHost(t *testing.T) {
+	rec := setupRecorder(t)
+	rec.On("display-message", fakeResult{Output: "buildhost"})
+
+	host, err := testSession(testClient()).Host()
+	assert.NoError(t, err)
+	assert.Equal(t, "buildhost", host)
+	assert.Contains(t, rec.ArgsFor("display-message"), "#{host}")
+}
