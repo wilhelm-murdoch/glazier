@@ -20,7 +20,7 @@ done
 
 mkdir -p results
 for t in "${TARGETS[@]}"; do
-  docker run --rm -v "$PWD":/work -e LABEL="$t" -e ONLY="${ONLY:-}" "glaze-e2e:$t-$VERSION" bash /work/run.sh >"results/$t.out" 2>&1 &
+  docker run --rm -v "$PWD":/work -e LABEL="$t" -e ONLY="${ONLY:-}" -e EXPECT_VERSION="$VERSION" "glaze-e2e:$t-$VERSION" bash /work/run.sh >"results/$t.out" 2>&1 &
 done
 wait
 

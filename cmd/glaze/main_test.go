@@ -88,6 +88,9 @@ func TestRun(t *testing.T) {
 		{"missing profile", []string{"format", "--profile-path", filepath.Join(dir, "missing.glaze")}, exitInvalidProfile, "glaze profile not found"},
 		{"invalid profile", []string{"format", "--validate", "--profile-path", bad}, exitInvalidProfile, "contains errors"},
 		{"version", []string{"--version"}, exitOK, ""},
+		{"short version", []string{"-v"}, exitOK, ""},
+		{"version flag after a subcommand", []string{"up", "-v"}, exitUsage, "flag provided but not defined: -v"},
+		{"long version flag after a subcommand", []string{"down", "--version"}, exitUsage, "flag provided but not defined: -version"},
 	}
 
 	for _, c := range cases {

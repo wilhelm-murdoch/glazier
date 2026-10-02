@@ -29,7 +29,7 @@ LDFLAGS    := -ldflags "-w -s \
 	-X $(LDBASE).Date=$(DATE) \
 	-X $(LDBASE).Stage=$(STAGE)"
 
-GOARCH     ?= amd64
+GOARCH     ?= $(shell go env GOARCH)
 GOOS       ?= $(shell go env GOOS)
 
 # Tooling is installed into BIN_DIR via `go run <tool>@<version>` so versions are

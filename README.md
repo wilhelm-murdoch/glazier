@@ -84,8 +84,10 @@ $ make install
 $ go install github.com/wilhelm-murdoch/glazier/cmd/glaze@latest
 ```
 
+`glaze --version` shows the version that `go install` built, for example `v0.1.7`.
+
 ### Build a local binary
-This command compiles the binaries and writes them to `bin/<os>-amd64/glaze`.
+This command compiles the binaries for your system and writes them to `bin/<os>-<arch>/glaze`, for example `bin/darwin-arm64/glaze` on Apple silicon. Set `GOARCH` to build for a different architecture.
 ```console
 $ make build
 ```
@@ -131,6 +133,7 @@ Global flags:
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--log-level` | `info` | One of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical`. |
+| `--version`, `-v` | | Print the version, the stage, the commit and the build date. Put the flag before a command: `glaze up -v` is a usage error. |
 
 Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour only when stderr is a terminal. Set `NO_COLOR` to turn colour off.
 
