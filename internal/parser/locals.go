@@ -26,6 +26,7 @@ func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[
 		return BuildEvalContext(vars)
 	}
 
+	size := 0
 	for progress := true; progress && len(unresolved) > 0; {
 		progress = false
 
@@ -33,6 +34,11 @@ func (p *Parser) resolveLocals(base map[string]cty.Value, requireAll bool) (map[
 			value, valueDiags := unresolved[name].Expr.Value(evalContext())
 			if valueDiags.HasErrors() {
 				continue
+			}
+
+			// Stop at the first local past the budget, before a later local can double it again.
+			if size += valueSize(value, maxLocalsSize-size); size > maxLocalsSize {
+				return resolved, diags.Append(localsTooLarge(name, unresolved[name].Range))
 			}
 
 			resolved[name] = value

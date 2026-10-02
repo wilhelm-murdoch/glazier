@@ -1,6 +1,9 @@
 package parser
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclparse"
@@ -24,11 +27,26 @@ type Parser struct {
 
 // New parses the profile at path.
 func New(path string) (*Parser, hcl.Diagnostics) {
-	return newParser(hclparse.NewParser().ParseHCLFile(path))
+	// The path is the user's own profile, found by ResolveProfilePath.
+	src, err := os.ReadFile(path) //nolint:gosec // G304
+	if err != nil {
+		return nil, hcl.Diagnostics{{
+			Severity: hcl.DiagError,
+			Summary:  "Failed to read file",
+			Detail:   fmt.Sprintf("The profile %q could not be read: %s.", path, err),
+		}}
+	}
+
+	return NewFromBytes(src, path)
 }
 
-// NewFromBytes parses a profile in memory, for the fuzz tests. The filename only labels the diagnostics.
+// NewFromBytes parses a profile in memory. The filename only labels the diagnostics.
+// It checks the nesting first, because the parser recurses once for each level.
 func NewFromBytes(src []byte, filename string) (*Parser, hcl.Diagnostics) {
+	if diags := checkNesting(src, filename); diags.HasErrors() {
+		return nil, diags
+	}
+
 	return newParser(hclparse.NewParser().ParseHCL(src, filename))
 }
 

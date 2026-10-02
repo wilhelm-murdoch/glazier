@@ -23,6 +23,10 @@ func loadVarFile(path string, byName map[string]*Variable) (map[string]cty.Value
 		return nil, hcl.Diagnostics{diagnostics.VarFileUnreadable(path, err)}
 	}
 
+	if diags := checkNesting(src, path); diags.HasErrors() {
+		return nil, diags
+	}
+
 	file, diags := hclparse.NewParser().ParseHCL(src, path)
 	if diags.HasErrors() {
 		return nil, diags
