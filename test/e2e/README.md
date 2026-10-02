@@ -46,6 +46,8 @@ ONLY='t_commands|t_save' ./matrix.sh v0.1.6 bookworm
 
 Each image downloads `glaze-linux-<arch>.zip` and `SHA256SUMS` from the release. The build stops if the checksum does not match.
 
+`matrix.sh` passes the release version to the harness as `EXPECT_VERSION`, and `cli_basics` checks that `glaze --version` reports it. Without `EXPECT_VERSION`, for example for a local build, `cli_basics` checks only the form of the version line.
+
 ## Results
 
 The harness writes its output to `results/`. Git ignores this directory.

@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"slices"
 	"strings"
 	"syscall"
@@ -20,13 +21,13 @@ import (
 
 var (
 	// Version describes the version of the current build.
-	Version = "dev"
+	Version = unstampedVersion
 
 	// Commit describes the commit of the current build.
-	Commit = "none"
+	Commit = unstampedCommit
 
 	// Date describes the date of the current build.
-	Date = "unknown"
+	Date = unstampedDate
 
 	// Release describes the stage of the current build, eg; development, production, etc...
 	Stage = "unknown"
@@ -96,6 +97,10 @@ func profilePathFlag() cli.Flag {
 }
 
 func main() {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		fillFromBuildInfo(info)
+	}
+
 	ctx, cancel := context.WithCancelCause(context.Background())
 	stop := cancelOnSignal(cancel)
 
@@ -167,10 +172,12 @@ func newApp() *cli.Command {
 		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
 	}
 
+	// The flag belongs to glaze itself, so `glaze up -v` is a usage error and does not start a session.
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
 		Usage:   "print only the version",
 		Aliases: []string{"v"},
+		Local:   true,
 	}
 
 	currentYear, _, _ := time.Now().Date()

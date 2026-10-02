@@ -2,7 +2,16 @@
 
 t_cli_basics() {
   begin cli_basics
-  gz --version; rc0 "--version"; match "--version reports v0.1.6" 'v0\.1\.6' "$OUT$ERR"
+  # matrix.sh tests a release and passes its version. A local build has no release version, so only the form is checked.
+  gz --version; rc0 "--version"
+  if [[ -n ${EXPECT_VERSION:-} ]]; then
+    match "--version reports $EXPECT_VERSION" "Version: ${EXPECT_VERSION//./\\.}," "$OUT"
+  else
+    match "--version reports a version, a commit and a date" '^Version: [^,]+, Stage: [^,]+, Commit: [^,]+, Date: .+$' "$OUT"
+  fi
+  # With a profile in place, a -v that up ignores would build the session.
+  simple vf; gz up -v --detached --socket-name "$SOCK"
+  eq "-v after a subcommand is a usage error (exit 2)" 2 "$RC"; no_server "-v after a subcommand"; rm -f .glaze
   gz --help; rc0 "--help"
   for c in up down ls format save; do gz "$c" --help; rc0 "$c --help"; done
   gz bogus; rcnz "unknown subcommand"
