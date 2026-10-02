@@ -2,7 +2,6 @@ package spec
 
 import (
 	"github.com/hashicorp/hcl/v2/hcldec"
-	"github.com/zclconf/go-cty/cty"
 )
 
 // Session returns the spec for the body of the session block; baseDirectory is the directory
@@ -15,9 +14,6 @@ func Session(baseDirectory string) hcldec.Spec {
 		"options":            Options,
 		"windows":            window(baseDirectory),
 		"commands":           Commands,
-		"envs": &hcldec.AttrSpec{
-			Name: "envs",
-			Type: cty.Map(cty.String),
-		},
+		"envs":               Envs,
 	}
 }

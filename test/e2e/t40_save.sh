@@ -217,7 +217,8 @@ session {
   }
 }
 EOF
-  up; info "empty names" "rc=$RC sessions=[$(tm ls -F '#S' | paste -sd, -)] err=[$ERR]"; end
+  up; rcnz "empty session name rejected"; no_server "empty session name"
+  match "empty session name diagnostic" 'must not be empty' "$ERR"; end
 
   for n in "w;1" "w;" "w:1" "w.1" "w 1" "#[fg=red]x" "#{session_name}" "ü"; do
     begin hostile_window
@@ -448,6 +449,73 @@ t_scale() {
 
 t_malformed() {
   # A chain of locals that each double the one before; 22 steps is 32 MiB, small enough for a build without the limit.
+  begin null_element
+  fx <<'EOF'
+session {
+  name = "ne"
+  envs = {
+    A = null
+  }
+  window {
+    pane {
+      commands = ["true", null]
+    }
+  }
+}
+EOF
+  up; rcnz "null elements rejected"; no_server "null elements"
+  match "null diagnostic names the element" 'must not contain null' "$ERR"
+  gz format --validate; rcnz "format --validate rejects null elements"
+  nomatch "no panic on null elements" 'panic|goroutine' "$ERR"
+  end
+
+  begin hooks_unknown
+  fx <<'EOF'
+session {
+  name = "hu"
+  hooks = {
+    "session-create" = "true"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rcnz "unknown hook rejected"; no_server "unknown hook"
+  match "unknown hook diagnostic names the hook" '"session-create"' "$ERR"
+  end
+
+  begin hooks_known
+  fx <<'EOF'
+session {
+  name = "hk"
+  hooks = {
+    "after-new-window" = "display-message hi"
+  }
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rc0 "up with an after- hook"; exists "after- hook session" hk
+  end
+
+  begin layout_raw_cells
+  fx <<'EOF'
+session {
+  name = "lc"
+  window {
+    layout = "e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}"
+    pane {}
+    pane {}
+    pane {}
+  }
+}
+EOF
+  up; rcnz "raw layout for 2 panes on a window with 3 rejected"; no_server "raw layout cell count"
+  match "raw layout diagnostic gives both counts" 'describes 2 panes, but the window declares 3' "$ERR"
+  end
+
   begin limits_locals
   { echo 'locals {'; echo '  a0 = "xxxxxxxx"'; for i in $(seq 1 22); do echo "  a$i = \"\${local.a$((i - 1))}\${local.a$((i - 1))}\""; done; echo '}'; } >.glaze
   printf 'session {\n  name = "lb"\n  window {\n    pane {}\n  }\n}\n' >>.glaze

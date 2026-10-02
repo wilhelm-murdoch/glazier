@@ -190,3 +190,64 @@ func TestAmountDiagnostic(t *testing.T) {
 func TestErrHasDiagnosticsIsError(t *testing.T) {
 	assert.True(t, errors.Is(ErrHasDiagnostics, ErrHasDiagnostics))
 }
+
+func TestRequiredDiagnostic(t *testing.T) {
+	assert.Empty(t, RequiredDiagnostic("direction", cty.StringVal("up")))
+	assert.True(t, RequiredDiagnostic("direction", cty.NullVal(cty.String)).HasErrors())
+}
+
+func TestNoNullsDiagnostic(t *testing.T) {
+	assert.Empty(t, NoNullsDiagnostic("commands", cty.ListVal([]cty.Value{cty.StringVal("ls")})))
+	assert.Empty(t, NoNullsDiagnostic("commands", cty.NullVal(cty.List(cty.String))))
+
+	diags := NoNullsDiagnostic("commands", cty.ListVal([]cty.Value{cty.StringVal("ls"), cty.NullVal(cty.String)}))
+	assert.True(t, diags.HasErrors())
+	assert.Contains(t, diags[0].Detail, "index 1")
+
+	diags = NoNullsDiagnostic("envs", cty.MapVal(map[string]cty.Value{"A": cty.StringVal("1"), "B": cty.NullVal(cty.String)}))
+	assert.True(t, diags.HasErrors())
+	assert.Contains(t, diags[0].Detail, `key "B"`)
+}
+
+func TestHooksDiagnostic(t *testing.T) {
+	hooks := func(values map[string]cty.Value) cty.Value { return cty.MapVal(values) }
+
+	assert.Empty(t, HooksDiagnostic(hooks(map[string]cty.Value{"session-created": cty.StringVal("x"), "after-new-window[1]": cty.StringVal("y")})))
+	assert.Empty(t, HooksDiagnostic(cty.NullVal(cty.Map(cty.String))))
+
+	diags := HooksDiagnostic(hooks(map[string]cty.Value{"session-create": cty.StringVal("x"), "pane-dead": cty.StringVal("y")}))
+	assert.Len(t, diags, 2, "every unknown name is reported")
+	assert.Contains(t, diags[0].Detail, `"pane-dead"`)
+
+	diags = HooksDiagnostic(hooks(map[string]cty.Value{"session-created": cty.NullVal(cty.String)}))
+	assert.True(t, diags.HasErrors())
+	assert.Contains(t, diags[0].Detail, "null")
+}
+
+func TestLayoutCellsDiagnostic(t *testing.T) {
+	window := func(layout cty.Value, panes int) cty.Value {
+		items := make([]cty.Value, panes)
+		for i := range items {
+			items[i] = cty.EmptyObjectVal
+		}
+
+		return cty.ObjectVal(map[string]cty.Value{"layout": layout, "panes": cty.TupleVal(items)})
+	}
+	twoCells := cty.StringVal("e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}")
+
+	assert.Empty(t, LayoutCellsDiagnostic(window(twoCells, 2)))
+	assert.Empty(t, LayoutCellsDiagnostic(window(cty.StringVal("tiled"), 5)), "a preset fits any number of panes")
+	assert.Empty(t, LayoutCellsDiagnostic(window(cty.NullVal(cty.String), 3)))
+
+	for _, panes := range []int{1, 3} {
+		diags := LayoutCellsDiagnostic(window(twoCells, panes))
+		assert.True(t, diags.HasErrors(), panes)
+		assert.Contains(t, diags[0].Detail, "describes 2 panes")
+	}
+}
+
+func TestSessionNameDiagnosticRejectsAnEmptyName(t *testing.T) {
+	diags := SessionNameDiagnostic(cty.StringVal(""))
+	assert.True(t, diags.HasErrors())
+	assert.Contains(t, diags[0].Detail, "must not be empty")
+}

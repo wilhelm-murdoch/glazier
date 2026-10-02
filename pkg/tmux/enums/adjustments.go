@@ -18,12 +18,12 @@ const (
 	AdjustmentUnknownString = "unknown"
 )
 
+// AdjustmentList is every direction that a profile can use. It leaves out "unknown", which only marks a value that is not in the list.
 var AdjustmentList = []string{
 	AdjustmentUpString,
 	AdjustmentDownString,
 	AdjustmentLeftString,
 	AdjustmentRightString,
-	AdjustmentUnknownString,
 }
 
 // String returns the name of the direction.

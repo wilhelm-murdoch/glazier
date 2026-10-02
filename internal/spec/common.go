@@ -9,15 +9,16 @@ import (
 )
 
 var (
-	Hooks = &hcldec.AttrSpec{
-		Name: "hooks",
-		Type: cty.Map(cty.String),
+	// Hooks maps a tmux hook name to a command. The name must be one that tmux knows, and no command can be null.
+	Hooks = &hcldec.ValidateSpec{
+		Wrapped: &hcldec.AttrSpec{
+			Name: "hooks",
+			Type: cty.Map(cty.String),
+		},
+		Func: diagnostics.HooksDiagnostic,
 	}
 
-	Options = &hcldec.AttrSpec{
-		Name: "options",
-		Type: cty.Map(cty.String),
-	}
+	Options = noNulls("options", cty.Map(cty.String))
 
 	Name = &hcldec.AttrSpec{
 		Name: "name",
@@ -37,10 +38,10 @@ var (
 	}
 
 	// Commands run in a pane, or in the active pane for a session.
-	Commands = &hcldec.AttrSpec{
-		Name: "commands",
-		Type: cty.List(cty.String),
-	}
+	Commands = noNulls("commands", cty.List(cty.String))
+
+	// Envs is the environment of the session.
+	Envs = noNulls("envs", cty.Map(cty.String))
 )
 
 // startingDirectory returns the starting_directory attribute. A relative path is relative to baseDirectory, the directory of the profile.
@@ -66,7 +67,20 @@ func nameSpec(kind string) hcldec.Spec {
 	}
 }
 
-// sizeSpec returns a string attribute for a size or an amount, which validate checks.
+// noNulls returns a list or a map attribute that rejects a null element, because glaze cannot pass a null to tmux.
+func noNulls(name string, ty cty.Type) hcldec.Spec {
+	return &hcldec.ValidateSpec{
+		Wrapped: &hcldec.AttrSpec{
+			Name: name,
+			Type: ty,
+		},
+		Func: func(value cty.Value) hcl.Diagnostics {
+			return diagnostics.NoNullsDiagnostic(name, value)
+		},
+	}
+}
+
+// sizeSpec returns a string attribute for a size or an amount, which validate checks. A required one must not be null.
 func sizeSpec(name string, required bool, validate func(field string, value cty.Value) hcl.Diagnostics) hcldec.Spec {
 	return &hcldec.ValidateSpec{
 		Wrapped: &hcldec.AttrSpec{
@@ -75,6 +89,12 @@ func sizeSpec(name string, required bool, validate func(field string, value cty.
 			Required: required,
 		},
 		Func: func(value cty.Value) hcl.Diagnostics {
+			if required {
+				if diags := diagnostics.RequiredDiagnostic(name, value); diags.HasErrors() {
+					return diags
+				}
+			}
+
 			return validate(name, value)
 		},
 	}

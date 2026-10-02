@@ -15,20 +15,24 @@ func window(baseDirectory string) hcldec.Spec {
 	return &hcldec.BlockListSpec{
 		TypeName: "window",
 		MinItems: 1,
-		Nested: &hcldec.ObjectSpec{
-			"name":               nameSpec("window"),
-			"starting_directory": startingDirectory(baseDirectory),
-			"hooks":              Hooks,
-			"options":            Options,
-			"panes":              pane(baseDirectory),
-			"focus":              Focus,
-			"layout": &hcldec.ValidateSpec{
-				Wrapped: &hcldec.AttrSpec{
-					Name: "layout",
-					Type: cty.String,
-				},
-				Func: func(value cty.Value) hcl.Diagnostics {
-					return diagnostics.LayoutDiagnostic("layout", value, enums.LayoutList)
+		// A raw layout must describe as many panes as the window declares, so the check needs the whole window.
+		Nested: &hcldec.ValidateSpec{
+			Func: diagnostics.LayoutCellsDiagnostic,
+			Wrapped: &hcldec.ObjectSpec{
+				"name":               nameSpec("window"),
+				"starting_directory": startingDirectory(baseDirectory),
+				"hooks":              Hooks,
+				"options":            Options,
+				"panes":              pane(baseDirectory),
+				"focus":              Focus,
+				"layout": &hcldec.ValidateSpec{
+					Wrapped: &hcldec.AttrSpec{
+						Name: "layout",
+						Type: cty.String,
+					},
+					Func: func(value cty.Value) hcl.Diagnostics {
+						return diagnostics.LayoutDiagnostic("layout", value, enums.LayoutList)
+					},
 				},
 			},
 		},

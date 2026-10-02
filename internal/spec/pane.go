@@ -48,6 +48,10 @@ func pane(baseDirectory string) hcldec.Spec {
 							Required: true,
 						},
 						Func: func(value cty.Value) hcl.Diagnostics {
+							if diags := diagnostics.RequiredDiagnostic("direction", value); diags.HasErrors() {
+								return diags
+							}
+
 							return diagnostics.ContainsDiagnostic("direction", value, enums.AdjustmentList)
 						},
 					},
