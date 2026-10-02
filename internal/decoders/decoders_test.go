@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/zclconf/go-cty/cty"
 
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
@@ -43,8 +44,7 @@ func TestNewBaseDefaults(t *testing.T) {
 
 	assert.Equal(t, DefaultGlazeElementName, base.Name)
 
-	pwd, _ := os.Getwd()
-	assert.Equal(t, pwd, base.StartingDirectory)
+	assert.Empty(t, base.StartingDirectory)
 	assert.Nil(t, base.Hooks)
 	assert.Nil(t, base.Options)
 }
@@ -265,4 +265,60 @@ func TestSessionDecode(t *testing.T) {
 	assert.Equal(t, []string{"echo booting"}, session.Commands)
 	assert.Equal(t, 1, len(session.Windows))
 	assert.Equal(t, 1, len(session.Windows[0].Panes))
+}
+
+func TestSessionResolveDirectories(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	pwd, err := os.Getwd()
+	assert.NoError(t, err)
+
+	build := func(session string, windows ...[]string) *Session {
+		s := &Session{Base: &Base{StartingDirectory: session}}
+		for _, dirs := range windows {
+			w := &Window{Base: &Base{StartingDirectory: dirs[0]}}
+			for _, dir := range dirs[1:] {
+				w.Panes = append(w.Panes, &Pane{Base: &Base{StartingDirectory: dir}})
+			}
+			s.Windows = append(s.Windows, w)
+		}
+		return s
+	}
+
+	t.Run("a pane uses its window's directory, and a window uses the session's", func(t *testing.T) {
+		s := build("/s", []string{"", ""}, []string{"/w", "", "/p"})
+
+		assert.NoError(t, s.ResolveDirectories("/profile"))
+		assert.Equal(t, "/s", s.StartingDirectory)
+		assert.Equal(t, "/s", s.Windows[0].StartingDirectory)
+		assert.Equal(t, "/s", s.Windows[0].Panes[0].StartingDirectory)
+		assert.Equal(t, "/w", s.Windows[1].StartingDirectory)
+		assert.Equal(t, "/w", s.Windows[1].Panes[0].StartingDirectory)
+		assert.Equal(t, "/p", s.Windows[1].Panes[1].StartingDirectory)
+	})
+
+	t.Run("a session without a directory uses the current directory", func(t *testing.T) {
+		s := build("", []string{"", ""})
+
+		assert.NoError(t, s.ResolveDirectories("/profile"))
+		assert.Equal(t, pwd, s.StartingDirectory)
+		assert.Equal(t, pwd, s.Windows[0].Panes[0].StartingDirectory)
+	})
+
+	t.Run("a relative directory is relative to the profile, and ~ is the home directory", func(t *testing.T) {
+		s := build("app", []string{"~/w", "logs", ""})
+
+		assert.NoError(t, s.ResolveDirectories("/profile"))
+		assert.Equal(t, "/profile/app", s.StartingDirectory)
+		assert.Equal(t, home+"/w", s.Windows[0].StartingDirectory)
+		assert.Equal(t, "/profile/logs", s.Windows[0].Panes[0].StartingDirectory)
+		assert.Equal(t, home+"/w", s.Windows[0].Panes[1].StartingDirectory)
+	})
+
+	t.Run("fails for ~user", func(t *testing.T) {
+		s := build("/s", []string{"", "~root"})
+
+		assert.ErrorIs(t, s.ResolveDirectories("/profile"), files.ErrTildeUser)
+	})
 }

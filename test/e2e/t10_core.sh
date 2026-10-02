@@ -255,7 +255,14 @@ EOF
   eq "pane inherits session dir" "$WD/d/s" "$(ppaths "$(wid dl w1)")"
   eq "pane inherits window starting_directory" "$WD/d/w,$WD/d/p" "$(ppaths "$(wid dl w2)")"
   eq "window dir with a space inherited" "$WD/d/with space" "$(ppaths "$(wid dl w3)")"
-  eq "new window opened later by user uses session dir" "$WD/d/s" "$(tm neww -P -F '#{pane_current_path}' -t =dl:)"
+  # An attached client opens a new window in the session path; a command-line client would use its own directory.
+  # neww waits until the client is attached, and the client stays open until the window exists; both race under load.
+  {
+    for _ in {1..50}; do [[ -n $(tm lsc -t =dl) ]] && break; sleep 0.1; done
+    printf 'neww -n later\n'
+    for _ in {1..50}; do [[ -n $(wid dl later) ]] && break; sleep 0.1; done
+  } | tm -C attach -t =dl >/dev/null
+  eq "new window opened later by user uses session dir" "$WD/d/s" "$(ppaths "$(wid dl later)")"
   end
 
   begin dirs_default_cwd
@@ -270,11 +277,32 @@ session {
   name = "dt"
   starting_directory = "~/proj"
   window {
+    name = "proj"
+    pane {}
+  }
+  window {
+    name = "home"
+    starting_directory = "~"
     pane {}
   }
 }
 EOF
-  up; rc0 "up with ~ in starting_directory"; eq "~ expanded" "$HOME/proj" "$(ppaths =dt:)"
+  up; rc0 "up with ~ in starting_directory"; eq "~ expanded" "$HOME/proj" "$(ppaths "$(wid dt proj)")"
+  eq "bare ~ expanded" "$HOME" "$(ppaths "$(wid dt home)")"
+  end
+
+  begin dirs_tilde_user
+  fx <<'EOF'
+session {
+  name = "dtu"
+  starting_directory = "~root/x"
+  window {
+    pane {}
+  }
+}
+EOF
+  up; rcnz "~user rejected"; no_server "~user"
+  match "~user diagnostic says glaze expands only ~ and ~/" 'not `~user`' "$ERR"
   end
 
   begin dirs_relative
@@ -289,7 +317,8 @@ session {
 }
 EOF
   cd elsewhere; up --profile-path ../prof/.glaze
-  info "relative starting_directory resolution" "rc=$RC path=[$(ppaths =dr: 2>/dev/null)] err=[$ERR]"
+  rc0 "up with a relative starting_directory from another directory"
+  eq "relative starting_directory is relative to the profile" "$WD/prof/sub" "$(ppaths =dr:)"
   end
 
   begin dirs_missing

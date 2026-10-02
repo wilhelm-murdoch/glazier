@@ -129,23 +129,34 @@ func TestDirectoryDiagnostic(t *testing.T) {
 	dir := t.TempDir()
 	file := filepath.Join(dir, "f.txt")
 	assert.NoError(t, os.WriteFile(file, []byte("x"), 0o600))
+	assert.NoError(t, os.Mkdir(filepath.Join(dir, "sub"), 0o700))
 
-	t.Run("no diagnostic for an existing directory", func(t *testing.T) {
-		assert.Empty(t, DirectoryDiagnostic("starting_directory", cty.StringVal(dir)))
-	})
+	home := t.TempDir()
+	assert.NoError(t, os.Mkdir(filepath.Join(home, "proj"), 0o700))
+	t.Setenv("HOME", home)
 
-	t.Run("no diagnostic for a null value", func(t *testing.T) {
-		assert.Empty(t, DirectoryDiagnostic("starting_directory", cty.NullVal(cty.String)))
-	})
+	for _, valid := range []string{dir, "sub", "./sub", "~", "~/proj"} {
+		assert.Empty(t, DirectoryDiagnostic("starting directory", cty.StringVal(valid), dir), valid)
+	}
 
-	t.Run("diagnostic when the path is a file", func(t *testing.T) {
-		diags := DirectoryDiagnostic("starting_directory", cty.StringVal(file))
+	assert.Empty(t, DirectoryDiagnostic("starting directory", cty.NullVal(cty.String), dir))
+
+	for _, invalid := range []string{"", file, "f.txt", filepath.Join(dir, "nope"), "nope", "~/nope"} {
+		assert.True(t, DirectoryDiagnostic("starting directory", cty.StringVal(invalid), dir).HasErrors(), invalid)
+	}
+
+	t.Run("says that glaze does not expand ~user", func(t *testing.T) {
+		diags := DirectoryDiagnostic("starting directory", cty.StringVal("~root/x"), dir)
 		assert.True(t, diags.HasErrors())
+		assert.Contains(t, diags[0].Detail, "not `~user`")
 	})
 
-	t.Run("diagnostic when the path does not exist", func(t *testing.T) {
-		diags := DirectoryDiagnostic("starting_directory", cty.StringVal(filepath.Join(dir, "nope")))
+	t.Run("says why ~ fails without a home directory", func(t *testing.T) {
+		t.Setenv("HOME", "")
+
+		diags := DirectoryDiagnostic("starting directory", cty.StringVal("~/proj"), dir)
 		assert.True(t, diags.HasErrors())
+		assert.Contains(t, diags[0].Detail, "could not expand `~`")
 	})
 }
 

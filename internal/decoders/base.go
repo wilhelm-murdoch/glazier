@@ -1,8 +1,6 @@
 package decoders
 
 import (
-	"os"
-
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -16,7 +14,7 @@ type Base struct {
 	StartingDirectory string
 }
 
-// NewBase decodes the shared attributes. A missing name is "default", and a missing directory is the current one.
+// NewBase decodes the shared attributes. A missing name is "default", and a missing directory stays empty (see ResolveDirectories).
 func NewBase(spec cty.Value) *Base {
 	base := &Base{
 		Name:    DefaultGlazeElementName,
@@ -30,8 +28,6 @@ func NewBase(spec cty.Value) *Base {
 
 	if directory := spec.GetAttr("starting_directory"); !directory.IsNull() {
 		base.StartingDirectory = directory.AsString()
-	} else if pwd, err := os.Getwd(); err == nil {
-		base.StartingDirectory = pwd
 	}
 
 	return base

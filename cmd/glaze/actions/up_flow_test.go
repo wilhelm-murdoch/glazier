@@ -138,6 +138,36 @@ func TestActionUpLoadProfile(t *testing.T) {
 		assert.Equal(t, "demo", profile.Name)
 	})
 
+	t.Run("resolves relative directories against the profile and fills in inherited ones", func(t *testing.T) {
+		withDirs := `session {
+  name               = "demo"
+  starting_directory = "app"
+
+  window {
+    name = "main"
+    pane { name = "a" }
+    pane {
+      name               = "b"
+      starting_directory = "app/logs"
+    }
+  }
+}
+`
+		up, _ := buildUp(t, withDirs, nil)
+		dir := filepath.Dir(up.ProfilePath)
+		assert.NoError(t, os.MkdirAll(filepath.Join(dir, "app", "logs"), 0o700))
+
+		// The profile directory, not the current one, is the base of a relative path.
+		t.Chdir(t.TempDir())
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+		assert.Equal(t, filepath.Join(dir, "app"), profile.StartingDirectory)
+		assert.Equal(t, filepath.Join(dir, "app"), profile.Windows[0].StartingDirectory)
+		assert.Equal(t, filepath.Join(dir, "app"), profile.Windows[0].Panes[0].StartingDirectory)
+		assert.Equal(t, filepath.Join(dir, "app", "logs"), profile.Windows[0].Panes[1].StartingDirectory)
+	})
+
 	t.Run("returns the diagnostics sentinel for an invalid layout", func(t *testing.T) {
 		bad := `session {
   name = "demo"

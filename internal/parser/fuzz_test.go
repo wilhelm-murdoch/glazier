@@ -70,7 +70,7 @@ func FuzzDecode(f *testing.F) {
 			return
 		}
 
-		session, decodeDiags := p.Decode(spec.Session, BuildEvalContext(variables))
+		session, decodeDiags := p.Decode(spec.Session(""), BuildEvalContext(variables))
 		if decodeDiags.HasErrors() {
 			return
 		}

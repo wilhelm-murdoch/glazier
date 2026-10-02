@@ -74,7 +74,7 @@ func TestGenerateProfileRoundTrips(t *testing.T) {
 	p, diags := parser.New(path)
 	assert.False(t, diags.HasErrors())
 
-	session, decodeDiags := p.Decode(spec.Session, parser.BuildEvalContext(map[string]cty.Value{}))
+	session, decodeDiags := p.Decode(spec.Session(""), parser.BuildEvalContext(map[string]cty.Value{}))
 	assert.False(t, decodeDiags.HasErrors())
 	assert.NotNil(t, session)
 
@@ -151,6 +151,6 @@ func TestGenerateProfileWithoutLayoutValidates(t *testing.T) {
 	p, diags := parser.New(path)
 	assert.False(t, diags.HasErrors())
 
-	_, decodeDiags := p.Decode(spec.Session, parser.BuildEvalContext(map[string]cty.Value{}))
+	_, decodeDiags := p.Decode(spec.Session(""), parser.BuildEvalContext(map[string]cty.Value{}))
 	assert.False(t, decodeDiags.HasErrors())
 }

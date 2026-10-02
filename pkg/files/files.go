@@ -21,18 +21,39 @@ func FileExists(path string) bool {
 	return true
 }
 
-// ExpandPath is a utility function that determines whether the given path is a shortcut to a user's home directory. If it is it returns the associated absolute path.
-func ExpandPath(path string) string {
-	if strings.HasPrefix(path, "~/") {
-		userHome, err := os.UserHomeDir()
-		if err != nil {
-			return path
+// ErrTildeUser means that a path starts with `~user`, which glaze does not expand.
+var ErrTildeUser = errors.New("glaze expands only `~` and `~/`, not `~user`")
+
+// ExpandPath replaces a leading `~` or `~/` with the home directory. It rejects `~user` and fails when there is no home directory.
+func ExpandPath(path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		if strings.HasPrefix(path, "~") {
+			return path, ErrTildeUser
 		}
 
-		return strings.Replace(path, "~", userHome, 1)
+		return path, nil
 	}
 
-	return path
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path, fmt.Errorf("could not expand `~`: %w", err)
+	}
+
+	return home + path[1:], nil
+}
+
+// ResolveDirectory expands `~` in path and makes a relative path absolute against base.
+func ResolveDirectory(path, base string) (string, error) {
+	path, err := ExpandPath(path)
+	if err != nil {
+		return path, err
+	}
+
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(base, path)
+	}
+
+	return filepath.Clean(path), nil
 }
 
 // ErrProfileNotFound means that glaze cannot find the profile to read.
@@ -41,11 +62,16 @@ var ErrProfileNotFound = errors.New("glaze profile not found")
 // ResolveProfilePath returns the profile from --profile-path, the current directory or GLAZE_PATH, in that order.
 func ResolveProfilePath(profilePath string) (string, error) {
 	if profilePath != "" {
-		if exists := FileExists(profilePath); !exists {
+		expanded, err := ExpandPath(profilePath)
+		if err != nil {
+			return profilePath, fmt.Errorf("%w: %w", ErrProfileNotFound, err)
+		}
+
+		if !FileExists(expanded) {
 			return profilePath, fmt.Errorf("%w: `%s` does not exist", ErrProfileNotFound, profilePath)
 		}
 
-		return ExpandPath(profilePath), nil
+		return expanded, nil
 	}
 
 	cwd, err := os.Getwd()
@@ -54,8 +80,13 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	}
 
 	profilePath = filepath.Join(cwd, ".glaze")
-	if !FileExists(profilePath) && os.Getenv("GLAZE_PATH") != "" {
-		profilePath = filepath.Join(os.Getenv("GLAZE_PATH"), ".glaze")
+	if glazePath := os.Getenv("GLAZE_PATH"); !FileExists(profilePath) && glazePath != "" {
+		// A GLAZE_PATH that glaze cannot expand stays as it is, so the search below fails with the usual message.
+		if expanded, err := ExpandPath(glazePath); err == nil {
+			glazePath = expanded
+		}
+
+		profilePath = filepath.Join(glazePath, ".glaze")
 	}
 
 	if !FileExists(profilePath) {

@@ -9,48 +9,51 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-var Pane = &hcldec.BlockListSpec{
-	TypeName: "pane",
-	MinItems: 1,
-	Nested: &hcldec.ObjectSpec{
-		"name":               nameSpec("pane"),
-		"starting_directory": StartingDirectory,
-		"hooks":              Hooks,
-		"options":            Options,
-		"focus":              Focus,
-		"commands":           Commands,
-		"size": &hcldec.ValidateSpec{
-			Wrapped: &hcldec.BlockSpec{
-				TypeName: "size",
-				Nested: hcldec.ObjectSpec{
-					"x": sizeSpec("x", false, diagnostics.SizeDiagnostic),
-					"y": sizeSpec("y", false, diagnostics.SizeDiagnostic),
+// pane returns the spec for the pane blocks of a window; base is the directory of the profile.
+func pane(base string) hcldec.Spec {
+	return &hcldec.BlockListSpec{
+		TypeName: "pane",
+		MinItems: 1,
+		Nested: &hcldec.ObjectSpec{
+			"name":               nameSpec("pane"),
+			"starting_directory": startingDirectory(base),
+			"hooks":              Hooks,
+			"options":            Options,
+			"focus":              Focus,
+			"commands":           Commands,
+			"size": &hcldec.ValidateSpec{
+				Wrapped: &hcldec.BlockSpec{
+					TypeName: "size",
+					Nested: hcldec.ObjectSpec{
+						"x": sizeSpec("x", false, diagnostics.SizeDiagnostic),
+						"y": sizeSpec("y", false, diagnostics.SizeDiagnostic),
+					},
 				},
-			},
-			Func: func(value cty.Value) hcl.Diagnostics {
-				if value.IsNull() || !value.GetAttr("x").IsNull() || !value.GetAttr("y").IsNull() {
-					return nil
-				}
+				Func: func(value cty.Value) hcl.Diagnostics {
+					if value.IsNull() || !value.GetAttr("x").IsNull() || !value.GetAttr("y").IsNull() {
+						return nil
+					}
 
-				return diagnostics.Invalid("size", "A size block must have a valid `x` and or `y` attribute.")
-			},
-		},
-		"adjust": &hcldec.BlockListSpec{
-			TypeName: "adjust",
-			MaxItems: 4,
-			Nested: hcldec.ObjectSpec{
-				"direction": &hcldec.ValidateSpec{
-					Wrapped: &hcldec.AttrSpec{
-						Name:     "direction",
-						Type:     cty.String,
-						Required: true,
-					},
-					Func: func(value cty.Value) hcl.Diagnostics {
-						return diagnostics.ContainsDiagnostic("direction", value, enums.AdjustmentList)
-					},
+					return diagnostics.Invalid("size", "A size block must have a valid `x` and or `y` attribute.")
 				},
-				"amount": sizeSpec("amount", true, diagnostics.AmountDiagnostic),
+			},
+			"adjust": &hcldec.BlockListSpec{
+				TypeName: "adjust",
+				MaxItems: 4,
+				Nested: hcldec.ObjectSpec{
+					"direction": &hcldec.ValidateSpec{
+						Wrapped: &hcldec.AttrSpec{
+							Name:     "direction",
+							Type:     cty.String,
+							Required: true,
+						},
+						Func: func(value cty.Value) hcl.Diagnostics {
+							return diagnostics.ContainsDiagnostic("direction", value, enums.AdjustmentList)
+						},
+					},
+					"amount": sizeSpec("amount", true, diagnostics.AmountDiagnostic),
+				},
 			},
 		},
-	},
+	}
 }

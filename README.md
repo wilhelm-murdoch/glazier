@@ -263,7 +263,7 @@ $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 - `$GLAZE_PATH/.glaze`
 
 > [!NOTE]
-> Glazier expands `~` to your home directory in path values.
+> Glazier expands `~` and `~/` to your home directory in `--profile-path`, `$GLAZE_PATH` and `starting_directory`. It does not expand `~user`.
 
 ## Specification
 
@@ -298,12 +298,14 @@ session {
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `name` | string | The session name. The default value is `default`. |
-| `starting_directory` | string | The directory must exist. The default value is the current directory. |
+| `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. |
 | `envs` | map(string) | Environment variables for the session. |
 | `hooks` | map(string) | A map of a tmux hook name to a command. |
 | `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
 | `commands` | list(string) | Commands that run in the active pane after Glazier creates all windows and panes. See [Commands](#commands). |
 | `window` | block(s) | One or more windows. At least one window is required. |
+
+A window without `starting_directory` uses the directory of the session. A pane without `starting_directory` uses the directory of its window. A relative `starting_directory` is relative to the directory of the profile, not to the directory where you start `glaze`. A window that you open later in tmux starts in the directory of the session.
 
 tmux rewrites some characters in names. Thus Glazier replaces these characters with `-` before it starts tmux, and it shows a warning with the new name:
 
@@ -321,6 +323,8 @@ window {
   name   = "ice-breaker"
   layout = "main-vertical"   # even-horizontal | even-vertical | main-horizontal | main-vertical | tiled | a raw tmux layout string
   focus  = true              # make this the active window
+
+  starting_directory = "ice" # relative to the profile; the default value is the session directory
 
   hooks   = { "window-renamed" = "display 'trace detected'" }
   options = { "automatic-rename" = "off" }

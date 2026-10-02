@@ -27,24 +27,55 @@ func TestFileExists(t *testing.T) {
 }
 
 func TestExpandPath(t *testing.T) {
-	home, err := os.UserHomeDir()
-	assert.NoError(t, err)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
 
-	t.Run("expands a leading tilde to the home directory", func(t *testing.T) {
-		assert.Equal(t, filepath.Join(home, "foo"), ExpandPath("~/foo"))
+	for path, want := range map[string]string{
+		"~":          home,
+		"~/":         home + "/",
+		"~/foo":      filepath.Join(home, "foo"),
+		"/etc/hosts": "/etc/hosts",
+		"foo/bar":    "foo/bar",
+		"a/~/b":      "a/~/b",
+		"":           "",
+	} {
+		got, err := ExpandPath(path)
+		assert.NoError(t, err, path)
+		assert.Equal(t, want, got, path)
+	}
+
+	t.Run("rejects ~user", func(t *testing.T) {
+		_, err := ExpandPath("~root/x")
+		assert.ErrorIs(t, err, ErrTildeUser)
 	})
 
-	t.Run("leaves absolute paths untouched", func(t *testing.T) {
-		assert.Equal(t, "/etc/hosts", ExpandPath("/etc/hosts"))
-	})
+	t.Run("fails without a home directory", func(t *testing.T) {
+		t.Setenv("HOME", "")
 
-	t.Run("leaves a bare tilde untouched", func(t *testing.T) {
-		assert.Equal(t, "~root", ExpandPath("~root"))
+		_, err := ExpandPath("~/foo")
+		assert.ErrorContains(t, err, "could not expand `~`")
 	})
+}
 
-	t.Run("leaves relative paths untouched", func(t *testing.T) {
-		assert.Equal(t, "foo/bar", ExpandPath("foo/bar"))
-	})
+func TestResolveDirectory(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	for path, want := range map[string]string{
+		"/srv/app":   "/srv/app",
+		"sub":        "/base/sub",
+		"./sub/../x": "/base/x",
+		"..":         "/",
+		"~/proj":     filepath.Join(home, "proj"),
+		"~":          home,
+	} {
+		got, err := ResolveDirectory(path, "/base")
+		assert.NoError(t, err, path)
+		assert.Equal(t, want, got, path)
+	}
+
+	_, err := ResolveDirectory("~root", "/base")
+	assert.ErrorIs(t, err, ErrTildeUser)
 }
 
 func TestResolveProfilePath(t *testing.T) {
@@ -92,6 +123,36 @@ func TestResolveProfilePath(t *testing.T) {
 		resolved, err := ResolveProfilePath("")
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(glazeDir, ".glaze"), resolved)
+	})
+
+	t.Run("expands ~ in the explicit profile path", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		assert.NoError(t, os.WriteFile(filepath.Join(home, "p.glaze"), []byte("session {}"), 0o600))
+
+		resolved, err := ResolveProfilePath("~/p.glaze")
+		assert.NoError(t, err)
+		assert.Equal(t, filepath.Join(home, "p.glaze"), resolved)
+	})
+
+	t.Run("rejects ~user in the explicit profile path", func(t *testing.T) {
+		_, err := ResolveProfilePath("~root/p.glaze")
+		assert.ErrorIs(t, err, ErrProfileNotFound)
+		assert.ErrorIs(t, err, ErrTildeUser)
+	})
+
+	t.Run("expands ~ in GLAZE_PATH", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		assert.NoError(t, os.Mkdir(filepath.Join(home, "gp"), 0o700))
+		assert.NoError(t, os.WriteFile(filepath.Join(home, "gp", ".glaze"), []byte("session {}"), 0o600))
+
+		chdir(t, t.TempDir())
+		t.Setenv("GLAZE_PATH", "~/gp")
+
+		resolved, err := ResolveProfilePath("")
+		assert.NoError(t, err)
+		assert.Equal(t, filepath.Join(home, "gp", ".glaze"), resolved)
 	})
 
 	t.Run("errors when no profile can be located", func(t *testing.T) {

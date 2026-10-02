@@ -79,13 +79,19 @@ func renamedDiagnostic(kind, chars string, value cty.Value, sanitize func(string
 	}}
 }
 
-// DirectoryDiagnostic rejects a path that does not exist or is not a directory.
-func DirectoryDiagnostic(field string, value cty.Value) hcl.Diagnostics {
+// DirectoryDiagnostic rejects a path that glaze cannot expand, or that does not exist or is not a directory.
+// A relative path is checked against base, the directory of the profile.
+func DirectoryDiagnostic(field string, value cty.Value, base string) hcl.Diagnostics {
 	if value.IsNull() {
 		return nil
 	}
 
-	if info, err := os.Stat(files.ExpandPath(value.AsString())); err == nil && info.IsDir() {
+	path, err := files.ResolveDirectory(value.AsString(), base)
+	if err != nil {
+		return Invalid(field, `The %s of "%s" is not valid: %s.`, field, value.AsString(), err)
+	}
+
+	if info, err := os.Stat(path); value.AsString() != "" && err == nil && info.IsDir() {
 		return nil
 	}
 
