@@ -21,6 +21,8 @@ The harness is interim. It lives on the `test/bootstrap-harness` branch until it
 
 The default run uses `bookworm`, `trixie`, `jammy` and `alpine`.
 
+Each base image is pinned by digest. The `Dockerfile` has one stage for each Debian and Ubuntu target, named after the target, and `matrix.sh` selects it with `--build-arg BASE=<target>`. To add a target, add a pinned stage with that name. Dependabot updates the digests every week. It does not change a tag, because each tag is a test target.
+
 ## Run the harness
 
 1. Start Docker.

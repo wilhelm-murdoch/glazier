@@ -1,5 +1,5 @@
 # Test image for the glaze release binary on Alpine (musl).
-FROM alpine:3.22
+FROM alpine:3.22@sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
 ARG GLAZE_VERSION=v0.1.6
 ARG TARGETARCH
 RUN apk add --no-cache tmux curl unzip bash coreutils util-linux-misc procps findutils zsh fish dash
