@@ -11,15 +11,6 @@ import (
 	"time"
 )
 
-// Commander is an interface that represents what kind of actions a Command, and
-// other implemenations, can perform.
-type Commander interface {
-	fmt.Stringer
-	Exec() error
-	ExecWithOutput() (string, error)
-	ExecWithInput(input string) error
-}
-
 var (
 	// Ensure Command properly implements the Commander interface.
 	_ Commander = (*Command)(nil)
@@ -29,7 +20,19 @@ var (
 	newCommand = func(client Client, args ...string) Commander {
 		return NewCommand(client, args...)
 	}
+
+	// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
+	cancelGrace = 5 * time.Second
 )
+
+// Commander is an interface that represents what kind of actions a Command, and
+// other implemenations, can perform.
+type Commander interface {
+	fmt.Stringer
+	Exec() error
+	ExecWithOutput() (string, error)
+	ExecWithInput(input string) error
+}
 
 // OverrideCommandFactory replaces the factory for tmux commands and returns a function that restores it.
 // It lets tests in other packages fake tmux. Production code must not call it.
@@ -76,9 +79,6 @@ func NewCommand(client Client, args ...string) *Command {
 
 	return &Command{args: args, cmd: cmd, logger: client.logger}
 }
-
-// cancelGrace is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
-var cancelGrace = 5 * time.Second
 
 // subcommandOf returns the tmux command in args, skipping any socket flags.
 func subcommandOf(args []string) string {

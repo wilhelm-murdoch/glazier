@@ -11,6 +11,24 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 )
 
+var (
+	// variableBlockSchema is the body of a variable block. Content rejects any other attribute or block in it.
+	variableBlockSchema = &hcl.BodySchema{
+		Attributes: []hcl.AttributeSchema{
+			{Name: "description"},
+			{Name: "type"},
+			{Name: "default"},
+		},
+	}
+
+	// variableTypes maps the type keywords of a variable to cty types, so `type = string` needs no quotes.
+	variableTypes = map[string]cty.Type{
+		"string": cty.String,
+		"number": cty.Number,
+		"bool":   cty.Bool,
+	}
+)
+
 // Variable is a declared `variable "name" {}` block, read as var.name. A --var must match a declared variable.
 // The type is string unless `type` says number or bool, and a variable without a default is required.
 type Variable struct {
@@ -20,22 +38,6 @@ type Variable struct {
 	Default     cty.Value // cty.NilVal when the block declares no default.
 	HasDefault  bool
 	DeclRange   hcl.Range
-}
-
-// variableBlockSchema is the body of a variable block. Content rejects any other attribute or block in it.
-var variableBlockSchema = &hcl.BodySchema{
-	Attributes: []hcl.AttributeSchema{
-		{Name: "description"},
-		{Name: "type"},
-		{Name: "default"},
-	},
-}
-
-// variableTypes maps the type keywords of a variable to cty types, so `type = string` needs no quotes.
-var variableTypes = map[string]cty.Type{
-	"string": cty.String,
-	"number": cty.Number,
-	"bool":   cty.Bool,
 }
 
 // DecodeVariableBlocks validates every `variable` block at the root, before the full decode.

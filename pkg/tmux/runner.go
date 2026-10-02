@@ -11,11 +11,13 @@ import (
 	"time"
 )
 
-// paneCheckInterval is how often a CommandRunner checks that the pane is still alive while it waits.
-var paneCheckInterval = 250 * time.Millisecond
+var (
+	// paneCheckInterval is how often a CommandRunner checks that the pane is still alive while it waits.
+	paneCheckInterval = 250 * time.Millisecond
 
-// posixShells are the shells, other than zsh, that evaluate the POSIX form of the command line.
-var posixShells = []string{"sh", "bash", "dash", "ash", "ksh", "mksh", "yash", "busybox"}
+	// posixShells are the shells, other than zsh, that evaluate the POSIX form of the command line.
+	posixShells = []string{"sh", "bash", "dash", "ash", "ksh", "mksh", "yash", "busybox"}
+)
 
 // shellFamily tells the runner which form of eval and quoting the pane's shell needs.
 type shellFamily int

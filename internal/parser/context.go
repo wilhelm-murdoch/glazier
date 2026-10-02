@@ -10,6 +10,39 @@ import (
 	"github.com/zclconf/go-cty/cty/function/stdlib"
 )
 
+// randomFunc returns a random element of a list as a string, and an error for an empty list.
+// math/rand/v2 seeds itself at start, so the result differs between runs.
+var randomFunc = function.New(&function.Spec{
+	Description: "Returns a uniformly random element of the given list, as a string.",
+	Params: []function.Parameter{{
+		Name: "list",
+		Type: cty.DynamicPseudoType,
+	}},
+	Type: function.StaticReturnType(cty.String),
+	Impl: func(args []cty.Value, _ cty.Type) (cty.Value, error) {
+		list := args[0]
+		if list.IsNull() || !list.CanIterateElements() {
+			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
+		}
+
+		length := list.LengthInt()
+		if length == 0 {
+			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
+		}
+
+		// The choice is cosmetic (picking a session name flourish), not a
+		// security decision, so math/rand/v2 is the right generator.
+		choice := list.Index(cty.NumberIntVal(int64(rand.IntN(length)))) //nolint:gosec // G404
+
+		result, err := convert.Convert(choice, cty.String)
+		if err != nil {
+			return cty.NilVal, function.NewArgErrorf(0, "random list elements must be strings: %s", err)
+		}
+
+		return result, nil
+	},
+})
+
 // BuildEvalContext returns the context for every profile expression: the namespaces from VariableContext and the functions.
 func BuildEvalContext(variables map[string]cty.Value) *hcl.EvalContext {
 	return &hcl.EvalContext{
@@ -46,36 +79,3 @@ func Functions() map[string]function.Function {
 		"random":       randomFunc,
 	}
 }
-
-// randomFunc returns a random element of a list as a string, and an error for an empty list.
-// math/rand/v2 seeds itself at start, so the result differs between runs.
-var randomFunc = function.New(&function.Spec{
-	Description: "Returns a uniformly random element of the given list, as a string.",
-	Params: []function.Parameter{{
-		Name: "list",
-		Type: cty.DynamicPseudoType,
-	}},
-	Type: function.StaticReturnType(cty.String),
-	Impl: func(args []cty.Value, _ cty.Type) (cty.Value, error) {
-		list := args[0]
-		if list.IsNull() || !list.CanIterateElements() {
-			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
-		}
-
-		length := list.LengthInt()
-		if length == 0 {
-			return cty.NilVal, function.NewArgErrorf(0, "random requires a non-empty list")
-		}
-
-		// The choice is cosmetic (picking a session name flourish), not a
-		// security decision, so math/rand/v2 is the right generator.
-		choice := list.Index(cty.NumberIntVal(int64(rand.IntN(length)))) //nolint:gosec // G404
-
-		result, err := convert.Convert(choice, cty.String)
-		if err != nil {
-			return cty.NilVal, function.NewArgErrorf(0, "random list elements must be strings: %s", err)
-		}
-
-		return result, nil
-	},
-})

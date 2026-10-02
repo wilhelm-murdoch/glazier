@@ -8,6 +8,15 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
 )
 
+// topLevelSchema allows one session block and any variable and locals blocks at the root, and rejects anything else.
+var topLevelSchema = &hcl.BodySchema{
+	Blocks: []hcl.BlockHeaderSchema{
+		{Type: "session"},
+		{Type: "variable", LabelNames: []string{"name"}},
+		{Type: "locals"},
+	},
+}
+
 // Parser holds a parsed profile.
 type Parser struct {
 	File *hcl.File
@@ -72,15 +81,6 @@ func (p *Parser) DecodeSessionName(ctx *hcl.EvalContext) (string, hcl.Diagnostic
 	}
 
 	return value.AsString(), diags
-}
-
-// topLevelSchema allows one session block and any variable and locals blocks at the root, and rejects anything else.
-var topLevelSchema = &hcl.BodySchema{
-	Blocks: []hcl.BlockHeaderSchema{
-		{Type: "session"},
-		{Type: "variable", LabelNames: []string{"name"}},
-		{Type: "locals"},
-	},
 }
 
 // sessionBlock returns the single session block, so that variable and locals blocks can sit beside it.
