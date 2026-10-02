@@ -436,6 +436,37 @@ EOF
   eq "permissions preserved" "600" "$(stat -c %a real.glaze)"
   end
 
+  begin fmt_unchanged
+  simple fu; gz format; touch -d '2001-01-01 00:00:00' .glaze
+  gz format; rc0 "format of a formatted profile"
+  eq "a formatted profile keeps its mtime" "978307200" "$(stat -c %Y .glaze)"
+  end
+
+  begin fmt_write_fails
+  printf 'session   {\n  name="fw"\n  window {\n    pane {}\n  }\n}\n' >.glaze; cp .glaze orig
+  # A file size limit of zero makes every write fail, like a full disk.
+  r bash -c 'ulimit -f 0; exec "$0" format' "$G"; rcnz "format with a failed write"
+  eq "profile kept whole after a failed write" "$(cat orig)" "$(cat .glaze)"
+  eq "no temporary file left" "" "$(ls -A | grep '\.tmp$')"
+  end
+
+  begin fmt_fifo
+  mkfifo p.glaze
+  gz format --profile-path p.glaze; rcnz "format of a FIFO in place"
+  match "FIFO refusal says to use --stdout" 'use --stdout' "$ERR"
+  end
+
+  begin fmt_dev_stdin
+  gz format --profile-path /dev/stdin; rcnz "format of /dev/stdin in place"
+  match "/dev/stdin refusal says to use --stdout" 'use --stdout' "$ERR"
+  end
+
+  begin fmt_process_substitution
+  simple fps
+  gz format --stdout --profile-path <(cat .glaze); rc0 "format --stdout of a process substitution"
+  match "process substitution formatted" 'name = "fps"' "$OUT"
+  end
+
   begin fmt_no_tmux_needed
   simple fn; gz format --validate; rc0 "format --validate works"; no_server "format"
   end

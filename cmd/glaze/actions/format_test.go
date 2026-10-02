@@ -6,13 +6,16 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
 // buildFormat constructs an ActionFormat from the given profile contents and
@@ -23,6 +26,16 @@ func buildFormat(t *testing.T, profile string, flags map[string]string) *ActionF
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".glaze")
 	assert.NoError(t, os.WriteFile(path, []byte(profile), 0o600))
+
+	action, err := newFormatAt(t, path, flags)
+	assert.NoError(t, err)
+
+	return action
+}
+
+// newFormatAt runs NewFormat for the profile at path, as main does, and returns its result.
+func newFormatAt(t *testing.T, path string, flags map[string]string) (*ActionFormat, error) {
+	t.Helper()
 
 	var (
 		action *ActionFormat
@@ -49,12 +62,47 @@ func buildFormat(t *testing.T, profile string, flags map[string]string) *ActionF
 	}
 
 	assert.NoError(t, cmd.Run(context.Background(), args))
-	assert.NoError(t, actErr)
 
-	return action
+	return action, actErr
 }
 
 func TestActionFormatRun(t *testing.T) {
+	t.Run("leaves a formatted profile untouched", func(t *testing.T) {
+		action := buildFormat(t, validProfile, nil)
+
+		old := time.Now().Add(-time.Hour).Truncate(time.Second)
+		assert.NoError(t, os.Chtimes(action.ProfilePath, old, old))
+		before, err := os.Stat(action.ProfilePath)
+		assert.NoError(t, err)
+
+		assert.NoError(t, action.Run(context.Background()))
+
+		after, err := os.Stat(action.ProfilePath)
+		assert.NoError(t, err)
+		assert.Equal(t, old, after.ModTime())
+		assert.True(t, os.SameFile(before, after), "the file must not be replaced")
+	})
+
+	t.Run("refuses to format a pipe in place, before it reads it", func(t *testing.T) {
+		fifo := filepath.Join(t.TempDir(), "p.glaze")
+		assert.NoError(t, syscall.Mkfifo(fifo, 0o600))
+
+		// A read of a FIFO with no writer blocks, so the test fails after a timeout when the refusal comes after the read.
+		done := make(chan error, 1)
+		go func() {
+			_, err := newFormatAt(t, fifo, nil)
+			done <- err
+		}()
+
+		select {
+		case err := <-done:
+			assert.ErrorIs(t, err, files.ErrNotRegular)
+			assert.ErrorContains(t, err, "use --stdout")
+		case <-time.After(5 * time.Second):
+			t.Fatal("NewFormat blocked on the FIFO")
+		}
+	})
+
 	t.Run("rewrites the profile in place", func(t *testing.T) {
 		messy := "session   {\n  name=\"demo\"\n}\n"
 		action := buildFormat(t, messy, nil)

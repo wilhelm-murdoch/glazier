@@ -281,6 +281,10 @@ func newApp() *cli.Command {
 						Name:  "stdout",
 						Usage: "writes the saved glaze output to your terminal instead of a file",
 					},
+					&cli.BoolFlag{
+						Name:  "force",
+						Usage: "replaces the file at --profile-path when it exists",
+					},
 				}, socketFlags()),
 				Action: actionFor(actions.NewSave, &logLevel),
 			},

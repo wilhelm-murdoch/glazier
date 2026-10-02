@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
 )
@@ -34,6 +35,7 @@ func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Re
 			&cli.StringFlag{Name: "profile-path"},
 			&cli.StringFlag{Name: "session"},
 			&cli.BoolFlag{Name: "stdout"},
+			&cli.BoolFlag{Name: "force"},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
 			action, actErr = NewSave(c, "critical")
@@ -107,6 +109,50 @@ func TestActionSaveRun(t *testing.T) {
 		assert.Contains(t, string(contents), "= true")
 		// tmux reports no preset, so the raw layout string is captured as it is and must still validate on replay.
 		assert.Contains(t, string(contents), `layout = "bb62,80x24,0,0"`)
+	})
+
+	t.Run("refuses to replace an existing profile without --force, before the capture", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".glaze")
+		assert.NoError(t, os.WriteFile(path, []byte("# hand-written\n"), 0o600))
+
+		save, rec := buildSave(t, map[string]string{"profile-path": path})
+		insidePane(t)
+		rec.On("list-sessions", tmuxtest.Result{})
+
+		err := save.Run(context.Background())
+		assert.ErrorIs(t, err, files.ErrFileExists)
+		assert.ErrorContains(t, err, "use --force")
+		assert.False(t, rec.Called("lsw"))
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304
+		assert.NoError(t, err)
+		assert.Equal(t, "# hand-written\n", string(contents))
+	})
+
+	t.Run("replaces an existing profile with --force, through a symlink", func(t *testing.T) {
+		dir := t.TempDir()
+		target := filepath.Join(dir, "real.glaze")
+		link := filepath.Join(dir, ".glaze")
+		assert.NoError(t, os.WriteFile(target, []byte("# hand-written\n"), 0o600))
+		assert.NoError(t, os.Symlink(target, link))
+
+		save, rec := buildSave(t, map[string]string{"profile-path": link, "force": "true"})
+		insidePane(t)
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
+		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
+
+		assert.NoError(t, save.Run(context.Background()))
+
+		info, err := os.Lstat(link)
+		assert.NoError(t, err)
+		assert.NotZero(t, info.Mode()&os.ModeSymlink, "the symlink must stay")
+
+		contents, err := os.ReadFile(target) //nolint:gosec // G304
+		assert.NoError(t, err)
+		assert.Contains(t, string(contents), `"demo"`)
 	})
 
 	t.Run("does not mark inactive windows or panes as focused", func(t *testing.T) {

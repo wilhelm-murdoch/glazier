@@ -82,8 +82,20 @@ t_save() {
   begin save_default_overwrite
   simple ow; echo '# my hand-written profile' >>.glaze; up
   local before; before=$(cat .glaze)
-  gz save --session ow --socket-name "$SOCK"; rc0 "save to default path"
+  gz save --session ow --socket-name "$SOCK"; rcnz "save refuses an existing .glaze"
+  match "save refusal says to use --force" 'use --force' "$ERR"
   if [[ "$before" == "$(cat .glaze)" ]]; then ok "save does not clobber existing .glaze"; else ko "save does not clobber existing .glaze" "hand-written .glaze overwritten without prompt or backup (comment lost)"; fi
+  gz save --session ow --force --socket-name "$SOCK"; rc0 "save --force replaces .glaze"
+  # The hand-written profile has no focus attribute, and save always writes one.
+  match "save --force wrote the session" 'focus += true' "$(cat .glaze)"
+  end
+
+  begin save_force_symlink
+  simple sfs; up; mv .glaze real.glaze; chmod 600 real.glaze; ln -s real.glaze .glaze
+  gz save --session sfs --force --socket-name "$SOCK"; rc0 "save --force through a symlink"
+  if [[ -L .glaze ]]; then ok "save keeps the symlink"; else ko "save keeps the symlink" "save replaced the symlink with a regular file"; fi
+  eq "save keeps the permissions" "600" "$(stat -c %a real.glaze)"
+  match "save wrote through the symlink" 'focus += true' "$(cat real.glaze)"
   end
 
   begin save_outside_tmux
