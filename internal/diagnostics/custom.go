@@ -16,6 +16,9 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+// sizePattern matches a whole number of cells, for example "20", or a percentage, for example "25%".
+var sizePattern = regexp.MustCompile(`^(\d+)(%?)$`)
+
 // Invalid returns the error for a field value that glaze does not accept.
 func Invalid(field, detail string, args ...any) hcl.Diagnostics {
 	return hcl.Diagnostics{{
@@ -97,9 +100,6 @@ func DirectoryDiagnostic(field string, value cty.Value, baseDirectory string) hc
 
 	return Invalid(field, `The %s of "%s" does not exist or is not a directory.`, field, value.AsString())
 }
-
-// sizePattern matches a whole number of cells, for example "20", or a percentage, for example "25%".
-var sizePattern = regexp.MustCompile(`^(\d+)(%?)$`)
 
 // parseSize returns the number in a size and whether it is a percentage. ok is false when the value is not a size.
 func parseSize(value string) (n int, percent, ok bool) {

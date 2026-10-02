@@ -9,6 +9,14 @@ import (
 	"strings"
 )
 
+var (
+	// ErrTildeUser means that a path starts with `~user`, which glaze does not expand.
+	ErrTildeUser = errors.New("glaze expands only `~` and `~/`, not `~user`")
+
+	// ErrProfileNotFound means that glaze cannot find the profile to read.
+	ErrProfileNotFound = errors.New("glaze profile not found")
+)
+
 // FileExists is a utility function that simply checks if the given path is not only a file, but that it exists and is readable.
 func FileExists(path string) bool {
 	// The path is the user's own --profile-path/GLAZE_PATH input to a local
@@ -20,9 +28,6 @@ func FileExists(path string) bool {
 
 	return true
 }
-
-// ErrTildeUser means that a path starts with `~user`, which glaze does not expand.
-var ErrTildeUser = errors.New("glaze expands only `~` and `~/`, not `~user`")
 
 // ExpandPath replaces a leading `~` or `~/` with the home directory. It rejects `~user` and fails when there is no home directory.
 func ExpandPath(path string) (string, error) {
@@ -55,9 +60,6 @@ func ResolveDirectory(path, baseDirectory string) (string, error) {
 
 	return filepath.Clean(path), nil
 }
-
-// ErrProfileNotFound means that glaze cannot find the profile to read.
-var ErrProfileNotFound = errors.New("glaze profile not found")
 
 // ResolveProfilePath returns the profile from --profile-path, the current directory or GLAZE_PATH, in that order.
 func ResolveProfilePath(profilePath string) (string, error) {
