@@ -315,7 +315,7 @@ session {
 | Attribute | Type | Notes |
 |-----------|------|-------|
 | `name` | string | The session name. The default value is `default`. The name must not be empty. A number or a bool becomes a string. The name must not use `random()`, directly or through a local, because `glaze down` computes the name again. |
-| `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. |
+| `starting_directory` | string | The directory must exist. A relative path is relative to the directory of the profile. The default value is the current directory. If the current directory was deleted, set this attribute. |
 | `envs` | map(string) | Environment variables for the session. |
 | `hooks` | map(string) | A map of a tmux hook name to a tmux command. The name must be one that tmux 3.2a to 3.7c knows, for example `session-created` or `after-new-window`. An index such as `session-created[1]` is allowed. |
 | `options` | map(string) | A map of a tmux option name to a value. A window or pane option, for example `remain-on-exit`, applies to every window. |
@@ -461,7 +461,7 @@ Expressions can also reference `local.*` from `locals` blocks, `env.*` from `GLA
 Built-in namespaces sit alongside `var.`. They need no declaration:
 
 - `env.*` exposes `GLAZE_ENV_*` environment variables without the prefix. Glazier reads `GLAZE_ENV_token=…` as `env.token`.
-- `path.pwd` is the working directory. `path.base` is its basename.
+- `path.pwd` is the working directory. `path.base` is its basename. If the working directory was deleted, a profile that uses `path.pwd` or `path.base` causes an error. A profile that does not use them still works.
 - `local.*` reads the values that `locals` blocks declare.
 
 Glazier limits a profile in two ways, so that a profile from an unknown source cannot use all the memory or crash `glaze`. All locals together can hold at most 1 MiB, counted as the bytes of each string plus one for each element. Brackets, braces, parentheses and strings can nest at most 256 levels deep in a profile or a `--var-file`. Large nested `for` expressions are not limited, so read a profile from an unknown source before you run `glaze` on it.

@@ -80,18 +80,18 @@ func ResolveProfilePath(profilePath string) (string, error) {
 		return expanded, nil
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		return profilePath, fmt.Errorf("could not read current working directory: %w", err)
-	}
+	// Without a current directory, for example one that was deleted, the search skips it and still tries GLAZE_PATH.
+	local := ".glaze"
+	if cwd, err := os.Getwd(); err == nil {
+		local = filepath.Join(cwd, ".glaze")
 
-	local := filepath.Join(cwd, ".glaze")
-	if FileExists(local) {
-		return local, nil
-	}
+		if FileExists(local) {
+			return local, nil
+		}
 
-	if isDir(local) {
-		return local, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, local)
+		if isDir(local) {
+			return local, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, local)
+		}
 	}
 
 	if glazePath := os.Getenv("GLAZE_PATH"); glazePath != "" {

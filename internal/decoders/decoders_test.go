@@ -2,6 +2,7 @@ package decoders
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -320,5 +321,29 @@ func TestSessionResolveDirectories(t *testing.T) {
 		s := build("/s", []string{"", "~root"})
 
 		assert.ErrorIs(t, s.ResolveDirectories("/profile"), files.ErrTildeUser)
+	})
+}
+
+func TestResolveDirectoriesWithoutACurrentDirectory(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "gone")
+	assert.NoError(t, os.Mkdir(dir, 0o700))
+	t.Chdir(dir)
+	assert.NoError(t, os.Remove(dir))
+
+	if _, err := os.Getwd(); err == nil {
+		t.Skip("this system still reports the current directory after it is deleted")
+	}
+
+	t.Run("a session with a directory needs no current directory", func(t *testing.T) {
+		s := &Session{Base: &Base{StartingDirectory: "/srv"}}
+		assert.NoError(t, s.ResolveDirectories("/profile"))
+		assert.Equal(t, "/srv", s.StartingDirectory)
+	})
+
+	t.Run("a session without a directory says why it fails", func(t *testing.T) {
+		s := &Session{Base: &Base{}}
+		err := s.ResolveDirectories("/profile")
+		assert.ErrorContains(t, err, "the session has no starting_directory")
+		assert.ErrorContains(t, err, "set starting_directory")
 	})
 }
