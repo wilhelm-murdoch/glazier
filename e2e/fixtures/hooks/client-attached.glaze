@@ -1,0 +1,10 @@
+# The README example: a client-attached hook on the session, which runs when a client attaches.
+session {
+  name = "client-attached"
+  hooks = {
+    "client-attached" = "run-shell 'touch ${path.pwd}/h_attached'"
+  }
+  window {
+    pane {}
+  }
+}

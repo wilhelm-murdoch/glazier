@@ -1,0 +1,8 @@
+# The directory is a regular file.
+session {
+  name               = "is-file"
+  starting_directory = "afile"
+  window {
+    pane {}
+  }
+}

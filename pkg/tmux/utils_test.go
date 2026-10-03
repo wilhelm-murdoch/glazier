@@ -82,6 +82,7 @@ func setupTestDeps(t *testing.T) *TestDepsBase {
 		deps.capturedArgs = args
 		return deps.mockExec
 	}
+
 	t.Cleanup(func() {
 		newCommand = originalNewCommand
 	})
@@ -169,6 +170,7 @@ func (r *CommandRecorder) resultFor(args []string) fakeResult {
 		r.queues[sub] = q[1:]
 		return res
 	}
+
 	return fakeResult{}
 }
 
@@ -181,6 +183,7 @@ func (r *CommandRecorder) Called(subcommand string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -193,6 +196,7 @@ func (r *CommandRecorder) ArgsFor(subcommand string) []string {
 			return c
 		}
 	}
+
 	return nil
 }
 
@@ -205,6 +209,7 @@ func (r *CommandRecorder) InputFor(subcommand string) string {
 			return r.inputs[i]
 		}
 	}
+
 	return ""
 }
 
@@ -220,6 +225,7 @@ func setupRecorder(t *testing.T) *CommandRecorder {
 		rec.Calls = append(rec.Calls, args)
 		return &fakeCommand{args: args, result: rec.resultFor(args), recorder: rec, index: len(rec.Calls) - 1}
 	}
+
 	t.Cleanup(func() {
 		newCommand = originalNewCommand
 	})

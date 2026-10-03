@@ -39,6 +39,7 @@ var randomFunc = function.New(&function.Spec{
 		for range rand.IntN(length) + 1 { //nolint:gosec // G404
 			it.Next()
 		}
+
 		_, choice = it.Element()
 
 		result, err := convert.Convert(choice, cty.String)

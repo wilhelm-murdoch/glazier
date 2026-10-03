@@ -1,0 +1,19 @@
+# Each hook touches a marker file in path.pwd, the directory in which glaze runs.
+session {
+  name = "hook-scopes"
+  hooks = {
+    "session-renamed" = "run-shell 'touch ${path.pwd}/h_session'"
+  }
+  window {
+    name = "w"
+    hooks = {
+      "window-renamed" = "run-shell 'touch ${path.pwd}/h_window'"
+    }
+    pane {
+      name = "p"
+      hooks = {
+        "pane-focus-in" = "run-shell 'touch ${path.pwd}/h_pane'"
+      }
+    }
+  }
+}

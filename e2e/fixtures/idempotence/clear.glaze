@@ -1,0 +1,9 @@
+# The case adds a window and a pane to this session. --clear must remove both.
+session {
+  name = "clear-rebuild"
+  window {
+    name = "w1"
+    pane {}
+    pane {}
+  }
+}

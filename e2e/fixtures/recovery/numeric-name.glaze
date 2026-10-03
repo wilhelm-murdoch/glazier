@@ -1,0 +1,17 @@
+# A numeric session name looks like a session index or id to tmux.
+variable "name" {
+  type = string
+}
+
+session {
+  name = var.name
+  window {
+    name = "a"
+    pane {}
+    pane {}
+  }
+  window {
+    name = "b"
+    pane {}
+  }
+}

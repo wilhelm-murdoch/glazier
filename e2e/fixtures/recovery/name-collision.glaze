@@ -1,0 +1,12 @@
+# The session and its first window have the same name.
+session {
+  name = "shared-name"
+  window {
+    name = "shared-name"
+    pane {}
+  }
+  window {
+    name = "logs"
+    pane {}
+  }
+}

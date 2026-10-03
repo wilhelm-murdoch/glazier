@@ -1,0 +1,26 @@
+# Pane p0 has one adjust block with the direction in var.direction and the amount in var.amount.
+variable "direction" {
+  type = string
+}
+
+variable "amount" {
+  type = string
+}
+
+session {
+  name = "adjust"
+  window {
+    name   = "w"
+    layout = "even-horizontal"
+    pane {
+      name = "p0"
+      adjust {
+        direction = var.direction
+        amount    = var.amount
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

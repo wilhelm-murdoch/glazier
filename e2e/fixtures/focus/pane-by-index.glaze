@@ -1,0 +1,24 @@
+# var.focused is the index of the pane with focus.
+variable "focused" {
+  type = number
+}
+
+session {
+  name = "pane-by-index"
+  window {
+    name   = "w"
+    layout = "even-horizontal"
+    pane {
+      name  = "p0"
+      focus = var.focused == 0
+    }
+    pane {
+      name  = "p1"
+      focus = var.focused == 1
+    }
+    pane {
+      name  = "p2"
+      focus = var.focused == 2
+    }
+  }
+}

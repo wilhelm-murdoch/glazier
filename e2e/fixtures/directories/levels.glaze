@@ -1,0 +1,29 @@
+# A directory on each level. A relative path is relative to the directory of the profile.
+session {
+  name               = "levels"
+  starting_directory = "d/s"
+  window {
+    name = "w1"
+    pane {
+      name = "a"
+    }
+  }
+  window {
+    name               = "w2"
+    starting_directory = "d/w"
+    pane {
+      name = "b"
+    }
+    pane {
+      name               = "c"
+      starting_directory = "d/p"
+    }
+  }
+  window {
+    name               = "w3"
+    starting_directory = "d/with space"
+    pane {
+      name = "e"
+    }
+  }
+}

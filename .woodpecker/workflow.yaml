@@ -63,6 +63,23 @@ steps:
       - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux
       - make cover
 
+  # The end-to-end module: its own vet, lint, unit tests and govulncheck, then
+  # every case against the tmux of this image. The Docker matrix of six tmux
+  # targets runs on GitHub, because it needs a Docker daemon.
+  - name: e2e-check
+    image: golang:1.26
+    pull: true
+    commands:
+      - make e2e-check
+
+  - name: e2e
+    image: golang:1.26
+    pull: true
+    commands:
+      - apt-get update -qq && apt-get install -y -qq --no-install-recommends tmux zsh fish dash procps
+      - useradd -m e2e && chown -R e2e "$CI_WORKSPACE"
+      - su e2e -c "PATH=$PATH HOME=/home/e2e make e2e"
+
   - name: vuln
     image: golang:1.26
     pull: true

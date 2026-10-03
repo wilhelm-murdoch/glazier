@@ -35,6 +35,7 @@ func (p *Parser) DecodeSessionName(nameSpec hcldec.Spec, ctx *hcl.EvalContext) (
 
 		return "", diags.Extend(decodeDiags)
 	}
+
 	diags = diags.Extend(decodeDiags)
 
 	if name := decoded.GetAttr("name"); !name.IsNull() {
@@ -79,6 +80,7 @@ func (p *Parser) missingNameVariables(block *hcl.Block, ctx *hcl.EvalContext) hc
 			if !ok || seen[step] || (values.Type().IsObjectType() && values.Type().HasAttribute(step)) {
 				continue
 			}
+
 			seen[step] = true
 
 			for _, variable := range declared {
@@ -115,6 +117,7 @@ func (p *Parser) sessionNameExpressions(block *hcl.Block) (*hcl.Attribute, []hcl
 			if !ok || seen[step] {
 				continue
 			}
+
 			seen[step] = true
 
 			if local, ok := locals[step]; ok {

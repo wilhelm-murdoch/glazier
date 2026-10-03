@@ -1,0 +1,11 @@
+# The first command blocks, so up waits until a signal stops it.
+session {
+  name = "signal"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["sleep 600", "true"]
+    }
+  }
+}

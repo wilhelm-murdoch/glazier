@@ -1,0 +1,12 @@
+# A null in envs and in commands: glaze must reject both before tmux starts.
+session {
+  name = "null-element"
+  envs = {
+    A = null
+  }
+  window {
+    pane {
+      commands = ["true", null]
+    }
+  }
+}

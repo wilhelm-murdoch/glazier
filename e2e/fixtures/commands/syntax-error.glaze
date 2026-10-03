@@ -1,0 +1,11 @@
+# The second and third commands are shell syntax errors, and the commands after them must still run.
+session {
+  name = "syntax-error"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo a > o", "if then", "echo \"unclosed", "echo b >> o", "echo end >> o"]
+    }
+  }
+}

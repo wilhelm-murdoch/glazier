@@ -1,0 +1,11 @@
+# Each command prints a word that is also a tmux key name.
+session {
+  name = "keyname-like"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo Enter > o", "echo C-c >> o", "echo Space >> o"]
+    }
+  }
+}

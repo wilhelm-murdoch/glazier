@@ -1,0 +1,8 @@
+# random() takes a list, a tuple or a set. A map must give a diagnostic, not a panic.
+session {
+  name = "random-map"
+  window {
+    name = random({ a = "x" })
+    pane {}
+  }
+}

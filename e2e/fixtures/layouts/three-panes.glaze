@@ -1,0 +1,22 @@
+# Three panes p0 to p2 with the layout in var.layout.
+variable "layout" {
+  type    = string
+  default = "tiled"
+}
+
+session {
+  name = "three-panes"
+  window {
+    name   = "w"
+    layout = var.layout
+    pane {
+      name = "p0"
+    }
+    pane {
+      name = "p1"
+    }
+    pane {
+      name = "p2"
+    }
+  }
+}

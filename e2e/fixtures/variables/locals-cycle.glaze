@@ -1,0 +1,11 @@
+# Two locals refer to each other.
+locals {
+  a = local.b
+  b = local.a
+}
+session {
+  name = local.a
+  window {
+    pane {}
+  }
+}

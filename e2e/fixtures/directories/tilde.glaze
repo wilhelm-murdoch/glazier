@@ -1,0 +1,14 @@
+# One window starts in ~/proj and one window starts in ~.
+session {
+  name               = "tilde"
+  starting_directory = "~/proj"
+  window {
+    name = "proj"
+    pane {}
+  }
+  window {
+    name               = "home"
+    starting_directory = "~"
+    pane {}
+  }
+}

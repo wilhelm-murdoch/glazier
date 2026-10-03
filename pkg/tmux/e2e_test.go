@@ -88,6 +88,7 @@ func TestEndToEndProvisioning(t *testing.T) {
 	runWithTimeout(t, 10*time.Second, func() error {
 		return runner.Run(pane.Target(), []string{fmt.Sprintf("touch '%s'", marker), "true"})
 	})
+
 	assert.FileExists(t, marker)
 
 	// Tear the session down explicitly and confirm it is gone.
@@ -125,6 +126,7 @@ func TestEndToEndHostileNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, sessionName, session.Name)
 
 	found, err := client.FindSessionByName(sessionName)
@@ -153,6 +155,7 @@ func TestEndToEndHostileNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, windowName, window.Name)
 
 	windows, err := client.Windows(session)
@@ -223,6 +226,7 @@ func TestEndToEndRewrittenNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, "w-z-q", window.Name)
 
 	windows, err := client.Windows(session)
@@ -240,6 +244,7 @@ func TestEndToEndRewrittenNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, "p-z-q", pane.Name)
 
 	panes, err := client.Panes(window)
@@ -276,6 +281,7 @@ func TestEndToEndNonASCIINamesUnderCLocale(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, "café", session.Name)
 
 	found, err := client.FindSessionByName("café")
@@ -337,6 +343,7 @@ func TestEndToEndFormatSequencesInNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, "s#{host_short}", session.Name)
 	assert.True(t, hasSession(t, client, "s#{host_short}"))
 
@@ -344,18 +351,21 @@ func TestEndToEndFormatSequencesInNames(t *testing.T) {
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, "w#{session_name} a#Sb #[fg=red]x", window.Name)
 
 	defaultPane, err := firstPaneOf(client, window)
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	assert.Equal(t, resolvedDir, defaultPane.StartingDirectory)
 
 	pane, err := window.Split(defaultPane.Target(), "p#{pane_id}", dir)
 	if !assert.NoError(t, err) {
 		return
 	}
+
 	splitDir, err := filepath.EvalSymlinks(pane.StartingDirectory)
 	assert.NoError(t, err)
 	assert.Equal(t, resolvedDir, splitDir)
@@ -410,6 +420,7 @@ func TestEndToEndCommandRunner(t *testing.T) {
 			"echo " + strings.Repeat("A", 5000) + " >> " + out,
 			"echo end >> " + out,
 		}
+
 		runWithTimeout(t, 10*time.Second, func() error {
 			return runner.Run(pane.Target(), commands)
 		})
@@ -434,6 +445,7 @@ func TestEndToEndCommandRunner(t *testing.T) {
 		runWithTimeout(t, 10*time.Second, func() error {
 			return runner.Run(pane.Target(), []string{"if then", `echo "unclosed`, "echo after > " + out, "true"})
 		})
+
 		assert.FileExists(t, out)
 	})
 

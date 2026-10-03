@@ -83,6 +83,7 @@ func TestBuildEvalContext(t *testing.T) {
 		"reverse", "reverselist", "split", "strlen", "substr", "title", "trim",
 		"trimprefix", "trimspace", "trimsuffix", "upper",
 	}
+
 	assert.Len(t, ctx.Functions, len(expected))
 	for _, name := range expected {
 		_, ok := ctx.Functions[name]

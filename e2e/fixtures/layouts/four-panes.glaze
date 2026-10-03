@@ -1,0 +1,25 @@
+# Four panes p0 to p3 with the layout in var.layout.
+variable "layout" {
+  type    = string
+  default = "tiled"
+}
+
+session {
+  name = "four-panes"
+  window {
+    name   = "w"
+    layout = var.layout
+    pane {
+      name = "p0"
+    }
+    pane {
+      name = "p1"
+    }
+    pane {
+      name = "p2"
+    }
+    pane {
+      name = "p3"
+    }
+  }
+}

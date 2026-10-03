@@ -1,0 +1,11 @@
+# The env value is a secret, so --debug must not print it.
+session {
+  name = "token"
+  envs = {
+    TOKEN = "hunter2"
+  }
+  window {
+    name = "w"
+    pane {}
+  }
+}

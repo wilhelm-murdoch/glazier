@@ -1,0 +1,19 @@
+# Two panes p0 and p1 with the layout in var.layout.
+variable "layout" {
+  type    = string
+  default = "tiled"
+}
+
+session {
+  name = "two-panes"
+  window {
+    name   = "w"
+    layout = var.layout
+    pane {
+      name = "p0"
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

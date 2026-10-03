@@ -1,0 +1,28 @@
+# One variable of each type. fixer has no default, so a value is required.
+variable "district" {
+  description = "d"
+  type        = string
+  default     = "watson"
+}
+
+variable "fixer" {
+  type = string
+}
+
+variable "count" {
+  type    = number
+  default = 2
+}
+
+variable "loud" {
+  type    = bool
+  default = false
+}
+
+session {
+  name = "gig-${var.district}"
+  window {
+    name = "${var.fixer}-${var.count}-${var.loud}"
+    pane {}
+  }
+}

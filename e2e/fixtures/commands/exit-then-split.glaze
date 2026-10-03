@@ -1,0 +1,17 @@
+# The command of the first pane exits its shell before glaze splits the next panes.
+session {
+  name = "exit-then-split"
+  window {
+    name = "w"
+    pane {
+      name     = "runner"
+      commands = ["true; exit"]
+    }
+    pane {
+      name = "shell"
+    }
+    pane {
+      name = "shell2"
+    }
+  }
+}

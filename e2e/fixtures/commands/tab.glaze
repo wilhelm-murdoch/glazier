@@ -1,0 +1,11 @@
+# The command contains a tab, which a shell reads as completion in a typed line.
+session {
+  name = "tab"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["printf 'a\tb\n' > o", "echo end >> o"]
+    }
+  }
+}

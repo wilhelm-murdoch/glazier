@@ -1,0 +1,11 @@
+# The first command runs for a long time, and glaze waits for it before the second command.
+session {
+  name = "nonfinal-long-running"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["sleep 600", "echo b"]
+    }
+  }
+}

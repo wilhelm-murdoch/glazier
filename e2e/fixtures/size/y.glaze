@@ -1,0 +1,20 @@
+# Pane p0 has a height in var.y. The default tiled layout stacks two panes, so only y can change.
+variable "y" {
+  type = string
+}
+
+session {
+  name = "size-y"
+  window {
+    name = "w"
+    pane {
+      name = "p0"
+      size {
+        y = var.y
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

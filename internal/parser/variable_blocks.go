@@ -48,6 +48,7 @@ func (p *Parser) DecodeVariableBlocks() ([]*Variable, hcl.Diagnostics) {
 			{Type: "variable", LabelNames: []string{"name"}},
 		},
 	})
+
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -65,6 +66,7 @@ func (p *Parser) DecodeVariableBlocks() ([]*Variable, hcl.Diagnostics) {
 			diags = diags.Append(diagnostics.DuplicateVariable(name, previous, block.DefRange))
 			continue
 		}
+
 		seen[name] = block.DefRange
 
 		variable, varDiags := decodeVariableBlock(name, block)
@@ -96,6 +98,7 @@ func decodeVariableBlock(name string, block *hcl.Block) (*Variable, hcl.Diagnost
 			diags = diags.Append(diagnostics.InvalidVariableType(name, keyword, typeAttr.Expr.Range()))
 			return nil, diags
 		}
+
 		variable.Type = declaredType
 	}
 

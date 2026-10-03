@@ -1,0 +1,11 @@
+# The first command contains a newline, so it is two lines of shell.
+session {
+  name = "multiline"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo one > o\necho two >> o", "echo three >> o"]
+    }
+  }
+}

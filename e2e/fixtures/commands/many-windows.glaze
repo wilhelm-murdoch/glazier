@@ -1,0 +1,16 @@
+# Each window has two commands, which write to the same file o.
+session {
+  name = "many-windows"
+  window {
+    name = "w1"
+    pane {
+      commands = ["echo 1 >> o", "echo 2 >> o"]
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      commands = ["echo 3 >> o", "echo 4 >> o"]
+    }
+  }
+}

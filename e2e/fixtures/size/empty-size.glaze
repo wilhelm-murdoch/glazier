@@ -1,0 +1,15 @@
+# The size block of pane p0 has no x and no y.
+session {
+  name = "empty-size"
+  window {
+    name = "w"
+    pane {
+      name = "p0"
+      size {
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

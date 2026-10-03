@@ -73,9 +73,11 @@ func InvalidVariableValue(name, friendlyType string, err error, subject hcl.Rang
 		Summary:  "Invalid variable value",
 		Detail:   fmt.Sprintf("The value supplied for variable %q is not a valid %s: %s.", name, friendlyType, err),
 	}
+
 	if subject.Filename != "" {
 		diag.Subject = &subject
 	}
+
 	return diag
 }
 
@@ -132,8 +134,10 @@ func UndeclaredVarFileVariable(name, path string, subject hcl.Range) *hcl.Diagno
 		Summary:  "Undefined variable",
 		Detail:   fmt.Sprintf("The var file %q sets %q, but the profile declares no such variable block.", path, name),
 	}
+
 	if subject.Filename != "" {
 		diag.Subject = &subject
 	}
+
 	return diag
 }

@@ -1,0 +1,7 @@
+# A number as the session name: up and down both convert it to a string.
+session {
+  name = 42
+  window {
+    pane {}
+  }
+}

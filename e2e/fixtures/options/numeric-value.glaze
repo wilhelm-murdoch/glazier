@@ -1,0 +1,10 @@
+# The option value is a number, not a string.
+session {
+  name = "numeric-option"
+  options = {
+    "history-limit" = 5000
+  }
+  window {
+    pane {}
+  }
+}

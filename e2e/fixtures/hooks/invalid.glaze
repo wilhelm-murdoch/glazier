@@ -1,0 +1,10 @@
+# tmux has no hook with this name.
+session {
+  name = "invalid-hook"
+  hooks = {
+    "no-such-hook" = "display hi"
+  }
+  window {
+    pane {}
+  }
+}

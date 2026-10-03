@@ -4,7 +4,7 @@
 version: 2
 updates:
   - package-ecosystem: gomod
-    directory: /
+    directories: ["/", "/e2e"]
     schedule:
       interval: weekly
       day: monday
@@ -21,10 +21,10 @@ updates:
       actions:
         patterns: ["*"]
 
-  # The harness base images are pinned by digest. Each tag is a test target,
+  # The end-to-end base images are pinned by digest. Each tag is a test target,
   # so Dependabot updates only the digest and never moves a tag to a new release.
   - package-ecosystem: docker
-    directory: /test/e2e
+    directory: /e2e/images
     schedule:
       interval: weekly
       day: monday

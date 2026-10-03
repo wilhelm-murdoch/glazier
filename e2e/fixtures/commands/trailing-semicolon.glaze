@@ -1,0 +1,11 @@
+# The first command ends with ;, which tmux reads as a command separator.
+session {
+  name = "trailing-semicolon"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo a > o;", "echo b >> o"]
+    }
+  }
+}

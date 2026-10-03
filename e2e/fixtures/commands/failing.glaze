@@ -1,0 +1,11 @@
+# The first two commands fail, and glaze still runs the third command.
+session {
+  name = "failing"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["false", "(exit 3)", "echo after > o"]
+    }
+  }
+}

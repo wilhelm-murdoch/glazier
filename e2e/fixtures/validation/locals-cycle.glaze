@@ -1,0 +1,12 @@
+# Three locals in one cycle: glaze reports the group once and names each local.
+locals {
+  a = local.b
+  b = local.c
+  c = local.a
+}
+session {
+  name = "locals-cycle"
+  window {
+    pane {}
+  }
+}

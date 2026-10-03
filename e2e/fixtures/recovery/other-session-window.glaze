@@ -1,0 +1,12 @@
+# The first window has the name of another session on the server.
+session {
+  name = "api"
+  window {
+    name = "web"
+    pane {}
+  }
+  window {
+    name = "db"
+    pane {}
+  }
+}

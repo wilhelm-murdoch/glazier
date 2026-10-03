@@ -1,0 +1,13 @@
+# Two variable blocks declare the same variable.
+variable "x" {
+  default = "a"
+}
+variable "x" {
+  default = "b"
+}
+session {
+  name = var.x
+  window {
+    pane {}
+  }
+}

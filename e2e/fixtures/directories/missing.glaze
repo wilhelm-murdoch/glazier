@@ -1,0 +1,8 @@
+# The directory of the window does not exist.
+session {
+  name = "missing-directory"
+  window {
+    starting_directory = "/does/not/exist"
+    pane {}
+  }
+}

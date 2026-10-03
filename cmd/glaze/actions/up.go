@@ -215,6 +215,7 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 		if a.windowNames == nil {
 			a.windowNames = map[tmux.WindowId]string{}
 		}
+
 		a.windowNames[wtmx.Id] = wtmx.Name
 
 		if err := a.applyWindowOptions(ws, wtmx); err != nil {

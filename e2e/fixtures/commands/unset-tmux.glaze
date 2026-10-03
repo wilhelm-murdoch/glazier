@@ -1,0 +1,11 @@
+# The first command removes TMUX from the shell, so glaze cannot use it to signal.
+session {
+  name = "unset-tmux"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["unset TMUX", "echo a > o", "echo b >> o"]
+    }
+  }
+}

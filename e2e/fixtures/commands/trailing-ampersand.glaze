@@ -1,0 +1,11 @@
+# The first command ends with &, so it runs in the background.
+session {
+  name = "trailing-ampersand"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["sleep 300 &", "echo b > o"]
+    }
+  }
+}

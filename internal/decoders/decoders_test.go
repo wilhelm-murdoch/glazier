@@ -246,6 +246,7 @@ func TestSessionDecode(t *testing.T) {
 	panes := cty.ListVal([]cty.Value{
 		paneSpec(cty.NullVal(cty.Bool), cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})), cty.ListVal([]cty.Value{cty.StringVal("echo")})),
 	})
+
 	windows := cty.ListVal([]cty.Value{
 		windowSpec(cty.StringVal("tiled"), cty.NullVal(cty.Bool), panes),
 	})
@@ -282,8 +283,10 @@ func TestSessionResolveDirectories(t *testing.T) {
 			for _, dir := range dirs[1:] {
 				w.Panes = append(w.Panes, &Pane{Base: &Base{StartingDirectory: dir}})
 			}
+
 			s.Windows = append(s.Windows, w)
 		}
+
 		return s
 	}
 

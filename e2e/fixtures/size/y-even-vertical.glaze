@@ -1,0 +1,17 @@
+# Pane p0 has a height of 5. even-vertical stacks the panes, so y applies.
+session {
+  name = "size-y-even-vertical"
+  window {
+    name   = "w"
+    layout = "even-vertical"
+    pane {
+      name = "p0"
+      size {
+        y = "5"
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

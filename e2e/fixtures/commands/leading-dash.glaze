@@ -1,0 +1,11 @@
+# The first command starts with -, which tmux send-keys and the eval of bash can read as a flag.
+session {
+  name = "leading-dash"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["-x 2>/dev/null; echo d > o", "echo e >> o"]
+    }
+  }
+}

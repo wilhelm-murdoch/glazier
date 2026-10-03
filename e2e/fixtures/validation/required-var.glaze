@@ -1,0 +1,10 @@
+# region has no default, so down cannot compute the session name without --var.
+variable "region" {
+  type = string
+}
+session {
+  name = "svc-${var.region}"
+  window {
+    pane {}
+  }
+}

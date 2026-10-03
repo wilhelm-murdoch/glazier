@@ -43,6 +43,7 @@ func WriteFile(path string, data []byte, perm fs.FileMode) error {
 		if err != nil {
 			return err
 		}
+
 		_ = file.Close()
 
 		perm = info.Mode().Perm()
@@ -87,6 +88,7 @@ func WriteFile(path string, data []byte, perm fs.FileMode) error {
 	if err := os.Rename(temp.Name(), target); err != nil {
 		return err
 	}
+
 	renamed = true
 
 	return nil

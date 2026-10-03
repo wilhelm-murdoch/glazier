@@ -1,0 +1,10 @@
+# tmux has no option with this name.
+session {
+  name = "invalid-option-name"
+  options = {
+    "no-such-option" = "1"
+  }
+  window {
+    pane {}
+  }
+}

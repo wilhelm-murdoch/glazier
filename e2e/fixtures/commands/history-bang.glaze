@@ -1,0 +1,11 @@
+# bash and zsh read a ! in a typed line as history expansion.
+session {
+  name = "history-bang"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo wow!x > o", "echo b >> o"]
+    }
+  }
+}

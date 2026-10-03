@@ -1,0 +1,7 @@
+# The session has no directory, so glaze needs the current directory.
+session {
+  name = "deleted-without-directory"
+  window {
+    pane {}
+  }
+}

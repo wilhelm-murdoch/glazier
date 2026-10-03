@@ -1,0 +1,13 @@
+# Two locals blocks declare the same local.
+locals {
+  a = "1"
+}
+locals {
+  a = "2"
+}
+session {
+  name = local.a
+  window {
+    pane {}
+  }
+}

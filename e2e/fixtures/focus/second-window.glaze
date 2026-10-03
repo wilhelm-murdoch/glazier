@@ -1,0 +1,28 @@
+# The first window has focus, and each window has a pane with focus.
+session {
+  name = "second-window"
+  window {
+    name  = "w1"
+    focus = true
+    pane {
+      name = "a"
+    }
+    pane {
+      name  = "b"
+      focus = true
+    }
+    pane {
+      name = "c"
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      name  = "d"
+      focus = true
+    }
+    pane {
+      name = "e"
+    }
+  }
+}

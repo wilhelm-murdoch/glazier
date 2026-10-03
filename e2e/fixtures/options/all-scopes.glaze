@@ -1,0 +1,21 @@
+# One option on the session, two on the window and one on the pane.
+session {
+  name = "option-scopes"
+  options = {
+    "history-limit" = "4242"
+    "status"        = "off"
+  }
+  window {
+    name = "w"
+    options = {
+      "automatic-rename" = "off"
+      "monitor-activity" = "on"
+    }
+    pane {
+      name = "p"
+      options = {
+        "remain-on-exit" = "on"
+      }
+    }
+  }
+}

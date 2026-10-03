@@ -91,6 +91,7 @@ func localCycles(unresolved map[string]*hcl.Attribute) ([][]string, map[string]b
 			if next == to {
 				return true
 			}
+
 			if !seen[next] {
 				seen[next] = true
 				stack = append(stack, refs[next]...)
@@ -114,6 +115,7 @@ func localCycles(unresolved map[string]*hcl.Attribute) ([][]string, map[string]b
 				inCycle[other] = true
 			}
 		}
+
 		cycles = append(cycles, cycle)
 	}
 
@@ -142,6 +144,7 @@ func (p *Parser) localAttributes() (map[string]*hcl.Attribute, hcl.Diagnostics) 
 			{Type: "locals"},
 		},
 	})
+
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -157,6 +160,7 @@ func (p *Parser) localAttributes() (map[string]*hcl.Attribute, hcl.Diagnostics) 
 				diags = diags.Append(diagnostics.DuplicateLocal(name, previous.Range, attr.Range))
 				continue
 			}
+
 			locals[name] = attr
 		}
 	}

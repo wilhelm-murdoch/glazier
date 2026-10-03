@@ -1,0 +1,5 @@
+# An attribute follows a block on the same line, which is a syntax error.
+session {
+  window { pane {} name = "x"
+  }
+}

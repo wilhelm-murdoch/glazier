@@ -1,0 +1,10 @@
+# An empty name at each level: glaze must reject the empty session name before tmux starts.
+session {
+  name = ""
+  window {
+    name = ""
+    pane {
+      name = ""
+    }
+  }
+}

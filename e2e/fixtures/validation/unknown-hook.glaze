@@ -1,0 +1,10 @@
+# tmux has session-created, not session-create.
+session {
+  name = "unknown-hook"
+  hooks = {
+    "session-create" = "true"
+  }
+  window {
+    pane {}
+  }
+}

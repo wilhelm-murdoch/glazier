@@ -1,0 +1,11 @@
+# The second command is exactly the tmux key name Escape, which glaze must run as a command.
+session {
+  name = "bare-keyname"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo first > o", "Escape", "echo third >> o"]
+    }
+  }
+}

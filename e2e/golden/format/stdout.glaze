@@ -1,0 +1,11 @@
+# format must fix the spacing of this profile and keep its comments.
+# leading comment
+session {
+  name = "unformatted"
+  window {
+    name = "w" # trailing comment
+    pane {
+      commands = ["a", "b"]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+# glaze applies the size first and then each adjust block in file order.
+session {
+  name = "adjust-order"
+  window {
+    name   = "w"
+    layout = "even-horizontal"
+    pane {
+      name = "p0"
+      size {
+        x = "30"
+      }
+      adjust {
+        direction = "right"
+        amount    = "5"
+      }
+      adjust {
+        direction = "left"
+        amount    = "2"
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

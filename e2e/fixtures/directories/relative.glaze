@@ -1,0 +1,8 @@
+# glaze resolves the relative directory sub against the directory of the profile.
+session {
+  name               = "relative"
+  starting_directory = "sub"
+  window {
+    pane {}
+  }
+}

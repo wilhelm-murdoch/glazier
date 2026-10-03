@@ -112,12 +112,15 @@ func TestSplitTmuxLine(t *testing.T) {
 			if !errors.Is(err, tc.wantErr) {
 				t.Fatalf("splitTmuxLine(%q) error = %v, want %v", tc.line, err, tc.wantErr)
 			}
+
 			if tc.wantErr != nil {
 				if got != nil {
 					t.Errorf("splitTmuxLine(%q) parts = %q, want nil on error", tc.line, got)
 				}
+
 				return
 			}
+
 			if !slices.Equal(got, tc.want) {
 				t.Errorf("splitTmuxLine(%q) = %q, want %q", tc.line, got, tc.want)
 			}
@@ -287,19 +290,24 @@ func TestGetPartsFromTmuxLine(t *testing.T) {
 				t.Fatalf("getPartsFromTmuxLine(%q, %q, %d) error = %v, want %v",
 					tc.line, tc.prefix, tc.length, err, tc.wantErr)
 			}
+
 			if tc.wantCause != nil && !errors.Is(err, tc.wantCause) {
 				t.Fatalf("getPartsFromTmuxLine(%q, %q, %d) error = %v, want cause %v",
 					tc.line, tc.prefix, tc.length, err, tc.wantCause)
 			}
+
 			if tc.wantErr != nil {
 				if id != 0 {
 					t.Errorf("id = %d on error, want 0", id)
 				}
+
 				return
 			}
+
 			if id != tc.wantId {
 				t.Errorf("id = %d, want %d", id, tc.wantId)
 			}
+
 			if len(parts) != tc.length {
 				t.Errorf("len(parts) = %d, want %d", len(parts), tc.length)
 			}
@@ -338,9 +346,11 @@ func TestGetPartsFromTmuxLineDollarEscape(t *testing.T) {
 			if err != nil {
 				t.Fatalf("getPartsFromTmuxLine(%q) error = %v", line, err)
 			}
+
 			if id != 1 {
 				t.Errorf("id = %d, want 1", id)
 			}
+
 			if parts[1] != tc.stored {
 				t.Errorf("name = %q, want %q", parts[1], tc.stored)
 			}

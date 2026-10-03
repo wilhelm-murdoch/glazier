@@ -1,0 +1,3 @@
+# The file ends after "name =", which is a syntax error.
+session {
+  name = 

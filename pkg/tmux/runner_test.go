@@ -235,6 +235,7 @@ func TestCommandRunnerRun(t *testing.T) {
 				sends = append(sends, call)
 			}
 		}
+
 		assert.Equal(t, [][]string{
 			{"send-keys", "-l", "-t", "%1", "--", testRunner(0).evalLine(name)},
 			{"send-keys", "-t", "%1", "Enter"},
@@ -263,6 +264,7 @@ func TestCommandRunnerRun(t *testing.T) {
 				names = append(names, call[2])
 			}
 		}
+
 		assert.Len(t, names, 2)
 		assert.NotEqual(t, names[0], names[1])
 	})

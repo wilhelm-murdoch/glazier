@@ -1,0 +1,10 @@
+# envs is valid on the session only.
+session {
+  name = "envs-on-window"
+  window {
+    envs = {
+      FOO = "x"
+    }
+    pane {}
+  }
+}

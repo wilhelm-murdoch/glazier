@@ -1,0 +1,11 @@
+# The command has quotes, a ; and $HOME, which must reach the shell unchanged.
+session {
+  name = "special-chars"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["printf \"%s|%s|%s\\n\" \"a;b\" 'c d' \"$HOME\" > o", "echo done"]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+# The first command ends the only shell, so the second command never runs.
+session {
+  name = "exit"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["exit", "echo b"]
+    }
+  }
+}

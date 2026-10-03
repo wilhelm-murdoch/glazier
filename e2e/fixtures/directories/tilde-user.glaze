@@ -1,0 +1,8 @@
+# glaze expands only ~ and ~/, not ~user.
+session {
+  name               = "tilde-user"
+  starting_directory = "~root/x"
+  window {
+    pane {}
+  }
+}
