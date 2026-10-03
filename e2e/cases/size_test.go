@@ -8,8 +8,9 @@ import (
 	"github.com/wilhelm-murdoch/glazier/e2e/harness"
 )
 
-// firstPaneWidth reads the width of the first pane from a raw layout of side-by-side panes, which tmux puts in braces.
-var firstPaneWidth = regexp.MustCompile(`\{(\d+)x`)
+// firstPaneWidth reads the width of the first pane from a raw layout of side-by-side panes: the classic form puts the
+// panes in braces, and the JSON form of tmux 3.9 gives each pane a "w" after its type "p".
+var firstPaneWidth = regexp.MustCompile(`\{(\d+)x|"t":"p","w":(\d+)`)
 
 // TestSize checks the size and adjust blocks of a pane in a detached session of 80x24.
 func TestSize(t *testing.T) {
@@ -104,10 +105,12 @@ func TestSize(t *testing.T) {
 			c.T().Fatalf("no pane width in the raw layout %q", raw)
 		}
 
+		width := m[1] + m[2]
+
 		c.Fixture("size/x.glaze")
 		r := c.Up("--var", "layout="+raw, "--var", "x=20")
 		c.OK(r, "up with a raw layout and a size")
-		c.Match("the raw layout keeps its width", "^"+m[1]+"x", p0Size(c, "size-x"))
+		c.Match("the raw layout keeps its width", "^"+width+"x", p0Size(c, "size-x"))
 		c.Match("up warns that it ignores size", `ignores size and adjust`, r.Stderr)
 	})
 

@@ -89,6 +89,25 @@ func TestGenerateProfileRoundTrips(t *testing.T) {
 	assert.True(t, window.Panes[0].Focus)
 }
 
+// A layout that tmux 3.9 prints is JSON, so its quotes must survive the HCL string and the profile must validate.
+func TestGenerateProfileRoundTripsAJSONLayout(t *testing.T) {
+	layout := `{"V":2,"L":{"t":"h","w":80,"h":24,"x":0,"y":0,"c":[{"t":"p","w":40,"h":24,"x":0,"y":0,"i":0,"I":"%0"},{"t":"p","w":39,"h":24,"x":41,"y":0,"i":1,"I":"%1"}]}}`
+	captured := savedSession{
+		Name:    "demo",
+		Windows: []savedWindow{{Name: "w", Layout: layout, Panes: []savedPane{{Name: "a"}, {Name: "b"}}}},
+	}
+
+	path := filepath.Join(t.TempDir(), "saved.glaze")
+	assert.NoError(t, os.WriteFile(path, generateProfile(captured), 0o600))
+
+	p, diags := parser.New(path)
+	assert.False(t, diags.HasErrors())
+
+	session, decodeDiags := p.Decode(spec.Session(""), parser.BuildEvalContext(map[string]cty.Value{}))
+	assert.False(t, decodeDiags.HasErrors(), decodeDiags.Error())
+	assert.Equal(t, layout, session.Windows[0].LayoutValue())
+}
+
 func TestGenerateProfileOmitsEmptyOptionals(t *testing.T) {
 	captured := savedSession{
 		Name: "minimal",

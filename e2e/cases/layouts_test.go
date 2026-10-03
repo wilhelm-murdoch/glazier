@@ -57,7 +57,12 @@ func TestLayouts(t *testing.T) {
 	})
 
 	harness.Run(t, "layout_raw_bad_checksum", func(c *harness.Case) {
-		bad := corruptChecksum(rawLayout(c, 2))
+		raw := rawLayout(c, 2)
+		if strings.HasPrefix(raw, "{") {
+			c.T().Skip("tmux prints a JSON layout, which has no checksum")
+		}
+
+		bad := corruptChecksum(raw)
 		c.Fixture("layouts/two-panes.glaze")
 		r := c.Up("--var", "layout="+bad)
 		c.Fails(r, "raw layout with bad checksum fails at up")
