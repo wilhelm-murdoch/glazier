@@ -128,6 +128,7 @@ release: $(REL_DIR)
 	@$(MAKE) checksums
 
 # A .deb, an .rpm and an unsigned .apk for each Linux architecture, from the binaries that `release` built.
+# PKG_ARCH, not GOARCH: `go run` would build nfpm itself for the target architecture, which the host cannot run.
 .PHONY: packages
 packages:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
@@ -135,7 +136,7 @@ packages:
 	do \
 		for k in deb rpm apk; \
 		do \
-			GOARCH=$${a} PKG_VERSION=$(PKG_VERSION) $(PACKAGER) package --config $(ROOT_DIR)/packaging/nfpm.yaml \
+			PKG_ARCH=$${a} PKG_VERSION=$(PKG_VERSION) $(PACKAGER) package --config $(ROOT_DIR)/packaging/nfpm.yaml \
 				--packager $${k} --target $(REL_DIR)/linux-$${a}/glazier-linux-$${a}.$${k} || exit 1; \
 		done; \
 	done
