@@ -157,8 +157,12 @@ func TestCommands(t *testing.T) {
 			c.Write(filepath.Join(c.Home, ".zshrc"), "")
 			c.Mkdir("d")
 			c.Fixture("commands/shells.glaze")
-			c.OK(c.UpWith(harness.Opts{Timeout: shellsTimeout}), fmt.Sprintf("up with %s as the default shell", shell))
-			c.EventuallyEqual(fmt.Sprintf("commands ran as written in %s", shell), "wow!x,a\tb,"+c.Path("d")+",end", fileLines(c, "o"))
+			up := c.OK(c.UpWith(harness.Opts{Timeout: shellsTimeout}), fmt.Sprintf("up with %s as the default shell", shell))
+			ran := c.EventuallyEqual(fmt.Sprintf("commands ran as written in %s", shell), "wow!x,a\tb,"+c.Path("d")+",end", fileLines(c, "o"))
+			if !up || !ran {
+				c.Snapshot("shells")
+			}
+
 			c.EventuallyEqual(fmt.Sprintf("no glaze buffer is left in %s", shell), "", pasteBuffers(c))
 		})
 	}

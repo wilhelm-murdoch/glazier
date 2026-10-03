@@ -12,6 +12,9 @@ import (
 
 const tmuxTimeout = 10 * time.Second
 
+// snapshotScreenLines is the number of lines of each pane that Snapshot logs.
+const snapshotScreenLines = 15
+
 // The formats of State that show every window and every pane: the name, the
 // focus, the path and the geometry.
 const (
@@ -258,11 +261,22 @@ func (c *Case) State(session, windowFormat, paneFormat string) string {
 	return strings.Join(lines, "\n")
 }
 
-// Snapshot logs every window and pane of a session. Call it when a check
-// fails, to show what tmux had.
+// Snapshot logs every window and pane of a session, and the last lines on the
+// screen of each pane. Call it when a check fails, to show what tmux had.
 func (c *Case) Snapshot(session string) {
 	c.t.Helper()
-	c.t.Logf("snapshot of %s:\n%s", session, c.State(session, WindowState, PaneState))
+	var screens strings.Builder
+	for _, pane := range c.lines("list-panes", "-s", "-t", "="+session, "-F", "#{pane_id} #{pane_current_command}") {
+		id, _, _ := strings.Cut(pane, " ")
+		screen := strings.TrimRight(c.Tmux("capture-pane", "-p", "-t", id), "\n")
+		if lines := strings.Split(screen, "\n"); len(lines) > snapshotScreenLines {
+			screen = strings.Join(lines[len(lines)-snapshotScreenLines:], "\n")
+		}
+
+		fmt.Fprintf(&screens, "--- screen of %s\n%s\n", pane, screen)
+	}
+
+	c.t.Logf("snapshot of %s:\n%s\n%s", session, c.State(session, WindowState, PaneState), screens.String())
 }
 
 // lines runs a tmux query and returns its lines. tmux 3.4, and only 3.4,
