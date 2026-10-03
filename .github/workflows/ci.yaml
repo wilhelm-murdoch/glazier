@@ -103,8 +103,6 @@ jobs:
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
     runs-on: ${{ matrix.runner }}
-    # arm64 reports but does not block until it has a record of stable runs.
-    continue-on-error: ${{ matrix.runner == 'ubuntu-24.04-arm' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -131,8 +129,6 @@ jobs:
 
   e2e-macos:
     runs-on: macos-latest
-    # macOS reports but does not block until it has a record of stable runs.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0

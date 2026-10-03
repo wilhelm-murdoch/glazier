@@ -293,9 +293,9 @@ With `E2E_REPORT` set, the harness appends one JSON object for each check to tha
 | `make all`, Woodpecker, CI    | `make e2e-check`: vet, lint, unit tests and govulncheck of this module.   | Yes    |
 | Woodpecker                    | `make e2e` on the tmux of the Go image, as a user that is not root.       | Yes    |
 | CI, linux/amd64               | The matrix on all six targets. A pull request compares with its base.     | Yes    |
-| CI, linux/arm64 and macOS     | The matrix on arm64, and `make e2e` on the macOS host.                    | Not yet |
+| CI, linux/arm64 and macOS     | The matrix on arm64, and `make e2e` on the macOS host.                    | Yes    |
 | Release, linux/amd64          | The matrix on the release zip, with `-expect-version` set to the tag.     | Yes    |
-| Release, linux/arm64 and macOS| The same on the arm64 zip, and on the darwin zip on the macOS host.       | Not yet |
+| Release, linux/arm64 and macOS| The same on the arm64 zip, and on the darwin zip on the macOS host.       | Yes    |
 | E2E canary, each Monday       | The matrix on `tmuxnext`.                                                 | No     |
 
-The release publishes only when the amd64 matrix passes on the zip that it ships. The arm64 and macOS jobs report but do not block until they have a record of stable runs. To make them block, remove `continue-on-error` from the jobs in `.github/workflows/ci.yaml` and `.github/workflows/release.yaml`, and add `e2e-macos` to the `needs` of the release job.
+The release publishes only when the cases pass on each zip that it ships: linux/amd64 and linux/arm64 on all six targets, and darwin/arm64 on the macOS host. The darwin/amd64 zip has no runner of its own; it shares its source and its tests with darwin/arm64.

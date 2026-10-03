@@ -7,9 +7,8 @@
 #
 # The e2e gate tests what ships, not a fresh build: each job unzips the
 # release asset for its platform and checks that `glaze --version` reports
-# the tag. linux/amd64 blocks the release on all six tmux targets. linux/arm64
-# and darwin/arm64 report but do not block until they have a record of stable
-# runs.
+# the tag. Each e2e job blocks the release: linux/amd64 and linux/arm64 on
+# all six tmux targets, and darwin/arm64 on the macOS host.
 name: Release
 
 on:
@@ -65,7 +64,6 @@ jobs:
           - runner: ubuntu-24.04-arm
             arch: arm64
     runs-on: ${{ matrix.runner }}
-    continue-on-error: ${{ matrix.arch == 'arm64' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -100,7 +98,6 @@ jobs:
   e2e-macos:
     needs: build
     runs-on: macos-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -127,7 +124,7 @@ jobs:
           E2E_EXPECT_VERSION: ${{ github.ref_name }}
 
   release:
-    needs: [build, e2e-linux]
+    needs: [build, e2e-linux, e2e-macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release
