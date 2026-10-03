@@ -60,9 +60,34 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 
 ## Installation
 
+Each package installs the `glaze` binary and also installs `tmux` as a dependency.
+
+### With Homebrew (macOS and Linux)
+```console
+$ brew install wilhelm-murdoch/tap/glazier
+```
+
+### From the AUR (Arch Linux)
+The [`glazier-bin`](https://aur.archlinux.org/packages/glazier-bin) package installs the binary from the GitHub release. Use your AUR helper, for example:
+```console
+$ yay -S glazier-bin
+```
+
+### With a `.deb` or `.rpm` package (Debian, Ubuntu, Fedora)
+Each release includes a `.deb` and an `.rpm` package for amd64 and arm64. Download the package for your system, then install it.
+```console
+$ curl -LO https://github.com/wilhelm-murdoch/glazier/releases/latest/download/glazier-linux-amd64.deb
+$ sudo apt install ./glazier-linux-amd64.deb
+```
+
+```console
+$ curl -LO https://github.com/wilhelm-murdoch/glazier/releases/latest/download/glazier-linux-amd64.rpm
+$ sudo dnf install ./glazier-linux-amd64.rpm
+```
+
 ### From a GitHub release
 
-Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips. Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations).
+Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips. Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The checksums and the attestation also cover the `.deb` and `.rpm` packages.
 
 ```console
 $ unzip glaze-darwin-arm64.zip

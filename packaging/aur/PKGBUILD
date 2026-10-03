@@ -1,0 +1,22 @@
+# Maintainer: Wilhelm Murdoch <wilhelm@devilmayco.de>
+# The release workflow fills the @...@ placeholders with packaging/render.sh and pushes the result to the AUR.
+pkgname=glazier-bin
+pkgver=@VERSION@
+pkgrel=1
+pkgdesc='Declarative tmux workspaces from HCL profiles'
+arch=('x86_64' 'aarch64')
+url='https://github.com/wilhelm-murdoch/glazier'
+license=('MIT')
+depends=('tmux')
+options=('!debug')
+provides=('glazier')
+conflicts=('glazier')
+source_x86_64=("glaze-linux-amd64-${pkgver}.zip::${url}/releases/download/v${pkgver}/glaze-linux-amd64.zip")
+source_aarch64=("glaze-linux-arm64-${pkgver}.zip::${url}/releases/download/v${pkgver}/glaze-linux-arm64.zip")
+sha256sums_x86_64=('@SHA256_glaze-linux-amd64.zip@')
+sha256sums_aarch64=('@SHA256_glaze-linux-arm64.zip@')
+
+package() {
+  install -Dm755 glaze "${pkgdir}/usr/bin/glaze"
+  install -Dm644 LICENSE.md "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
+}
