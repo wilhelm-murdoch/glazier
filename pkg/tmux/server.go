@@ -5,7 +5,14 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/mattn/go-isatty"
 )
+
+// stdinIsTerminal reports whether standard input is a terminal, which `tmux attach` needs. Tests replace it.
+var stdinIsTerminal = func() bool {
+	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
+}
 
 // IsRunning reports whether a tmux server runs on the socket; `server-info` would need an attached client, so it uses `list-sessions`.
 // An error means that glaze cannot reach the server, which is not the same as no server.
@@ -81,6 +88,7 @@ func (c Client) CurrentSession() (*Session, error) {
 
 // Attach attaches the terminal to the session, or switches the current client when glaze runs inside this server.
 // It returns ErrOtherServer when glaze runs inside another tmux server, because attaching there would nest a client.
+// It returns ErrNoTerminal when standard input is not a terminal, for example in a script; switching a client needs none.
 func (c Client) Attach(session *Session) error {
 	inside, err := c.InsideServer()
 	if err != nil {
@@ -93,6 +101,8 @@ func (c Client) Attach(session *Session) error {
 		args = []string{"switchc", "-t", session.Target()}
 	case os.Getenv("TMUX") != "":
 		return ErrOtherServer
+	case !stdinIsTerminal():
+		return ErrNoTerminal
 	}
 
 	if err := c.run(args...); err != nil {

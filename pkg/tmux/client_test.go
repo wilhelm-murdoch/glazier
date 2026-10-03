@@ -330,6 +330,11 @@ func TestClientHasSession(t *testing.T) {
 }
 
 // insideServer sets the environment of a pane of the server on /tmp/tmux-1000/default.
+// withTerminal makes standard input a terminal, or not, for one test.
+func withTerminal(t *testing.T, terminal bool) {
+	t.Cleanup(OverrideTerminalCheck(func() bool { return terminal }))
+}
+
 func insideServer(t *testing.T, pane string) {
 	t.Setenv("TMUX", "/tmp/tmux-1000/default,1234,0")
 	t.Setenv("TMUX_PANE", pane)
@@ -614,6 +619,7 @@ func TestClientAttach(t *testing.T) {
 
 	t.Run("attaches outside tmux", func(t *testing.T) {
 		t.Setenv("TMUX", "")
+		withTerminal(t, true)
 		rec := setupRecorder(t)
 		rec.On("attach", fakeResult{})
 
@@ -645,8 +651,31 @@ func TestClientAttach(t *testing.T) {
 		assert.Equal(t, []string{"switchc", "-t", "$0"}, rec.ArgsFor("switchc"))
 	})
 
+	t.Run("does not attach without a terminal", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		withTerminal(t, false)
+		rec := setupRecorder(t)
+
+		client := testClient()
+		assert.ErrorIs(t, client.Attach(testSession(client)), ErrNoTerminal)
+		assert.False(t, rec.Called("attach"))
+	})
+
+	t.Run("switches the client inside this server without a terminal", func(t *testing.T) {
+		insideServer(t, "%3")
+		withTerminal(t, false)
+		rec := setupRecorder(t)
+		rec.On("display-message", fakeResult{Output: "/tmp/tmux-1000/default"})
+		rec.On("switchc", fakeResult{})
+
+		client := testClient()
+		assert.NoError(t, client.Attach(testSession(client)))
+		assert.True(t, rec.Called("switchc"))
+	})
+
 	t.Run("wraps attach errors", func(t *testing.T) {
 		t.Setenv("TMUX", "")
+		withTerminal(t, true)
 		rec := setupRecorder(t)
 		rec.On("attach", fakeResult{Err: errors.New("nope")})
 

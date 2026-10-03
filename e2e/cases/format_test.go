@@ -106,7 +106,8 @@ func TestFormat(t *testing.T) {
 		before := c.Read(".glaze")
 		// A file size limit of zero makes every write fail, like a full disk.
 		r := c.Exec(harness.Opts{}, "sh", "-c", `ulimit -f 0; exec "$0" format`, c.Env().Glaze)
-		c.Fails(r, "format with a failed write")
+		c.ExitCode(r, "a failed write is a failure, not an invalid profile (exit 1)", exitFailure)
+		c.Match("a failed write says that glaze could not write", "could not write", r.Stderr)
 		c.Equal("profile kept whole after a failed write", before, c.Read(".glaze"))
 		c.Equal("no temporary file left", "", workFiles(c, "*.tmp"))
 	})
@@ -146,7 +147,7 @@ func TestFormat(t *testing.T) {
 		r := c.Glaze("format")
 		c.Equal("read-only file keeps its mode", "-r--r--r--", modeOf(c, ".glaze"))
 		if os.Geteuid() != 0 {
-			c.Fails(r, "format refuses a read-only file")
+			c.ExitCode(r, "format refuses a read-only file with a failure (exit 1)", exitFailure)
 			c.Equal("read-only file untouched", before, c.Read(".glaze"))
 			c.Match("the refusal names the cause", "permission denied", r.Stderr)
 		} else {

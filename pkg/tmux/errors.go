@@ -14,6 +14,9 @@ var (
 	// ErrOtherServer means that glaze runs inside a different tmux server, so attaching would nest a client in a pane.
 	ErrOtherServer = errors.New("glaze runs inside a different tmux server")
 
+	// ErrNoTerminal means that standard input is not a terminal, so a tmux client cannot attach.
+	ErrNoTerminal = errors.New("standard input is not a terminal")
+
 	// ErrDuplicateSession means that another client created a session with the same name first.
 	ErrDuplicateSession = errors.New("a session with this name already exists")
 

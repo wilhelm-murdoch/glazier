@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
 
@@ -65,16 +64,9 @@ func (a *ActionFormat) Run(_ context.Context) error {
 	}
 
 	// Profiles are sharable config meant to be committed; 0644 is intended.
+	// A failed write is a failure of glaze, not an error in the profile, so it is not a diagnostic.
 	if err := files.WriteFile(a.ProfilePath, []byte(formatted), 0o644); err != nil {
-		a.DiagnosticsManager.Append(&hcl.Diagnostic{
-			Severity: hcl.DiagError,
-			Summary:  "Failed to write file",
-			Detail:   err.Error(),
-		})
-	}
-
-	if a.DiagnosticsManager.HasErrors() {
-		return a.DiagnosticsManager.Write()
+		return fmt.Errorf("could not write `%s`: %w", a.ProfilePath, err)
 	}
 
 	return nil

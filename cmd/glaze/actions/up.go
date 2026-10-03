@@ -77,11 +77,22 @@ func (a *ActionUp) Run(ctx context.Context) error {
 	}
 
 	if err := a.provisionSession(profile); err != nil {
+		if a.sessionEnded() {
+			return fmt.Errorf("session `%s` ended while glaze set it up, for example because a command ended its last pane: %w", a.session.Name, err)
+		}
+
 		a.rollBack()
 		return fmt.Errorf("failed to provision session `%s`: %w", a.session.Name, err)
 	}
 
 	return a.attachToSession()
+}
+
+// sessionEnded reports whether the session that this run created is gone, so nothing is left to roll back.
+// A signal cancels the context of the run, so the check uses a client without it.
+func (a *ActionUp) sessionEnded() bool {
+	exists, err := a.tmux.WithoutCancel().HasSession(a.session.Name)
+	return err == nil && !exists
 }
 
 // rollBack removes the session that this run created, unless --keep-on-failure keeps it for debugging.
@@ -110,9 +121,18 @@ func (a *ActionUp) attachToSession() error {
 	}
 
 	err := a.tmux.Attach(a.session)
-	if errors.Is(err, tmux.ErrOtherServer) {
+	switch {
+	case errors.Is(err, tmux.ErrOtherServer):
 		a.Logger.Info(
 			"glaze runs inside another tmux server, so it does not attach",
+			"session", a.session.Name,
+			"attach", a.tmux.AttachCommand(a.session),
+		)
+
+		return nil
+	case errors.Is(err, tmux.ErrNoTerminal):
+		a.Logger.Warn(
+			"there is no terminal to attach to, so glaze does not attach; use --detached to skip this warning",
 			"session", a.session.Name,
 			"attach", a.tmux.AttachCommand(a.session),
 		)

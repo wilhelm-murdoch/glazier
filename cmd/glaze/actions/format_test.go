@@ -126,6 +126,21 @@ func TestActionFormatRun(t *testing.T) {
 		assert.Contains(t, string(contents), `name = "demo"`)
 	})
 
+	t.Run("reports a failed write as a failure, not as an invalid profile", func(t *testing.T) {
+		if os.Geteuid() == 0 {
+			t.Skip("root can write to a read-only directory")
+		}
+
+		action := buildFormat(t, "session   {\n  name=\"demo\"\n}\n", nil)
+		dir := filepath.Dir(action.ProfilePath)
+		assert.NoError(t, os.Chmod(dir, 0o555))        //nolint:gosec // G302: the test directory is read-only on purpose
+		t.Cleanup(func() { _ = os.Chmod(dir, 0o755) }) //nolint:gosec // G302: the test directory gets its mode back for the clean-up
+
+		err := action.Run(context.Background())
+		assert.ErrorContains(t, err, "could not write")
+		assert.NotErrorIs(t, err, diagnostics.ErrHasDiagnostics)
+	})
+
 	t.Run("validates and reports an invalid layout", func(t *testing.T) {
 		bad := `session {
   name = "demo"

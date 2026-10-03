@@ -141,7 +141,7 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 | Code | Meaning |
 |------|---------|
 | `0` | Success. `ls` with no tmux server and `down` for a session that does not run also succeed. |
-| `1` | A tmux command failed, for example because tmux rejected an option value. |
+| `1` | A run failed, for example because tmux rejected an option value or Glazier could not write a profile. |
 | `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
 | `3` | The profile has errors, or Glazier cannot find the profile. |
 | `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH` or the socket does not give access. Glazier does not treat this as "no server". |
@@ -177,7 +177,7 @@ A command or a hook can contain a secret from a variable. At the default log lev
 
 A hook or an option in your `tmux.conf` can rename a window after Glazier creates it, for example `set-hook -g after-new-window 'rename-window x'`. `up` then shows a warning with the declared name and the new name. Glazier does not rename the window back, because your configuration can rename it again.
 
-Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead.
+Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead. Without a terminal, for example in a script, `up` does the same and warns: use `--detached` to skip the warning.
 
 ### `glaze down`
 
