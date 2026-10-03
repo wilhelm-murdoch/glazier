@@ -44,9 +44,9 @@ func (a *ActionFormat) Run(_ context.Context) error {
 			return a.DiagnosticsManager.Report(validationDiags)
 		}
 
-		// Warnings do not stop the format. Show them and continue.
+		// Warnings do not stop the format. Report shows them and returns no error.
 		if len(validationDiags) > 0 {
-			if err := a.DiagnosticsManager.Writer.WriteDiagnostics(validationDiags); err != nil {
+			if err := a.DiagnosticsManager.Report(validationDiags); err != nil {
 				return err
 			}
 		}

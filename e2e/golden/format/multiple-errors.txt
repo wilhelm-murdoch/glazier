@@ -1,0 +1,25 @@
+Error: Invalid layout specified
+
+  on $WORK/.glaze line 5, in session:
+   5:     layout = "foo"
+
+The layout value of "foo" is not a supported preset (even-horizontal,
+even-vertical, main-horizontal, main-vertical, tiled) nor a valid tmux layout
+string.
+
+Error: Invalid x specified
+
+  on $WORK/.glaze line 8, in session:
+   8:         x = "abc"
+
+The x value "abc" should be 1 or more cells, for example 20, or a percentage
+from 1% to 100%, for example 25%.
+
+Error: Invalid starting directory specified
+
+  on $WORK/.glaze line 13, in session:
+  13:     starting_directory = "/nope"
+
+The starting directory of "/nope" does not exist or is not a directory.
+
+the glaze profile contains errors
