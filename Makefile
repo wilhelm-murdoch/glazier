@@ -127,13 +127,13 @@ release: $(REL_DIR)
 	@$(MAKE) packages
 	@$(MAKE) checksums
 
-# A .deb and an .rpm for each Linux architecture, from the binaries that `release` built.
+# A .deb, an .rpm and an unsigned .apk for each Linux architecture, from the binaries that `release` built.
 .PHONY: packages
 packages:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@for a in ${GOARCHES}; \
 	do \
-		for k in deb rpm; \
+		for k in deb rpm apk; \
 		do \
 			GOARCH=$${a} PKG_VERSION=$(PKG_VERSION) $(PACKAGER) package --config $(ROOT_DIR)/packaging/nfpm.yaml \
 				--packager $${k} --target $(REL_DIR)/linux-$${a}/glazier-linux-$${a}.$${k} || exit 1; \
@@ -147,7 +147,7 @@ packages:
 .PHONY: checksums
 checksums:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@cd $(REL_DIR) && rm -f SHA256SUMS && for f in */*.zip */*.deb */*.rpm; do \
+	@cd $(REL_DIR) && rm -f SHA256SUMS && for f in */*.zip */*.deb */*.rpm */*.apk; do \
 		(cd $$(dirname $$f) && shasum -a 256 $$(basename $$f)); \
 	done > SHA256SUMS
 	@cat $(REL_DIR)/SHA256SUMS

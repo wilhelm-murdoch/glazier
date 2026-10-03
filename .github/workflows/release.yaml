@@ -2,8 +2,8 @@
 # v0.2.0` — the Forgejo mirror forwards tags). This re-verifies the tagged
 # commit, cross-compiles the version-stamped binaries via `make release`,
 # runs the end-to-end cases against those exact zips on real tmux binaries,
-# and only then publishes a GitHub Release with the zips, the .deb and .rpm
-# packages and notes generated from the merged PRs since the previous tag.
+# and only then publishes a GitHub Release with the zips, the .deb, .rpm and
+# .apk packages and notes generated from the merged PRs since the previous tag.
 # After that, it pushes the formula to the Homebrew tap and the PKGBUILD to the
 # AUR, so a failed push never blocks or changes the release.
 #
@@ -52,7 +52,7 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make release STAGE=production # builds the zips, the .deb and .rpm packages and SHA256SUMS
+      - run: make release STAGE=production # builds the zips, the .deb, .rpm and .apk packages and SHA256SUMS
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
@@ -60,6 +60,7 @@ jobs:
             release/*/*.zip
             release/*/*.deb
             release/*/*.rpm
+            release/*/*.apk
             release/SHA256SUMS
           if-no-files-found: error
 
@@ -163,6 +164,7 @@ jobs:
             release/*/*.zip
             release/*/*.deb
             release/*/*.rpm
+            release/*/*.apk
       - run: cp "${{ steps.attest.outputs.bundle-path }}" release/attestations.intoto.jsonl
       - name: Create GitHub Release
         env:
@@ -176,6 +178,7 @@ jobs:
             release/*/*.zip \
             release/*/*.deb \
             release/*/*.rpm \
+            release/*/*.apk \
             release/SHA256SUMS \
             release/attestations.intoto.jsonl
 
