@@ -68,6 +68,30 @@ func (c *Case) KillServer() {
 	}
 }
 
+// WaitForPanes waits until the process in each pane of a session runs its own
+// program. Until then, the process is the tmux child that starts it, and the
+// pane path can still be the directory of the server. Call it before a case
+// reads or saves the paths of panes that it just made. It stops the case when
+// the panes do not start.
+func (c *Case) WaitForPanes(session string) {
+	c.t.Helper()
+	ready := func() bool {
+		panes := c.lines("list-panes", "-s", "-t", "="+session, "-F", "#{pane_current_command}|#{pane_current_path}")
+		for _, pane := range panes {
+			command, path, _ := strings.Cut(pane, "|")
+			if command == "" || command == "tmux" || path == "" {
+				return false
+			}
+		}
+
+		return len(panes) > 0
+	}
+
+	if !c.WaitUntil(Patience, ready) {
+		c.t.Fatalf("the panes of %q did not start their programs", session)
+	}
+}
+
 // HasSession reports whether a session with exactly this name exists.
 func (c *Case) HasSession(name string) bool {
 	c.t.Helper()

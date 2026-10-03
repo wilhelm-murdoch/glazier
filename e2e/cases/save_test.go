@@ -29,6 +29,7 @@ func TestSave(t *testing.T) {
 		c.Mkdir("d/a", "d/b")
 		c.Fixture("save/rich.glaze")
 		c.OK(c.Up(), "up rich profile")
+		c.WaitForPanes("save-rich")
 		before := c.State("save-rich", harness.WindowState, harness.PaneState)
 		r := c.Save("--session", "save-rich", "--profile-path", "saved.glaze")
 		c.OK(r, "save to file")
@@ -52,6 +53,7 @@ func TestSave(t *testing.T) {
 		c.Mkdir("d/a", "d/b")
 		c.Fixture("save/rich.glaze")
 		c.Must(c.Up(), "up")
+		c.WaitForPanes("save-rich")
 		r := c.Save("--session", "save-rich", "--stdout")
 		c.OK(r, "save --stdout")
 		c.NoMatch("save --stdout has no log lines on stdout", "INF|WRN|EXPERIMENTAL", r.Stdout)
@@ -119,6 +121,7 @@ func TestSave(t *testing.T) {
 		c.Tmux("new-session", "-d", "-s", "raw", "-c", c.Path("fdir"))
 		c.Tmux("split-window", "-h", "-t", "=raw:")
 		c.Tmux("new-window", "-t", "=raw:", "-n", "two")
+		c.WaitForPanes("raw")
 		before := c.State("raw", unnamedWindow, unnamedPane)
 		c.OK(c.Save("--session", "raw", "--profile-path", "raw.glaze"), "save non-glaze session")
 		c.Logf("saved profile:\n%s", c.Read("raw.glaze"))
@@ -153,6 +156,8 @@ func TestSave(t *testing.T) {
 	harness.Run(t, "save_deleted_dir", func(c *harness.Case) {
 		c.Mkdir("gonedir")
 		c.Tmux("new-session", "-d", "-s", "dd", "-c", c.Path("gonedir"))
+		// The shell must be in the directory before the case deletes it.
+		c.WaitForPanes("dd")
 		c.Remove("gonedir")
 		r := c.Save("--session", "dd", "--profile-path", "dd.glaze")
 		c.OK(r, "save of a pane whose directory was deleted")

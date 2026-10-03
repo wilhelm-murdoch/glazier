@@ -32,10 +32,12 @@ jobs:
           TMUX_REF: ${{ inputs.tmux-ref || 'master' }}
       - if: always()
         run: cat "${RUNNER_TEMP}/e2e.md" >> "$GITHUB_STEP_SUMMARY" || true
-      - if: failure()
+      # Keep the reports and logs of every run: a flaky check on base passes the job, but its detail is still needed.
+      - if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: e2e-canary-results
+          retention-days: 14
           path: |
             e2e/results/**/*.jsonl
             e2e/results/**/*.log

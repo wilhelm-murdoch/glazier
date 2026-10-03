@@ -208,6 +208,8 @@ Some state is ready only some time after glaze exits, so read it with an `Eventu
 
 A name, an option, a hook, a layout and the order of windows and panes are ready when glaze exits, so a plain check is correct for them.
 
+A step that reads the paths of panes as a reference, or runs `save`, cannot wait for a known value. Call `c.WaitForPanes(session)` first: it waits until each pane runs its own program, so each pane path is final.
+
 To find a flaky check before CI does, run the cases many times on small containers:
 
 ```bash

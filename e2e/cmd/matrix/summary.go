@@ -8,8 +8,11 @@ import (
 	"github.com/wilhelm-murdoch/glazier/e2e/report"
 )
 
-// maxMessage is the longest error line that the summary shows.
-const maxMessage = 160
+// The longest error line and check detail that the summary shows.
+const (
+	maxMessage = 160
+	maxDetail  = 300
+)
 
 // targetRun is the result of one revision on one target.
 type targetRun struct {
@@ -151,7 +154,7 @@ func (s *summary) markdown() string {
 	}
 
 	for _, rev := range s.revisions {
-		s.section(&b, "Failed checks on "+rev.name, s.failuresOf(rev.name))
+		s.failedChecks(&b, rev.name)
 		s.section(&b, "Failed tests outside a check on "+rev.name, s.brokenTests(rev.name))
 	}
 
@@ -265,20 +268,59 @@ func (s *summary) section(b *strings.Builder, title string, items map[string][]s
 	}
 
 	fmt.Fprintf(b, "\n%s:\n\n", title)
-	ids := make([]string, 0, len(items))
-	for id := range items {
-		ids = append(ids, id)
+	for _, id := range sortedKeys(items) {
+		fmt.Fprintf(b, "- `%s` (%s)\n", id, s.where(items[id]))
+	}
+}
+
+// failedChecks lists each failed check of a revision with the detail of its
+// first target, so that a failure in CI can be read without the logs.
+func (s *summary) failedChecks(b *strings.Builder, rev string) {
+	items := s.failuresOf(rev)
+	if len(items) == 0 {
+		return
 	}
 
-	slices.Sort(ids)
-	for _, id := range ids {
-		where := strings.Join(items[id], ", ")
-		if len(s.targets) > 1 && len(items[id]) == len(s.targets) {
-			where = "all targets"
+	fmt.Fprintf(b, "\nFailed checks on %s:\n\n", rev)
+	for _, id := range sortedKeys(items) {
+		fmt.Fprintf(b, "- `%s` (%s)\n", id, s.where(items[id]))
+		if detail := s.runs[rev][items[id][0]].detail(id); detail != "" {
+			fmt.Fprintf(b, "  - %s: `%s`\n", items[id][0], detail)
 		}
-
-		fmt.Fprintf(b, "- `%s` (%s)\n", id, where)
 	}
+}
+
+// detail returns the detail of a failed check on one line, short enough for
+// the summary. A backtick would end the code span, so it becomes a quote.
+func (tr *targetRun) detail(id string) string {
+	for _, r := range tr.records {
+		if r.Failed() && r.ID() == id {
+			flat := strings.Join(strings.Fields(r.Detail), " ")
+			return strings.ReplaceAll(truncate(flat, maxDetail), "`", "'")
+		}
+	}
+
+	return ""
+}
+
+// where names the targets of an item, or says that it is on all of them.
+func (s *summary) where(targets []string) string {
+	if len(s.targets) > 1 && len(targets) == len(s.targets) {
+		return "all targets"
+	}
+
+	return strings.Join(targets, ", ")
+}
+
+// sortedKeys returns the keys of a map in order, for a stable summary.
+func sortedKeys(items map[string][]string) []string {
+	keys := make([]string, 0, len(items))
+	for key := range items {
+		keys = append(keys, key)
+	}
+
+	slices.Sort(keys)
+	return keys
 }
 
 func truncate(s string, n int) string {

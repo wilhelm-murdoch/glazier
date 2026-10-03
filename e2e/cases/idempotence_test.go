@@ -23,6 +23,7 @@ func TestIdempotence(t *testing.T) {
 		c.Fixture("idempotence/session-command.glaze")
 		c.OK(c.Up(), "first up")
 		c.WaitFile("o", harness.Patience)
+		c.WaitForPanes("up-twice")
 		before := c.State("up-twice", harness.WindowState, harness.PaneState)
 		r := c.Up()
 		c.OK(r, "second up")

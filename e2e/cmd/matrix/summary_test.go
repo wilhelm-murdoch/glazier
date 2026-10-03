@@ -19,7 +19,7 @@ func TestSummaryComparesRevisions(t *testing.T) {
 	runs := []*targetRun{
 		{target: "a", revision: baseRevision, tmux: "3.3a", exit: 1, records: []report.Record{rec("TestX/c", "fixed", report.Fail), rec("TestX/c", "same", report.Pass)}},
 		{target: "b", revision: baseRevision, exit: 1, records: []report.Record{rec("TestX/c", "fixed", report.Fail), rec("TestX/c", "same", report.Pass)}},
-		{target: "a", revision: headRevision, exit: 1, records: []report.Record{rec("TestX/c", "fixed", report.Pass), rec("TestX/c", "same", report.Fail)}},
+		{target: "a", revision: headRevision, exit: 1, records: []report.Record{rec("TestX/c", "fixed", report.Pass), {Test: "TestX/c", Check: "same", Status: report.Fail, Detail: "want \"a\",\n got `b`"}}},
 		{target: "b", revision: headRevision, records: []report.Record{rec("TestX/c", "fixed", report.Pass), rec("TestX/c", "same", report.Pass)}},
 	}
 
@@ -31,6 +31,7 @@ func TestSummaryComparesRevisions(t *testing.T) {
 		"| b |  | 1 pass, 1 fail | 2 pass |",
 		"Fixed: these checks fail on base and pass on head:\n\n- `TestX/c | fixed` (all targets)",
 		"Broken: these checks pass on base and fail on head:\n\n- `TestX/c | same` (a)",
+		"Failed checks on head:\n\n- `TestX/c | same` (a)\n  - a: `want \"a\", got 'b'`",
 	} {
 		if !strings.Contains(md, want) {
 			t.Errorf("markdown lacks %q:\n%s", want, md)
