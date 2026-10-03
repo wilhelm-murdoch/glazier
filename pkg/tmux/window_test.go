@@ -136,7 +136,7 @@ func TestWindowRename(t *testing.T) {
 		window := testWindow(testSession(testClient()))
 		window.Id = 7
 		require.NoError(t, window.Rename("w#{x}\\y"))
-		assert.Equal(t, []string{"renamew", "-t", "@7", "w##{x}-y"}, rec.ArgsFor("renamew"))
+		assert.Equal(t, []string{"renamew", "-t", "@7", "--", "w##{x}-y"}, rec.ArgsFor("renamew"))
 		assert.Equal(t, "w#{x}-y", window.Name)
 	})
 
@@ -191,11 +191,7 @@ func TestWindowSetHook(t *testing.T) {
 		window := testWindow(testSession(client))
 		assert.NoError(t, window.SetHook("window-renamed", "echo renamed"))
 
-		args := rec.ArgsFor("set-hook")
-		assert.Contains(t, args, "-w")
-		assert.Contains(t, args, "@0")
-		assert.Contains(t, args, "window-renamed")
-		assert.Contains(t, args, "echo renamed")
+		assert.Equal(t, []string{"set-hook", "-w", "-t", "@0", "--", "window-renamed", "echo renamed"}, rec.ArgsFor("set-hook"))
 	})
 
 	t.Run("propagates errors", func(t *testing.T) {

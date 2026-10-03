@@ -88,8 +88,8 @@ var (
 
 	// The names that each case tries. Each one has a character that tmux, HCL or a shell treat as special.
 	hostileSessionNames = []string{"my session", "a.b", "a:b", "semi;colon", "semi;", "hash#tag", "ünïcødé", "-dash", "pct%s", "brace{x}", "tab\tx", "x=y", strings.Repeat("a", 200)}
-	hostileWindowNames  = []string{"w;1", "w;", "w:1", "w.1", "w 1", "#[fg=red]x", "#{session_name}", "ü"}
-	hostilePaneNames    = []string{"p;1", "p;", "p|1", "p 1", "#{pane_id}"}
+	hostileWindowNames  = []string{"w;1", "w;", "w:1", "w.1", "w 1", "#[fg=red]x", "#{session_name}", "ü", "-n", "--", "-t x"}
+	hostilePaneNames    = []string{"p;1", "p;", "p|1", "p 1", "#{pane_id}", "-T", "--"}
 	hostileDirNames     = []string{"semi;dir", "dir;", "sp ace", "ünï", "quote'd"}
 )
 

@@ -49,9 +49,9 @@ func TestVariables(t *testing.T) {
 		c.OK(c.Up("--var", "fixer=k=v"), "= in value")
 		c.Equal("= in value kept", "k=v-2-false", c.WindowNames("gig-watson"))
 		c.KillServer()
-		// The empty value gives the window name "-2-false", which tmux reads as a flag.
-		r := c.Up("--var", "fixer=")
-		c.Logf("empty value for required var: exit %d, windows %q", r.Code, c.WindowNames("gig-watson"))
+		// The empty value gives the window name "-2-false", which starts like a flag.
+		c.OK(c.Up("--var", "fixer="), "empty value for a required var")
+		c.Equal("a window name that starts with - is kept", "-2-false", c.WindowNames("gig-watson"))
 		c.KillServer()
 		c.Fails(c.Up("--var", "fixer"), "--var without =")
 		c.Fails(c.Up("--var", "fixer =x"), "--var name with trailing space")

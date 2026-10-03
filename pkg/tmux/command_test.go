@@ -103,6 +103,8 @@ func TestRedactSecrets(t *testing.T) {
 		{"a value that looks like a flag", []string{"setenv", "-t", "$1", "OPT", "-t"}, []string{"setenv", "-t", "$1", "OPT", redactedValue}},
 		{"after the socket flags", []string{"-L", "s", "setenv", "K", "v"}, []string{"-L", "s", "setenv", "K", redactedValue}},
 		{"an unset has no value", []string{"setenv", "-u", "-t", "$1", "TOKEN"}, []string{"setenv", "-u", "-t", "$1", "TOKEN"}},
+		{"after the end of the flags", []string{"setenv", "-t", "$1", "--", "TOKEN", "hunter2"}, []string{"setenv", "-t", "$1", "--", "TOKEN", redactedValue}},
+		{"a key that looks like a flag", []string{"setenv", "-t", "$1", "--", "-K", "hunter2"}, []string{"setenv", "-t", "$1", "--", "-K", redactedValue}},
 		{"another command", []string{"set-option", "-t", "$1", "status", "off"}, []string{"set-option", "-t", "$1", "status", "off"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

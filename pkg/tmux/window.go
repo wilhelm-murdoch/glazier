@@ -67,10 +67,11 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 }
 
 // Rename gives the window a new name, sanitised and escaped like a name passed to NewWindow.
+// The name is an operand, so "--" stops tmux from reading a name such as "-2-false" as flags.
 func (w *Window) Rename(name string) error {
 	name = SanitizeName(name)
 
-	if err := w.Session.Client.run("renamew", "-t", w.Target(), escapeFormat(name)); err != nil {
+	if err := w.Session.Client.run("renamew", "-t", w.Target(), "--", escapeFormat(name)); err != nil {
 		return err
 	}
 
