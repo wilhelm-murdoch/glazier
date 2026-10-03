@@ -13,9 +13,9 @@ func TestDirectories(t *testing.T) {
 		c.Fixture("directories/levels.glaze")
 		c.OK(c.Up(), "up")
 		c.Equal("session path", c.Path("d/s"), c.Tmux("display-message", "-p", "-t", "=dl:", "#{session_path}"))
-		c.Equal("pane inherits session dir", c.Path("d/s"), c.PanePaths(c.WindowID("dl", "w1")))
-		c.Equal("pane inherits window starting_directory", c.Path("d/w")+","+c.Path("d/p"), c.PanePaths(c.WindowID("dl", "w2")))
-		c.Equal("window dir with a space inherited", c.Path("d/with space"), c.PanePaths(c.WindowID("dl", "w3")))
+		c.EventuallyEqual("pane inherits session dir", c.Path("d/s"), func() string { return c.PanePaths(c.WindowID("dl", "w1")) })
+		c.EventuallyEqual("pane inherits window starting_directory", c.Path("d/w")+","+c.Path("d/p"), func() string { return c.PanePaths(c.WindowID("dl", "w2")) })
+		c.EventuallyEqual("window dir with a space inherited", c.Path("d/with space"), func() string { return c.PanePaths(c.WindowID("dl", "w3")) })
 
 		// An attached client opens a new window in the session path; a command-line client would use its own directory.
 		cc := c.AttachControl("dl")
@@ -29,15 +29,15 @@ func TestDirectories(t *testing.T) {
 		c.Simple("dc", "here/.glaze")
 		c.Cd("here")
 		c.OK(c.Up(), "up")
-		c.Equal("no starting_directory uses cwd", c.Path("here"), c.PanePaths("=dc:"))
+		c.EventuallyEqual("no starting_directory uses cwd", c.Path("here"), func() string { return c.PanePaths("=dc:") })
 	})
 
 	harness.Run(t, "dirs_tilde", func(c *harness.Case) {
 		c.Mkdir("home/proj")
 		c.Fixture("directories/tilde.glaze")
 		c.OK(c.Up(), "up with ~ in starting_directory")
-		c.Equal("~ expanded", c.Path("home/proj"), c.PanePaths(c.WindowID("dt", "proj")))
-		c.Equal("bare ~ expanded", c.Home, c.PanePaths(c.WindowID("dt", "home")))
+		c.EventuallyEqual("~ expanded", c.Path("home/proj"), func() string { return c.PanePaths(c.WindowID("dt", "proj")) })
+		c.EventuallyEqual("bare ~ expanded", c.Home, func() string { return c.PanePaths(c.WindowID("dt", "home")) })
 	})
 
 	harness.Run(t, "dirs_tilde_user", func(c *harness.Case) {
@@ -53,7 +53,7 @@ func TestDirectories(t *testing.T) {
 		c.Fixture("directories/relative.glaze", "prof/.glaze")
 		c.Cd("elsewhere")
 		c.OK(c.Up("--profile-path", "../prof/.glaze"), "up with a relative starting_directory from another directory")
-		c.Equal("relative starting_directory is relative to the profile", c.Path("prof/sub"), c.PanePaths("=dr:"))
+		c.EventuallyEqual("relative starting_directory is relative to the profile", c.Path("prof/sub"), func() string { return c.PanePaths("=dr:") })
 	})
 
 	// From a directory that was deleted, glaze reads the current directory only where the profile needs it.

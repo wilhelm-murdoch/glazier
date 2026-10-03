@@ -79,7 +79,7 @@ func TestParseFlags(t *testing.T) {
 	if strings.Join(cfg.targets, ",") != "alpine,tmux37" || cfg.base == "" {
 		t.Errorf("config %+v", cfg)
 	}
-	for _, bad := range [][]string{{"-targets", "nope"}, {"-targets", ","}, {"-parallel", "0"}, {"extra"}} {
+	for _, bad := range [][]string{{"-targets", "nope"}, {"-targets", ","}, {"-parallel", "0"}, {"-count", "0"}, {"extra"}} {
 		if _, err := parseFlags(bad); err == nil {
 			t.Errorf("%v: no error", bad)
 		}

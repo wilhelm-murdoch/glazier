@@ -155,7 +155,7 @@ func TestHostileNames(t *testing.T) {
 			c.Write(".glaze", fmt.Sprintf(hostileDirProfile, harness.Quote(dir)))
 			r := c.Up()
 			c.True(fmt.Sprintf("dir [%s] up", n), r.Code == 0 && !r.TimedOut, "%s", r.Describe())
-			c.Equal(fmt.Sprintf("dir [%s] paths", n), dir+","+dir, c.PanePaths("=hd:w"))
+			c.EventuallyEqual(fmt.Sprintf("dir [%s] paths", n), dir+","+dir, func() string { return c.PanePaths("=hd:w") })
 			r = c.Glaze("ls", "--socket-name", c.Socket)
 			c.Match(fmt.Sprintf("ls with dir [%s]", n), "hd +1 +"+regexp.QuoteMeta(dir), r.Stdout)
 			saved := fmt.Sprintf("s%d.glaze", i)

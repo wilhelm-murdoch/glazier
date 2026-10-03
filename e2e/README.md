@@ -98,6 +98,8 @@ Give runner options in `MATRIX_FLAGS`, or run `go run ./cmd/matrix -h` in `e2e/`
 | `-expect-version V`     | Check that `glaze --version` reports `V`.                               |
 | `-parallel N`           | Run `N` cases at the same time on each target.                          |
 | `-markdown FILE`        | Also write the summary to `FILE`.                                       |
+| `-count N`              | Run each case `N` times, to find a flaky check.                          |
+| `-cpus N`               | Limit each container to `N` CPUs, as on a small CI runner.              |
 | `-arch amd64\|arm64`    | Build and run for this architecture. The default is that of Docker.    |
 
 ## Write a case
@@ -187,6 +189,20 @@ A check that fails does not stop the case. Use `c.T().Fatal` only when the next 
 ### Wait for a result, do not sleep
 
 Do not use `time.Sleep` in a case. tmux and the shells in panes work in the background, and a fixed sleep is too long on a fast host and too short on a slow one. Use `EventuallyEqual`, `EventuallyMatch` or `Eventually` for a check, and `WaitUntil` or `WaitFile` to wait before the next step.
+
+Some state is ready only some time after glaze exits, so read it with an `Eventually` check:
+
+- the path of a pane (`PanePaths`): tmux reads it from the process in the pane, which changes to its directory after tmux starts it.
+- a file that a command in a pane writes.
+- a process, for example a tmux client that glaze stops: it exits after glaze.
+
+A name, an option, a hook, a layout and the order of windows and panes are ready when glaze exits, so a plain check is correct for them.
+
+To find a flaky check before CI does, run the cases many times on small containers:
+
+```bash
+make e2e-matrix MATRIX_FLAGS='-count 5 -cpus 1'
+```
 
 ### Read tmux
 

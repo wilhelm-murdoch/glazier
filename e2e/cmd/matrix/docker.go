@@ -44,6 +44,14 @@ func dockerArch(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// cpus is the CPU limit of a container; 0 means no limit.
+func (m *matrix) cpus() string {
+	if m.cfg.cpus == "" {
+		return "0"
+	}
+	return m.cfg.cpus
+}
+
 func (m *matrix) image(target string) string { return "glaze-e2e:" + target + "-" + m.cfg.arch }
 
 func (m *matrix) buildImage(ctx context.Context, target string) error {
@@ -108,6 +116,7 @@ func (m *matrix) runTarget(ctx context.Context, rev revision, target string) *ta
 	args := []string{
 		"run", "--rm", "--init",
 		"--platform", "linux/" + m.cfg.arch,
+		"--cpus", m.cpus(),
 		"--user", fmt.Sprintf("%d:%d", os.Getuid(), os.Getgid()),
 		"-v", m.root + ":" + containerRoot + ":ro",
 		"-v", m.bin + ":" + containerBin + ":ro",
@@ -121,7 +130,7 @@ func (m *matrix) runTarget(ctx context.Context, rev revision, target string) *ta
 		"-w", containerRoot + "/cases",
 		m.image(target),
 		containerBin + "/e2e.test",
-		"-test.count=1",
+		"-test.count=" + strconv.Itoa(m.cfg.count),
 		"-test.v",
 		"-test.parallel=" + strconv.Itoa(m.cfg.parallel),
 		"-test.timeout=" + caseTimeout.String(),

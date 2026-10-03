@@ -45,6 +45,8 @@ type config struct {
 	markdown      string
 	skipImages    bool
 	tmuxRef       string
+	count         int
+	cpus          string
 }
 
 func main() {
@@ -96,6 +98,8 @@ func parseFlags(args []string) (*config, error) {
 	fs.StringVar(&cfg.markdown, "markdown", "", "also write the summary as markdown to this file")
 	fs.BoolVar(&cfg.skipImages, "skip-images", false, "use the images that exist; do not build them")
 	fs.StringVar(&cfg.tmuxRef, "tmux-ref", "master", "the branch or tag of tmux that the tmuxnext target builds")
+	fs.IntVar(&cfg.count, "count", 1, "run each case this many times, to find a flaky check")
+	fs.StringVar(&cfg.cpus, "cpus", "", "limit each container to this many CPUs (docker run --cpus), to find a flaky check")
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
@@ -117,8 +121,8 @@ func parseFlags(args []string) (*config, error) {
 	if cfg.baseGlaze != "" && cfg.base == "" {
 		cfg.base = "base"
 	}
-	if cfg.parallel < 1 {
-		return nil, errors.New("-parallel must be 1 or more")
+	if cfg.parallel < 1 || cfg.count < 1 {
+		return nil, errors.New("-parallel and -count must be 1 or more")
 	}
 	return cfg, nil
 }

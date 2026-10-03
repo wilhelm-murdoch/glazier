@@ -94,7 +94,7 @@ func TestVariables(t *testing.T) {
 		c.Cd("My Proj")
 		c.OK(c.Up(), "path.pwd/path.base")
 		c.Equal("path.base", "MY PROJ", c.WindowNames("pp"))
-		c.Equal("path.pwd", c.Path("My Proj"), c.PanePaths("=pp:"))
+		c.EventuallyEqual("path.pwd", c.Path("My Proj"), func() string { return c.PanePaths("=pp:") })
 	})
 
 	harness.Run(t, "locals_and_functions", func(c *harness.Case) {

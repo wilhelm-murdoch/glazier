@@ -82,7 +82,7 @@ func TestRecovery(t *testing.T) {
 			r := p.Wait()
 			c.ExitCode(r, "up exits 128 + SIG"+s.name, s.code)
 			c.SessionGone("SIG"+s.name+" removes the partly built session", "sg")
-			c.Equal("SIG"+s.name+" leaves no wait-for client", "", strings.Join(waiting(), "\n"))
+			c.EventuallyEqual("SIG"+s.name+" leaves no wait-for client", "", func() string { return strings.Join(waiting(), "\n") })
 			c.Match("up names the signal", "glaze stopped on SIG"+s.name, r.Output())
 		})
 	}
