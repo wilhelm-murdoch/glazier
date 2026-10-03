@@ -1,0 +1,53 @@
+# This profile has every kind of field. save must keep the structure and leave out commands, envs, hooks and options.
+session {
+  name               = "sv"
+  starting_directory = "d"
+  envs = {
+    SECRET = "hunter2"
+  }
+  hooks = {
+    "session-renamed" = "display hi"
+  }
+  options = {
+    "history-limit" = "4242"
+  }
+  commands = ["echo sess"]
+  window {
+    name   = "edit"
+    layout = "main-vertical"
+    pane {
+      name     = "a"
+      commands = ["echo a"]
+      options = {
+        "remain-on-exit" = "on"
+      }
+    }
+    pane {
+      name               = "b"
+      focus              = true
+      starting_directory = "d/a"
+    }
+    pane {
+      name               = "c"
+      starting_directory = "d/b"
+    }
+  }
+  window {
+    name   = "run"
+    focus  = true
+    layout = "even-vertical"
+    pane {
+      name = "d"
+    }
+    pane {
+      name  = "e"
+      focus = true
+    }
+  }
+  window {
+    name = "solo"
+    pane {
+      name = "f"
+    }
+  }
+}

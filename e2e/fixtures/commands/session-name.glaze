@@ -1,0 +1,16 @@
+# Session commands for a session with the name in var.name. They write to the file in var.out.
+variable "name" {
+  type = string
+}
+
+variable "out" {
+  type = string
+}
+
+session {
+  name     = var.name
+  commands = ["echo a > ${var.out}", "echo b >> ${var.out}"]
+  window {
+    pane {}
+  }
+}

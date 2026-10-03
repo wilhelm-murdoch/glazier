@@ -1,0 +1,9 @@
+session {
+  name = "on"
+  options = {
+    "history-limit" = 5000
+  }
+  window {
+    pane {}
+  }
+}

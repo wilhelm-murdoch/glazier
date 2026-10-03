@@ -1,0 +1,14 @@
+session {
+  name = "late"
+  window {
+    name = "one"
+    pane {}
+    pane {}
+    pane {}
+  }
+  window {
+    name = "two"
+    pane {}
+    pane {}
+  }
+}

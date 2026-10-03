@@ -1,0 +1,10 @@
+Error: Invalid layout specified
+
+  on $WORK/.glaze line 5, in session:
+   5:     layout = "foo"
+
+The layout value of "foo" is not a supported preset (even-horizontal,
+even-vertical, main-horizontal, main-vertical, tiled) nor a valid tmux layout
+string.
+
+the glaze profile contains errors

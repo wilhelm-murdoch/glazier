@@ -1,0 +1,7 @@
+session {
+  window {
+    pane {
+      commands = "not a list"
+    }
+  }
+}

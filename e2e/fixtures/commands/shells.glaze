@@ -1,0 +1,11 @@
+# Each command is hard for one shell or another. The pane changes to d, so it writes to ../o.
+session {
+  name = "sh"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["cd d", "if then", "echo wow!x > ../o", "printf 'a\tb\n' >> ../o # note", "-x 2>/dev/null; pwd >> ../o", "echo end >> ../o"]
+    }
+  }
+}

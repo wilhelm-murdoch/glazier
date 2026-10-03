@@ -1,0 +1,9 @@
+session {
+  name = "pd"
+  window {
+    pane {
+      starting_directory = "pd"
+      commands           = ["pwd > ../o"]
+    }
+  }
+}

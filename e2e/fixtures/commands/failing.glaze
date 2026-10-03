@@ -1,0 +1,10 @@
+session {
+  name = "cf"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["false", "(exit 3)", "echo after > o"]
+    }
+  }
+}

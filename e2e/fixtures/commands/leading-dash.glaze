@@ -1,0 +1,10 @@
+session {
+  name = "ld"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["-x 2>/dev/null; echo d > o", "echo e >> o"]
+    }
+  }
+}

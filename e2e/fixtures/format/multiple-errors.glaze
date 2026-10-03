@@ -1,0 +1,16 @@
+# Three errors in one profile: format --validate reports all of them.
+session {
+  name = "me"
+  window {
+    layout = "foo"
+    pane {
+      size {
+        x = "abc"
+      }
+    }
+  }
+  window {
+    starting_directory = "/nope"
+    pane {}
+  }
+}

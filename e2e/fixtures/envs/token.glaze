@@ -1,0 +1,10 @@
+session {
+  name = "er"
+  envs = {
+    TOKEN = "hunter2"
+  }
+  window {
+    name = "w"
+    pane {}
+  }
+}

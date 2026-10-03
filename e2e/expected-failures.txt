@@ -1,0 +1,7 @@
+# Checks that are known to fail. Each line has four fields, separated with " | ":
+#
+#   TARGET | TEST/CASE | CHECK | REASON
+#
+# TARGET is a target name or * for all targets. CHECK is the label of the check,
+# with " rc=0", " rc!=0" or " no tmux server started" when the check adds it.
+# A listed check that passes fails the run: remove its line when you fix the bug.

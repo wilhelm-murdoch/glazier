@@ -1,0 +1,23 @@
+# Each hook touches a marker file in the directory in var.dir.
+variable "dir" {
+  type = string
+}
+
+session {
+  name = "hk"
+  hooks = {
+    "session-renamed" = "run-shell 'touch ${var.dir}/h_session'"
+  }
+  window {
+    name = "w"
+    hooks = {
+      "window-renamed" = "run-shell 'touch ${var.dir}/h_window'"
+    }
+    pane {
+      name = "p"
+      hooks = {
+        "pane-focus-in" = "run-shell 'touch ${var.dir}/h_pane'"
+      }
+    }
+  }
+}

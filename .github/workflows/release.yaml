@@ -1,8 +1,15 @@
 # Releasing is: push a semver tag (e.g. `git tag v0.2.0 && git push origin
 # v0.2.0` — the Forgejo mirror forwards tags). This re-verifies the tagged
 # commit, cross-compiles the version-stamped binaries via `make release`,
-# and publishes a GitHub Release with the zips attached and notes generated
-# from the merged PRs since the previous tag.
+# runs the end-to-end cases against those exact zips on real tmux binaries,
+# and only then publishes a GitHub Release with the zips attached and notes
+# generated from the merged PRs since the previous tag.
+#
+# The e2e gate tests what ships, not a fresh build: each job unzips the
+# release asset for its platform and checks that `glaze --version` reports
+# the tag. linux/amd64 blocks the release on all six tmux targets. linux/arm64
+# and darwin/arm64 report but do not block until they have a record of stable
+# runs.
 name: Release
 
 on:
@@ -25,14 +32,11 @@ jobs:
       - run: make vet
       - run: make test
       - run: make race
+      - run: make e2e-check
 
-  release:
+  build:
     needs: verify
     runs-on: ubuntu-latest
-    permissions:
-      contents: write # create the GitHub Release
-      id-token: write # sign the provenance attestation (sigstore)
-      attestations: write # store the attestation in the repo's attestation log
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -42,6 +46,96 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: make release STAGE=production # builds the zips + SHA256SUMS
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release
+          path: |
+            release/*/*.zip
+            release/SHA256SUMS
+          if-no-files-found: error
+
+  e2e-linux:
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    continue-on-error: ${{ matrix.arch == 'arm64' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+      - name: Verify and unzip the release asset
+        run: |
+          cd release
+          shasum -a 256 -c SHA256SUMS --ignore-missing
+          unzip -o "linux-${{ matrix.arch }}/glaze-linux-${{ matrix.arch }}.zip" -d "$RUNNER_TEMP/glaze"
+      - name: Run the cases on every tmux target
+        working-directory: e2e
+        run: go run ./cmd/matrix -arch "${{ matrix.arch }}" -glaze "$RUNNER_TEMP/glaze/glaze" -expect-version "$GITHUB_REF_NAME" -markdown "$RUNNER_TEMP/e2e.md"
+      - if: always()
+        run: cat "$RUNNER_TEMP/e2e.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-results-linux-${{ matrix.arch }}
+          path: |
+            e2e/results/**/*.jsonl
+            e2e/results/**/*.log
+            e2e/results/summary.md
+
+  e2e-macos:
+    needs: build
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+      - run: brew install tmux fish
+      - name: Verify and unzip the release asset
+        run: |
+          cd release
+          shasum -a 256 -c SHA256SUMS --ignore-missing
+          unzip -o darwin-arm64/glaze-darwin-arm64.zip -d "$RUNNER_TEMP/glaze"
+      - name: Run the cases on the macOS host
+        working-directory: e2e
+        run: go test -count=1 ./cases/
+        env:
+          GLAZE_BIN: ${{ runner.temp }}/glaze/glaze
+          E2E_REQUIRE: "1"
+          E2E_TARGET: macos
+          E2E_EXPECT_VERSION: ${{ github.ref_name }}
+
+  release:
+    needs: [build, e2e-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the GitHub Release
+      id-token: write # sign the provenance attestation (sigstore)
+      attestations: write # store the attestation in the repo's attestation log
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
       # Signed build provenance for every zip: verifiable offline with
       # `gh attestation verify <zip> --repo ${{ github.repository }}`. The
       # sigstore bundle is also attached to the Release below so the
@@ -57,6 +151,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" \
             --verify-tag \
             --generate-notes \

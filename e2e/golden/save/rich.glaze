@@ -1,0 +1,53 @@
+session {
+  name               = "sv"
+  starting_directory = "$WORK/d"
+
+  window {
+    name   = "edit"
+    layout = "RAW"
+
+    pane {
+      name               = "a"
+      starting_directory = "$WORK/d"
+    }
+
+    pane {
+      name               = "b"
+      starting_directory = "$WORK/d/a"
+      focus              = true
+    }
+
+    pane {
+      name               = "c"
+      starting_directory = "$WORK/d/b"
+    }
+  }
+
+  window {
+    name   = "run"
+    layout = "RAW"
+    focus  = true
+
+    pane {
+      name               = "d"
+      starting_directory = "$WORK/d"
+    }
+
+    pane {
+      name               = "e"
+      starting_directory = "$WORK/d"
+      focus              = true
+    }
+  }
+
+  window {
+    name   = "solo"
+    layout = "RAW"
+
+    pane {
+      name               = "f"
+      starting_directory = "$WORK/d"
+      focus              = true
+    }
+  }
+}

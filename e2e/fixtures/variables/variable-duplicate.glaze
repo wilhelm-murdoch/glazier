@@ -1,0 +1,12 @@
+variable "x" {
+  default = "a"
+}
+variable "x" {
+  default = "b"
+}
+session {
+  name = var.x
+  window {
+    pane {}
+  }
+}

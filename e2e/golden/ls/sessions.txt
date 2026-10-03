@@ -1,0 +1,3 @@
+NAME      WINDOWS  PATH
+alpha     2        $WORK/a
+beta two  1        $WORK/b dir

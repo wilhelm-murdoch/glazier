@@ -1,0 +1,26 @@
+# Pane p0 has a width in var.x. even-horizontal puts the panes side by side, so x applies.
+variable "layout" {
+  type    = string
+  default = "even-horizontal"
+}
+
+variable "x" {
+  type = string
+}
+
+session {
+  name = "sz"
+  window {
+    name   = "w"
+    layout = var.layout
+    pane {
+      name = "p0"
+      size {
+        x = var.x
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

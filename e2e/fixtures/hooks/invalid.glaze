@@ -1,0 +1,9 @@
+session {
+  name = "hi"
+  hooks = {
+    "no-such-hook" = "display hi"
+  }
+  window {
+    pane {}
+  }
+}

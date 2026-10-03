@@ -1,0 +1,14 @@
+session {
+  name = "sz"
+  window {
+    name = "w"
+    pane {
+      name = "p0"
+      size {
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

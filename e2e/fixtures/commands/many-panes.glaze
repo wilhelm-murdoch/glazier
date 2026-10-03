@@ -1,0 +1,13 @@
+# glaze waits for the commands of one pane before it starts the commands of the next pane.
+session {
+  name = "mp"
+  window {
+    name = "w"
+    pane {
+      commands = ["sleep 1; echo a >> o", "echo a2 >> o"]
+    }
+    pane {
+      commands = ["echo b >> o", "echo b2 >> o"]
+    }
+  }
+}

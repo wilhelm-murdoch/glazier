@@ -1,0 +1,10 @@
+session {
+  name = "ce"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["exit", "echo b"]
+    }
+  }
+}

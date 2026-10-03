@@ -1,0 +1,8 @@
+session {
+  name               = "pp"
+  starting_directory = path.pwd
+  window {
+    name = upper(path.base)
+    pane {}
+  }
+}

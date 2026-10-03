@@ -1,0 +1,7 @@
+session {
+  name               = "dr"
+  starting_directory = "sub"
+  window {
+    pane {}
+  }
+}

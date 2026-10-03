@@ -1,0 +1,15 @@
+# The session command appends one line to the file o on each run.
+session {
+  name               = "id"
+  starting_directory = "."
+  commands           = ["echo run >> o"]
+  window {
+    name = "w1"
+    pane {}
+    pane {}
+  }
+  window {
+    name = "w2"
+    pane {}
+  }
+}

@@ -1,0 +1,16 @@
+# Names with characters that HCL or tmux treat as special.
+session {
+  name = "esc"
+  window {
+    name = "q\"uote"
+    pane {
+      name = "$${dollar}"
+    }
+    pane {
+      name = "%%{pct}"
+    }
+    pane {
+      name = "back\\slash"
+    }
+  }
+}

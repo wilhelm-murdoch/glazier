@@ -1,0 +1,13 @@
+session {
+  name               = "dt"
+  starting_directory = "~/proj"
+  window {
+    name = "proj"
+    pane {}
+  }
+  window {
+    name               = "home"
+    starting_directory = "~"
+    pane {}
+  }
+}

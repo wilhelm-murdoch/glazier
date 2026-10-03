@@ -1,0 +1,9 @@
+session {
+  name = "hk"
+  hooks = {
+    "after-new-window" = "display-message hi"
+  }
+  window {
+    pane {}
+  }
+}

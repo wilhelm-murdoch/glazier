@@ -1,0 +1,7 @@
+session {
+  window {
+    pane {
+      focus = "notbool"
+    }
+  }
+}

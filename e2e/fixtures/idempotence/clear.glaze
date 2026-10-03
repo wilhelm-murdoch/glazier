@@ -1,0 +1,8 @@
+session {
+  name = "cl"
+  window {
+    name = "w1"
+    pane {}
+    pane {}
+  }
+}

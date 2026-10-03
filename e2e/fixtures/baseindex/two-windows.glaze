@@ -1,0 +1,25 @@
+# Two windows with two and three panes, for each base-index setting.
+session {
+  name = "bi"
+  window {
+    name = "w1"
+    pane {
+      name = "a"
+    }
+    pane {
+      name = "b"
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      name = "c"
+    }
+    pane {
+      name = "d"
+    }
+    pane {
+      name = "e"
+    }
+  }
+}

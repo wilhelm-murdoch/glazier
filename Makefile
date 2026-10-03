@@ -40,13 +40,19 @@ VULNCHECKER  := go run golang.org/x/vuln/cmd/govulncheck@v1.3.0
 COVER_FLOOR  := 80
 FUZZTIME     ?= 10s
 
+# The end-to-end module (e2e/) is a separate Go module. RUN is a go test -run
+# pattern, TARGETS a comma-separated list of targets and BASE a git revision to
+# compare with.
+E2E_DIR      := $(ROOT_DIR)/e2e
+E2E_GLAZE    := $(BIN_DIR)/$(GOOS)-$(GOARCH)/glaze
+
 NO_COLOR   :=\033[0m
 ATTN_COLOR :=\033[33;01m
 
 ## EOF define block
 
 .PHONY: all
-all: deps build test race lint cover vuln
+all: deps build test race lint cover vuln e2e-check
 
 .PHONY: deps
 deps:
@@ -175,12 +181,41 @@ fuzz:
 		done; \
 	done
 
+# Runs every end-to-end case on the host, against the tmux in PATH.
+.PHONY: e2e
+e2e: build
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@cd $(E2E_DIR) && GLAZE_BIN=$(E2E_GLAZE) E2E_REQUIRE=1 go test -count=1 $(if $(RUN),-run '$(RUN)') ./cases/
+
+# Runs every end-to-end case on each tmux target in Docker, and compares with
+# BASE when it is set.
+.PHONY: e2e-matrix
+e2e-matrix:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@cd $(E2E_DIR) && go run ./cmd/matrix $(if $(TARGETS),-targets '$(TARGETS)') $(if $(BASE),-base '$(BASE)') $(if $(RUN),-run '$(RUN)') $(MATRIX_FLAGS)
+
+# Vets, lints and unit-tests the e2e module itself. It needs no tmux.
+.PHONY: e2e-check
+e2e-check:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@cd $(E2E_DIR) && go vet ./...
+	@cd $(E2E_DIR) && CGO_ENABLED=0 $(LINTER) run --config $(ROOT_DIR)/.golangci.yml ./...
+	@cd $(E2E_DIR) && CGO_ENABLED=0 go test -count=1 ./harness/ ./report/ ./cmd/...
+	@cd $(E2E_DIR) && $(VULNCHECKER) ./...
+
+# Formats every fixture in place, except the malformed ones.
+.PHONY: e2e-fmt
+e2e-fmt: build
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@find $(E2E_DIR)/fixtures -name '*.glaze' -not -path '*/malformed/*' -exec $(E2E_GLAZE) format --profile-path {} \;
+
 .PHONY: clean
 clean:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@rm -rf $(BIN_DIR)
 	@rm -rf $(REL_DIR)
 	@rm -f coverage.*
+	@rm -rf $(E2E_DIR)/results
 	@go clean
 
 $(REL_DIR):

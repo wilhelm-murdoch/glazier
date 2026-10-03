@@ -7,6 +7,10 @@
 # tmux is installed on every leg so the end-to-end test (pkg/tmux/e2e_test.go)
 # actually runs instead of self-skipping. There is no Windows leg: tmux has no
 # native Windows build, so neither does glaze.
+#
+# The e2e jobs run the end-to-end module (e2e/): every case on each tmux target
+# in Docker, on amd64 and arm64, and on the macOS host. On a pull request, the
+# matrix also runs the cases against the base branch and lists what changed.
 name: CI
 
 on:
@@ -82,3 +86,56 @@ jobs:
         with:
           name: coverage
           path: coverage.out
+
+  e2e-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e-check
+
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    # arm64 reports but does not block until it has a record of stable runs.
+    continue-on-error: ${{ matrix.runner == 'ubuntu-24.04-arm' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # the base revision and git describe for the version stamp
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e-matrix BASE="${BASE_REF}" MATRIX_FLAGS="-markdown ${RUNNER_TEMP}/e2e.md"
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || '' }}
+      - if: always()
+        run: cat "${RUNNER_TEMP}/e2e.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-results-${{ matrix.runner }}
+          path: |
+            e2e/results/**/*.jsonl
+            e2e/results/**/*.log
+            e2e/results/summary.md
+
+  e2e-macos:
+    runs-on: macos-latest
+    # macOS reports but does not block until it has a record of stable runs.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: brew install tmux fish
+      - run: make e2e

@@ -1,0 +1,9 @@
+session {
+  name = ""
+  window {
+    name = ""
+    pane {
+      name = ""
+    }
+  }
+}

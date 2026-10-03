@@ -1,0 +1,11 @@
+session {
+  name = "ne"
+  envs = {
+    A = null
+  }
+  window {
+    pane {
+      commands = ["true", null]
+    }
+  }
+}

@@ -1,0 +1,8 @@
+# The session has a directory, so glaze does not need the current directory.
+session {
+  name               = "dw"
+  starting_directory = "."
+  window {
+    pane {}
+  }
+}

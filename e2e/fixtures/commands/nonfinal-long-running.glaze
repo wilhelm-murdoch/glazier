@@ -1,0 +1,10 @@
+session {
+  name = "cn"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["sleep 600", "echo b"]
+    }
+  }
+}

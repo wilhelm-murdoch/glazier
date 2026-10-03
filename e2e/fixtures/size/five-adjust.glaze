@@ -1,0 +1,33 @@
+# A pane accepts four adjust blocks at most.
+session {
+  name = "sz"
+  window {
+    name = "w"
+    pane {
+      name = "p0"
+      adjust {
+        direction = "up"
+        amount    = "1"
+      }
+      adjust {
+        direction = "up"
+        amount    = "1"
+      }
+      adjust {
+        direction = "up"
+        amount    = "1"
+      }
+      adjust {
+        direction = "up"
+        amount    = "1"
+      }
+      adjust {
+        direction = "up"
+        amount    = "1"
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

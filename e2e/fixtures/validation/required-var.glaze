@@ -1,0 +1,9 @@
+variable "region" {
+  type = string
+}
+session {
+  name = "svc-${var.region}"
+  window {
+    pane {}
+  }
+}

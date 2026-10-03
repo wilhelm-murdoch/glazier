@@ -1,0 +1,15 @@
+# The second window has an invalid option value, so up fails after the first window.
+session {
+  name = "half"
+  window {
+    name = "good"
+    pane {}
+  }
+  window {
+    name = "bad"
+    options = {
+      "automatic-rename" = "maybe"
+    }
+    pane {}
+  }
+}

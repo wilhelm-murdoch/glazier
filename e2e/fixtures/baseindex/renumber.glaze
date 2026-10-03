@@ -1,0 +1,15 @@
+session {
+  name = "rn"
+  window {
+    name = "w1"
+    pane {
+      name = "a"
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      name = "b"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+session {
+  name = "cl"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo x > o", "sleep 600"]
+    }
+  }
+}

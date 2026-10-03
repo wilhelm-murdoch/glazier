@@ -1,0 +1,7 @@
+session {
+  name               = "dp"
+  starting_directory = path.pwd
+  window {
+    pane {}
+  }
+}

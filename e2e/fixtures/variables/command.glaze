@@ -1,0 +1,13 @@
+# The pane starts in the directory of the profile and writes the message to the file o.
+variable "msg" {
+  default = "hello"
+}
+session {
+  name               = "vc"
+  starting_directory = "."
+  window {
+    pane {
+      commands = ["echo ${var.msg} > o"]
+    }
+  }
+}

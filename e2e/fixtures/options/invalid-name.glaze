@@ -1,0 +1,9 @@
+session {
+  name = "oi"
+  options = {
+    "no-such-option" = "1"
+  }
+  window {
+    pane {}
+  }
+}

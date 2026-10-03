@@ -1,0 +1,10 @@
+# down evaluates the name again, so random() in the session name is rejected.
+locals {
+  pick = random(["a", "b", "c"])
+}
+session {
+  name = "gig-${local.pick}"
+  window {
+    pane {}
+  }
+}

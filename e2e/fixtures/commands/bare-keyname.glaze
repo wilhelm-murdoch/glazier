@@ -1,0 +1,10 @@
+session {
+  name = "bk"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo first > o", "Escape", "echo third >> o"]
+    }
+  }
+}

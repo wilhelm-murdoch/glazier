@@ -1,0 +1,10 @@
+session {
+  name = "ut"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["unset TMUX", "echo a > o", "echo b >> o"]
+    }
+  }
+}

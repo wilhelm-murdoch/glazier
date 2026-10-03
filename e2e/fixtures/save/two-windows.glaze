@@ -1,0 +1,11 @@
+session {
+  name = "rw"
+  window {
+    name = "first"
+    pane {}
+  }
+  window {
+    name = "second"
+    pane {}
+  }
+}

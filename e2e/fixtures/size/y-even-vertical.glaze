@@ -1,0 +1,16 @@
+session {
+  name = "sz"
+  window {
+    name   = "w"
+    layout = "even-vertical"
+    pane {
+      name = "p0"
+      size {
+        y = "5"
+      }
+    }
+    pane {
+      name = "p1"
+    }
+  }
+}

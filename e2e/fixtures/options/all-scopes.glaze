@@ -1,0 +1,20 @@
+session {
+  name = "op"
+  options = {
+    "history-limit" = "4242"
+    "status"        = "off"
+  }
+  window {
+    name = "w"
+    options = {
+      "automatic-rename" = "off"
+      "monitor-activity" = "on"
+    }
+    pane {
+      name = "p"
+      options = {
+        "remain-on-exit" = "on"
+      }
+    }
+  }
+}

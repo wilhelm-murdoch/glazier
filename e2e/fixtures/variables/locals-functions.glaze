@@ -1,0 +1,24 @@
+# The locals refer to each other out of order. random picks one of the editors.
+variable "district" {
+  default = "Night City"
+}
+
+locals {
+  session = "gig-${local.slug}"
+  slug    = lower(replace(var.district, " ", "-"))
+  editors = ["nvim", "hx", "vim"]
+  pick    = random([for e in local.editors : upper(e)])
+}
+
+session {
+  name = local.session
+  window {
+    name = local.pick
+    pane {
+      name = format("%s|%d|%d|%s|%s", title("a b"), len(local.editors), strlen("abcd"), join("+", local.editors), trimspace("  x  "))
+    }
+    pane {
+      name = regexreplace(substr(reverse("fedcba"), 1, 3), "c", "C")
+    }
+  }
+}

@@ -1,0 +1,27 @@
+session {
+  name = "fp"
+  window {
+    name  = "w1"
+    focus = true
+    pane {
+      name = "a"
+    }
+    pane {
+      name  = "b"
+      focus = true
+    }
+    pane {
+      name = "c"
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      name  = "d"
+      focus = true
+    }
+    pane {
+      name = "e"
+    }
+  }
+}

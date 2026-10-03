@@ -1,0 +1,10 @@
+session {
+  name = "dg"
+  window {
+    name   = "w"
+    layout = "foo"
+    pane {
+      name = "p0"
+    }
+  }
+}

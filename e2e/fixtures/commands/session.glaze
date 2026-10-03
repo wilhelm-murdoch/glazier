@@ -1,0 +1,19 @@
+# Session commands run in the active pane, which is the pane of w2 in d2. They write to ../o.
+session {
+  name     = "sc"
+  commands = ["sleep 1; echo s1 > ../o", "pwd >> ../o"]
+  window {
+    name               = "w1"
+    starting_directory = "d1"
+    pane {
+      starting_directory = "d1"
+    }
+  }
+  window {
+    name  = "w2"
+    focus = true
+    pane {
+      starting_directory = "d2"
+    }
+  }
+}

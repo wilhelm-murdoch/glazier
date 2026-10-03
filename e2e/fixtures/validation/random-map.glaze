@@ -1,0 +1,7 @@
+session {
+  name = "rm"
+  window {
+    name = random({ a = "x" })
+    pane {}
+  }
+}

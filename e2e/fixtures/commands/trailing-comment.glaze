@@ -1,0 +1,10 @@
+session {
+  name = "cc"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo a > o # a comment", "echo b >> o"]
+    }
+  }
+}

@@ -1,0 +1,10 @@
+# The command text can hold a secret, so glaze prints it only at the debug level.
+session {
+  name = "ct"
+  window {
+    name = "w"
+    pane {
+      commands = ["true hunter3"]
+    }
+  }
+}

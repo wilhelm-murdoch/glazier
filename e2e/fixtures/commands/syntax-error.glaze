@@ -1,0 +1,10 @@
+session {
+  name = "se"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo a > o", "if then", "echo \"unclosed", "echo b >> o", "echo end >> o"]
+    }
+  }
+}

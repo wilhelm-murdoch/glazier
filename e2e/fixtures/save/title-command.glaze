@@ -1,0 +1,11 @@
+# The pane command sets the pane title with an escape sequence, as a program can do.
+session {
+  name = "tc"
+  window {
+    name = "w"
+    pane {
+      name     = "mine"
+      commands = ["printf '\\033]2;%s\\033\\\\' changed-by-app"]
+    }
+  }
+}

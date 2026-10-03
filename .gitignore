@@ -1,5 +1,9 @@
 *.glaze
 .glaze
+# The fixtures of the end-to-end tests are profiles too.
+!/e2e/fixtures/**/*.glaze
+!/e2e/golden/**/*.glaze
+/e2e/results/
 .envrc
 .env
 cover*.out

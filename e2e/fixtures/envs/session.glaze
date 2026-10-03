@@ -1,0 +1,21 @@
+# The panes write the values that they get to o1 and o2 in the work directory.
+session {
+  name = "ev"
+  envs = {
+    FOO   = "bar baz"
+    EMPTY = ""
+    QUOTE = "it's \"q\""
+  }
+  window {
+    name = "w1"
+    pane {
+      commands = ["printf '[%s][%s][%s]\\n' \"$FOO\" \"$EMPTY\" \"$QUOTE\" > o1"]
+    }
+  }
+  window {
+    name = "w2"
+    pane {
+      commands = ["echo \"$FOO\" > o2"]
+    }
+  }
+}

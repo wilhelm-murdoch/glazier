@@ -1,0 +1,9 @@
+session {
+  name = "ov"
+  window {
+    options = {
+      "automatic-rename" = "maybe"
+    }
+    pane {}
+  }
+}

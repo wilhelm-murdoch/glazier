@@ -1,0 +1,10 @@
+session {
+  name = "ml"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo one > o\necho two >> o", "echo three >> o"]
+    }
+  }
+}

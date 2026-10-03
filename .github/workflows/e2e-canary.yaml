@@ -1,0 +1,42 @@
+# Weekly canary: runs every end-to-end case against the development branch of
+# tmux (the tmuxnext target), so that a change in tmux shows up here before a
+# tmux release reaches users. A failure here never blocks glaze; read the
+# summary and decide whether glaze must adapt.
+name: E2E canary
+
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Monday 04:17 UTC
+  workflow_dispatch:
+    inputs:
+      tmux-ref:
+        description: "The tmux branch or tag to build"
+        default: master
+
+permissions:
+  contents: read
+
+jobs:
+  tmuxnext:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # git describe for the version stamp
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make e2e-matrix TARGETS=tmuxnext MATRIX_FLAGS="-tmux-ref ${TMUX_REF} -markdown ${RUNNER_TEMP}/e2e.md"
+        env:
+          TMUX_REF: ${{ inputs.tmux-ref || 'master' }}
+      - if: always()
+        run: cat "${RUNNER_TEMP}/e2e.md" >> "$GITHUB_STEP_SUMMARY" || true
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-canary-results
+          path: |
+            e2e/results/**/*.jsonl
+            e2e/results/**/*.log
+            e2e/results/summary.md

@@ -1,0 +1,6 @@
+session {
+  bogus = 1
+  window {
+    pane {}
+  }
+}

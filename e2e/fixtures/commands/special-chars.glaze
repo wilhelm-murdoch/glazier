@@ -1,0 +1,10 @@
+session {
+  name = "sc"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["printf \"%s|%s|%s\\n\" \"a;b\" 'c d' \"$HOME\" > o", "echo done"]
+    }
+  }
+}

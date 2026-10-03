@@ -1,0 +1,7 @@
+# No session, window or pane name: glaze uses "default" for each.
+session {
+  window {
+    pane {}
+    pane {}
+  }
+}

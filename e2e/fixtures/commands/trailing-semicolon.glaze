@@ -1,0 +1,10 @@
+session {
+  name = "cs2"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo a > o;", "echo b >> o"]
+    }
+  }
+}

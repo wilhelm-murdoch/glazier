@@ -1,0 +1,10 @@
+session {
+  name = "tb"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["printf 'a\tb\n' > o", "echo end >> o"]
+    }
+  }
+}

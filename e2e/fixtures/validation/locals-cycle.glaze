@@ -1,0 +1,11 @@
+locals {
+  a = local.b
+  b = local.c
+  c = local.a
+}
+session {
+  name = "lc"
+  window {
+    pane {}
+  }
+}

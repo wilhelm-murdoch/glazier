@@ -1,0 +1,10 @@
+# leading comment
+session {
+name="fm"
+    window {
+  name   =    "w"   # trailing comment
+      pane {
+commands=["a","b"]
+}
+}
+}

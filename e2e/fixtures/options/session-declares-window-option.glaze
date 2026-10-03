@@ -1,0 +1,16 @@
+# A window option declared on the session applies to every window, not only to the first.
+session {
+  name = "ow"
+  options = {
+    "remain-on-exit" = "on"
+    "history-limit"  = "4242"
+  }
+  window {
+    name = "one"
+    pane {}
+  }
+  window {
+    name = "two"
+    pane {}
+  }
+}

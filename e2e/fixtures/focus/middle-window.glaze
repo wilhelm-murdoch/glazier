@@ -1,0 +1,16 @@
+session {
+  name = "fw"
+  window {
+    name = "w1"
+    pane {}
+  }
+  window {
+    name  = "w2"
+    focus = true
+    pane {}
+  }
+  window {
+    name = "w3"
+    pane {}
+  }
+}

@@ -1,0 +1,21 @@
+variable "layout" {
+  type    = string
+  default = "tiled"
+}
+
+session {
+  name = "lay"
+  window {
+    name   = "w"
+    layout = var.layout
+    pane {
+      name = "p0"
+    }
+    pane {
+      name = "p1"
+    }
+    pane {
+      name = "p2"
+    }
+  }
+}

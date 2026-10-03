@@ -1,0 +1,7 @@
+session {
+  name = "dm"
+  window {
+    starting_directory = "/does/not/exist"
+    pane {}
+  }
+}
