@@ -185,6 +185,8 @@ jobs:
     # render.sh accepts only a vX.Y.Z tag, so a pre-release gets no formula.
     if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
     runs-on: macos-latest
+    # The release environment holds the deploy key and allows only v* tags.
+    environment: release
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -215,9 +217,11 @@ jobs:
   # Checks the rendered PKGBUILD with makepkg in an Arch container before the push.
   aur:
     needs: release
-    # pacman does not accept a pre-release version such as 1.0.0-rc1.
-    if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
+    # pacman does not accept a pre-release version such as 1.0.0-rc1; set the AUR_ENABLED repo variable to true once AUR_SSH_KEY exists.
+    if: github.ref_type == 'tag' && !contains(github.ref_name, '-') && vars.AUR_ENABLED == 'true'
     runs-on: ubuntu-latest
+    # The release environment holds the AUR key and allows only v* tags.
+    environment: release
     env:
       GIT_SSH_COMMAND: ssh -i ${{ github.workspace }}/.aur-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${{ github.workspace }}/packaging/aur/known_hosts
     steps:
