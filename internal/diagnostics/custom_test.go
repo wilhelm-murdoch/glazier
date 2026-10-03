@@ -237,6 +237,10 @@ func TestLayoutCellsDiagnostic(t *testing.T) {
 	twoCells := cty.StringVal("e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}")
 
 	assert.Empty(t, LayoutCellsDiagnostic(window(twoCells, 2)))
+	assert.Empty(t, LayoutCellsDiagnostic(window(cty.StringVal(`{"V":2,"L":{"t":"h","w":80,"h":24,"c":[{"t":"p","w":40,"h":24},{"t":"p","w":39,"h":24}]}}`), 2)),
+		"a JSON layout of tmux 3.9 counts its panes")
+	assert.True(t, LayoutCellsDiagnostic(window(cty.StringVal(`{"V":2,"L":{"t":"p","w":80,"h":24}}`), 2)).HasErrors(),
+		"a JSON layout of one pane does not fit two")
 	assert.Empty(t, LayoutCellsDiagnostic(window(cty.StringVal("tiled"), 5)), "a preset fits any number of panes")
 	assert.Empty(t, LayoutCellsDiagnostic(window(cty.NullVal(cty.String), 3)))
 

@@ -73,6 +73,8 @@ window {
 
 The default `layout` is `tiled`. There are five presets: `even-horizontal`, `even-vertical`, `main-horizontal`, `main-vertical` and `tiled`. The attribute also accepts a raw tmux layout string, for example `"bb62,80x24,0,0"`. The `glaze save` command captures this string from a live window. The `glaze up` command replays the string without change. Glazier validates the structure of the string at parse time. A malformed string causes an error. The string must also describe as many panes as the window declares.
 
+tmux 3.9 and later print a layout as JSON, for example `{"V":2,"L":{"t":"h","w":80,"h":24,...}}`. Glazier accepts this form too, and `glaze save` writes the form that the running tmux prints. A profile with a JSON layout needs tmux 3.9 or later. tmux 3.9 also accepts the classic string.
+
 ### 1.3 `pane`
 
 ```hcl

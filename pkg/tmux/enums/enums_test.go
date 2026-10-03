@@ -152,3 +152,36 @@ func TestLayoutCellCount(t *testing.T) {
 		}
 	}
 }
+
+// jsonTwoPanes and jsonThreePanes are layouts that tmux 3.9 (next-3.9) printed.
+const (
+	jsonTwoPanes   = `{"V":2,"L":{"t":"h","w":80,"h":24,"x":0,"y":0,"c":[{"t":"p","w":40,"h":24,"x":0,"y":0,"l":0,"i":0,"I":"%0"},{"t":"p","w":39,"h":24,"x":41,"y":0,"a":true,"i":1,"I":"%1"}]}}`
+	jsonThreePanes = `{"V":2,"L":{"t":"h","w":80,"h":24,"x":0,"y":0,"c":[{"t":"p","w":40,"h":24,"x":0,"y":0,"l":1,"i":0,"I":"%0"},{"t":"v","w":39,"h":24,"x":41,"y":0,"c":[{"t":"p","w":39,"h":12,"x":41,"y":0,"l":0,"i":1,"I":"%1"},{"t":"p","w":39,"h":11,"x":41,"y":13,"a":true,"i":2,"I":"%2"}]}]}}`
+)
+
+func TestJSONLayout(t *testing.T) {
+	for layout, panes := range map[string]int{jsonTwoPanes: 2, jsonThreePanes: 3} {
+		if !IsLayoutString(layout) {
+			t.Errorf("IsLayoutString(%q) = false", layout)
+		}
+
+		if got := LayoutCellCount(layout); got != panes {
+			t.Errorf("LayoutCellCount(%q) = %d, want %d", layout, got, panes)
+		}
+	}
+
+	for name, layout := range map[string]string{
+		"not JSON":              `{"V":2,`,
+		"no root":               `{"V":2}`,
+		"a pane without size":   `{"V":2,"L":{"t":"p","w":0,"h":24}}`,
+		"a split without cells": `{"V":2,"L":{"t":"h","w":80,"h":24}}`,
+		"a pane with cells":     `{"V":2,"L":{"t":"p","w":80,"h":24,"c":[{"t":"p","w":80,"h":24}]}}`,
+		"an unknown cell type":  `{"V":2,"L":{"t":"x","w":80,"h":24}}`,
+		"a bad cell inside":     `{"V":2,"L":{"t":"h","w":80,"h":24,"c":[{"t":"p","w":40,"h":-1}]}}`,
+		"a JSON array":          `[{"V":2}]`,
+	} {
+		if IsLayoutString(layout) {
+			t.Errorf("%s: IsLayoutString(%q) = true", name, layout)
+		}
+	}
+}

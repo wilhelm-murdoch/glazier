@@ -21,7 +21,7 @@ const (
 
 // saveRawLayout matches the layout line that save writes, so the golden file holds "RAW" in its place.
 // The geometry of a preset differs between tmux versions.
-var saveRawLayout = regexp.MustCompile(`(?m)^(\s*layout\s*=\s*)"[^"]*"$`)
+var saveRawLayout = regexp.MustCompile(`(?m)^(\s*layout\s*=\s*)"(?:[^"\\]|\\.)*"$`)
 
 // save writes a profile of a running session, without commands, envs, hooks and options.
 func TestSave(t *testing.T) {
