@@ -3,7 +3,9 @@ package harness
 import (
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -129,5 +131,20 @@ func TestCleanupRestoresModes(t *testing.T) {
 
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("%s still exists: %v", dir, err)
+	}
+}
+
+func TestProcessRuns(t *testing.T) {
+	if !processRuns(strconv.Itoa(os.Getpid())) {
+		t.Error("the test process does not run")
+	}
+
+	cmd := exec.Command("true")
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	if processRuns(strconv.Itoa(cmd.Process.Pid)) {
+		t.Error("a process that exited and was reaped still runs")
 	}
 }

@@ -2,6 +2,7 @@ package harness
 
 import (
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -74,12 +75,15 @@ func (c *Case) TmuxDefault(args ...string) *Result {
 	return c.TmuxOn("", args...)
 }
 
-// KillServer stops the server of the case and waits until it is gone. A new
-// server that starts while the old one stops can lose its sessions.
+// KillServer stops the server of the case and waits until its process is gone.
+// A server can stop answering before its process exits, and a command that
+// connects in that moment fails with "server exited unexpectedly".
 func (c *Case) KillServer() {
 	c.t.Helper()
+	pid := c.Tmux("display-message", "-p", "#{pid}")
 	c.Tmux("kill-server")
-	if !c.WaitUntil(Patience, func() bool { return !c.ServerRunning() }) {
+	gone := func() bool { return !c.ServerRunning() && (pid == "" || !processRuns(pid)) }
+	if !c.WaitUntil(Patience, gone) {
 		c.t.Errorf("the tmux server did not stop")
 	}
 }
@@ -317,4 +321,12 @@ func (c *Case) active(args ...string) string {
 	}
 
 	return ""
+}
+
+// processRuns reports whether a process runs. A zombie does not run: a container
+// without an init process does not reap an exited tmux server.
+func processRuns(pid string) bool {
+	out, err := exec.Command("ps", "-o", "stat=", "-p", pid).Output() // #nosec G204 -- a pid that tmux printed
+	state := strings.TrimSpace(string(out))
+	return err == nil && state != "" && !strings.HasPrefix(state, "Z")
 }

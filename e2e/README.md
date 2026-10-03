@@ -224,7 +224,7 @@ The tmux helpers read the state with plain tmux commands: `Sessions`, `WindowNam
 
 Find a window by its id (`c.WindowID`) or with an exact target such as `=name:`. Do not use an index: a `tmux.conf` can change the base index.
 
-To start a new server in the same case, use `c.KillServer()`, not `c.Tmux("kill-server")`. tmux 3.2a to 3.4 can give a new session to the old server while it stops.
+To start a new server in the same case, use `c.KillServer()`, not `c.Tmux("kill-server")`. It waits until the process of the old server is gone. A stopping server can stop answering before its process exits, and a command that connects in that moment fails with "server exited unexpectedly" or gives its session to the old server.
 
 ### Observations
 
