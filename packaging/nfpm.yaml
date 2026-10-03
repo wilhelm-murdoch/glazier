@@ -1,6 +1,6 @@
-# The Makefile runs nfpm once per packager and architecture, with GOARCH and PKG_VERSION in the environment.
+# The Makefile runs nfpm once per packager and architecture, with PKG_ARCH and PKG_VERSION in the environment.
 name: glazier
-arch: ${GOARCH}
+arch: ${PKG_ARCH}
 platform: linux
 version: ${PKG_VERSION}
 version_schema: semver
@@ -16,7 +16,7 @@ depends:
   - tmux
 
 contents:
-  - src: ./release/linux-${GOARCH}/glaze
+  - src: ./release/linux-${PKG_ARCH}/glaze
     dst: /usr/bin/glaze
     expand: true
     file_info:
