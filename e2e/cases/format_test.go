@@ -10,41 +10,49 @@ import (
 	"github.com/wilhelm-murdoch/glazier/e2e/harness"
 )
 
+const (
+	// unformattedFixture has spacing that format changes.
+	unformattedFixture = "malformed/unformatted.glaze"
+
+	// multipleErrors is the number of errors in format/multiple-errors.glaze.
+	multipleErrors = 3
+)
+
 // formatOldTime is 2001-01-01 00:00:00 UTC, an mtime that no write of the case can give.
 var formatOldTime = time.Unix(978307200, 0)
 
 // format rewrites a profile in the canonical format and validates it with --validate.
 func TestFormat(t *testing.T) {
 	harness.Run(t, "fmt_stdout", func(c *harness.Case) {
-		c.Fixture("malformed/format-unformatted.glaze")
-		orig := c.Read(".glaze")
+		c.Fixture(unformattedFixture)
+		before := c.Read(".glaze")
 		r := c.Glaze("format", "--stdout")
 		c.OK(r, "format --stdout")
-		c.Equal("--stdout leaves file untouched", orig, c.Read(".glaze"))
-		c.Match("canonical indentation", "\n  name = \"fm\"", r.Stdout)
+		c.Equal("--stdout leaves file untouched", before, c.Read(".glaze"))
+		c.Match("canonical indentation", "\n  name = \"unformatted\"", r.Stdout)
 		c.Match("comments preserved", "# leading comment", r.Stdout)
 		c.Match("trailing comment preserved", "# trailing comment", r.Stdout)
 		c.NoMatch("no log noise on stdout", "INF|WRN", r.Stdout)
 		c.Golden("format --stdout output", "format/stdout.glaze", r.Stdout)
 		c.OK(c.Glaze("format"), "format in place")
 		once := c.Read(".glaze")
-		c.Glaze("format")
+		c.Must(c.Glaze("format"), "format a second time")
 		c.Equal("format is idempotent", once, c.Read(".glaze"))
 		c.Equal("in-place equals --stdout", once, c.Glaze("format", "--stdout").Stdout)
 	})
 
 	harness.Run(t, "fmt_validate_invalid", func(c *harness.Case) {
-		c.Fixture("malformed/format-invalid-layout.glaze")
-		orig := c.Read(".glaze")
+		c.Fixture("diagnostics/invalid-layout.glaze")
+		before := c.Read(".glaze")
 		c.Fails(c.Glaze("format", "--validate"), "--validate with invalid layout")
-		c.Equal("file untouched on validation error", orig, c.Read(".glaze"))
+		c.Equal("file untouched on validation error", before, c.Read(".glaze"))
 	})
 
 	harness.Run(t, "fmt_syntax_error", func(c *harness.Case) {
-		c.Fixture("malformed/format-syntax-error.glaze")
-		orig := c.Read(".glaze")
+		c.Fixture("malformed/syntax-missing-value.glaze")
+		before := c.Read(".glaze")
 		c.Fails(c.Glaze("format"), "format on syntax error")
-		c.Equal("file untouched on syntax error", orig, c.Read(".glaze"))
+		c.Equal("file untouched on syntax error", before, c.Read(".glaze"))
 	})
 
 	harness.Run(t, "fmt_validate_vars", func(c *harness.Case) {
@@ -58,62 +66,49 @@ func TestFormat(t *testing.T) {
 		c.Fixture("format/multiple-errors.glaze")
 		r := c.Glaze("format", "--validate")
 		c.Fails(r, "--validate multi-error")
-		n := 0
-		for _, line := range strings.Split(r.Output(), "\n") {
-			if strings.Contains(line, "Error") {
-				n++
-			}
-		}
-		c.True("all errors reported in one run", n >= 3, "saw %d: %s", n, r.Output())
-		c.NoMatch("diagnostics show source snippets", "source code not available", r.Output())
+		errorCount := strings.Count(r.Stderr, "Error:")
+		c.True("all errors reported in one run", errorCount >= multipleErrors, "saw %d errors, want %d: %s", errorCount, multipleErrors, r.Stderr)
+		c.NoMatch("diagnostics show source snippets", "source code not available", r.Stderr)
 		// The order of the three errors changes from run to run, so the output is no golden file.
-		c.Logf("diagnostic rendering:\n%s", r.Output())
+		c.Logf("diagnostic rendering:\n%s", r.Stderr)
 	})
 
+	// The formatted file must equal the golden output of format --stdout for the same fixture.
 	harness.Run(t, "fmt_perms_symlink", func(c *harness.Case) {
-		c.Write("real.glaze", formatUnformatted("fp"))
+		c.Fixture(unformattedFixture, "real.glaze")
 		c.Chmod("real.glaze", 0o600)
 		c.Symlink("real.glaze", ".glaze")
-		c.Simple("fp", "want.glaze")
 		c.OK(c.Glaze("format"), "format through symlink")
-		info, err := os.Lstat(c.Path(".glaze"))
-		c.True("symlink preserved", err == nil && info.Mode()&os.ModeSymlink != 0, "format replaced the symlink with a regular file")
-		c.Equal("permissions preserved", "-rw-------", formatMode(c, "real.glaze"))
-		c.Equal("target formatted through the symlink", c.Read("want.glaze"), c.Read("real.glaze"))
+		c.True("symlink preserved", isSymlink(c, ".glaze"), "format replaced the symlink with a regular file")
+		c.Equal("permissions preserved", "-rw-------", modeOf(c, "real.glaze"))
+		c.Golden("target formatted through the symlink", "format/stdout.glaze", c.Read("real.glaze"))
 	})
 
 	harness.Run(t, "fmt_unchanged", func(c *harness.Case) {
 		c.Simple("fu")
-		c.Glaze("format")
+		c.Must(c.Glaze("format"), "format the profile once")
 		if err := os.Chtimes(c.Path(".glaze"), formatOldTime, formatOldTime); err != nil {
 			c.T().Fatal(err)
 		}
+
 		c.OK(c.Glaze("format"), "format of a formatted profile")
 		info, err := os.Stat(c.Path(".glaze"))
 		if err != nil {
 			c.T().Fatal(err)
 		}
-		c.Equal("a formatted profile keeps its mtime", "978307200", fmt.Sprint(info.ModTime().Unix()))
+
+		c.Equal("a formatted profile keeps its mtime", fmt.Sprint(formatOldTime.Unix()), fmt.Sprint(info.ModTime().Unix()))
 	})
 
+	// glaze writes a hidden .tmp file next to the profile and renames it over the profile.
 	harness.Run(t, "fmt_write_fails", func(c *harness.Case) {
-		c.Write(".glaze", formatUnformatted("fw"))
-		orig := c.Read(".glaze")
+		c.Fixture(unformattedFixture)
+		before := c.Read(".glaze")
 		// A file size limit of zero makes every write fail, like a full disk.
 		r := c.Exec(harness.Opts{}, "sh", "-c", `ulimit -f 0; exec "$0" format`, c.Env().Glaze)
 		c.Fails(r, "format with a failed write")
-		c.Equal("profile kept whole after a failed write", orig, c.Read(".glaze"))
-		entries, err := os.ReadDir(c.Dir)
-		if err != nil {
-			c.T().Fatal(err)
-		}
-		var temps []string
-		for _, e := range entries {
-			if strings.HasSuffix(e.Name(), ".tmp") {
-				temps = append(temps, e.Name())
-			}
-		}
-		c.Equal("no temporary file left", "", strings.Join(temps, ","))
+		c.Equal("profile kept whole after a failed write", before, c.Read(".glaze"))
+		c.Equal("no temporary file left", "", workFiles(c, "*.tmp"))
 	})
 
 	harness.Run(t, "fmt_fifo", func(c *harness.Case) {
@@ -129,6 +124,7 @@ func TestFormat(t *testing.T) {
 		c.Match("/dev/stdin refusal says to use --stdout", "use --stdout", r.Stderr)
 	})
 
+	// Process substitution needs bash.
 	harness.Run(t, "fmt_process_substitution", func(c *harness.Case) {
 		c.Simple("fps")
 		r := c.Exec(harness.Opts{}, "bash", "-c", `"$0" format --stdout --profile-path <(cat .glaze)`, c.Env().Glaze)
@@ -144,31 +140,17 @@ func TestFormat(t *testing.T) {
 
 	// A user cannot write a read-only file. root can, so as root the case only logs the result.
 	harness.Run(t, "fmt_readonly", func(c *harness.Case) {
-		c.Write(".glaze", formatUnformatted("fr"))
+		c.Fixture(unformattedFixture)
 		c.Chmod(".glaze", 0o444)
-		orig := c.Read(".glaze")
+		before := c.Read(".glaze")
 		r := c.Glaze("format")
-		c.Equal("read-only file keeps its mode", "-r--r--r--", formatMode(c, ".glaze"))
+		c.Equal("read-only file keeps its mode", "-r--r--r--", modeOf(c, ".glaze"))
 		if os.Geteuid() != 0 {
 			c.Fails(r, "format refuses a read-only file")
-			c.Equal("read-only file untouched", orig, c.Read(".glaze"))
+			c.Equal("read-only file untouched", before, c.Read(".glaze"))
 			c.Match("the refusal names the cause", "permission denied", r.Stderr)
 		} else {
 			c.Logf("format on read-only file as root: exit %d", r.Code)
 		}
 	})
-}
-
-// formatUnformatted returns the profile of Case.Simple with spacing that format changes.
-func formatUnformatted(session string) string {
-	return fmt.Sprintf("session   {\n  name=%s\n  window {\n    name = \"w\"\n    pane {\n      name = \"p\"\n    }\n  }\n}\n", harness.Quote(session))
-}
-
-// formatMode returns the permission bits of a file, for example -rw-------.
-func formatMode(c *harness.Case, rel string) string {
-	info, err := os.Stat(c.Path(rel))
-	if err != nil {
-		return err.Error()
-	}
-	return info.Mode().Perm().String()
 }

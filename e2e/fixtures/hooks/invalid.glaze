@@ -1,5 +1,6 @@
+# tmux has no hook with this name.
 session {
-  name = "hi"
+  name = "invalid-hook"
   hooks = {
     "no-such-hook" = "display hi"
   }

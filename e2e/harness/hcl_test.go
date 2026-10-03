@@ -19,11 +19,13 @@ func TestQuoteRoundTrip(t *testing.T) {
 			t.Errorf("%q: %s", s, diags.Error())
 			continue
 		}
+
 		v, diags := expr.Value(nil)
 		if diags.HasErrors() {
 			t.Errorf("%q: %s", s, diags.Error())
 			continue
 		}
+
 		if got := v.AsString(); got != s {
 			t.Errorf("Quote(%q) reads back as %q", s, got)
 		}

@@ -18,32 +18,28 @@ const (
 	maxDetailOutput = 300
 )
 
-// Every check takes a label first. The label names the check in the report and
-// in expected-failures.txt, so it must be unique in its case and the same on
-// every target: never put a path, a pid, a time or a tmux version in it.
-
 // OK checks that a command exits 0.
 func (c *Case) OK(r *Result, label string) bool {
 	c.t.Helper()
-	return c.record(label+" rc=0", r.Code == 0 && !r.TimedOut, describe(r))
+	return c.record(label+" rc=0", r.Succeeded(), r.Describe())
 }
 
 // Fails checks that a command exits non-zero, before its deadline.
 func (c *Case) Fails(r *Result, label string) bool {
 	c.t.Helper()
-	return c.record(label+" rc!=0", r.Code != 0 && !r.TimedOut, describe(r))
+	return c.record(label+" rc!=0", r.Failed(), r.Describe())
 }
 
 // ExitCode checks the exact exit code of a command.
 func (c *Case) ExitCode(r *Result, label string, want int) bool {
 	c.t.Helper()
-	return c.record(label, r.Code == want && !r.TimedOut, fmt.Sprintf("want exit %d; %s", want, describe(r)))
+	return c.record(label, r.Code == want && !r.TimedOut, fmt.Sprintf("want exit %d; %s", want, r.Describe()))
 }
 
 // Finishes checks that a command ends before its deadline, whatever its exit code.
 func (c *Case) Finishes(r *Result, label string) bool {
 	c.t.Helper()
-	return c.record(label, !r.TimedOut, describe(r))
+	return c.record(label, !r.TimedOut, r.Describe())
 }
 
 // Within checks that a command ends in less than d.
@@ -110,6 +106,7 @@ func (c *Case) Eventually(label string, timeout time.Duration, cond func() (bool
 		done, detail = cond()
 		return done
 	})
+
 	return c.record(label, ok, fmt.Sprintf("not true after %s: %s", timeout, detail))
 }
 
@@ -132,6 +129,32 @@ func (c *Case) EventuallyMatch(label, pattern string, got func() string) bool {
 	})
 }
 
+// EventuallyExists checks that a file appears within Patience, for example a
+// marker that a hook or a command in a pane writes.
+func (c *Case) EventuallyExists(label, rel string) bool {
+	c.t.Helper()
+	return c.Eventually(label, Patience, func() (bool, string) { return c.Exists(rel), rel + " does not exist" })
+}
+
+// EventuallyPanePaths checks the paths of the panes of a window target. tmux
+// reads a pane path from the process in the pane, which changes to its
+// directory some time after tmux starts it, so the check waits.
+func (c *Case) EventuallyPanePaths(label, want, target string) bool {
+	c.t.Helper()
+	return c.EventuallyEqual(label, want, func() string { return c.PanePaths(target) })
+}
+
+// Must stops the case when a setup step fails, so that a later check does not
+// fail for a misleading reason. It is not a check and has no label.
+func (c *Case) Must(r *Result, step string) *Result {
+	c.t.Helper()
+	if !r.Succeeded() {
+		c.t.Fatalf("setup step %q: %s", step, r.Describe())
+	}
+
+	return r
+}
+
 // WaitUntil polls cond until it is true or timeout passes. It is not a check.
 func (c *Case) WaitUntil(timeout time.Duration, cond func() bool) bool {
 	deadline := time.Now().Add(timeout)
@@ -139,9 +162,11 @@ func (c *Case) WaitUntil(timeout time.Duration, cond func() bool) bool {
 		if cond() {
 			return true
 		}
+
 		if time.Now().After(deadline) {
 			return false
 		}
+
 		time.Sleep(pollInterval)
 	}
 }
@@ -170,9 +195,11 @@ func (c *Case) record(label string, pass bool, detail string) bool {
 		status = report.Fail
 		c.t.Errorf("%s: %s", label, detail)
 	}
+
 	if status == report.Pass {
 		detail = ""
 	}
+
 	c.env.report.write(c.t.Name(), label, status, detail)
 	return pass
 }
@@ -189,11 +216,13 @@ func (c *Case) validateLabel(label string) {
 	case strings.Contains(label, report.Separator):
 		c.t.Fatalf("the label %q contains %q, the separator of expected-failures.txt", label, report.Separator)
 	}
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.labels[label] {
 		c.t.Fatalf("the label %q is used twice in this case", label)
 	}
+
 	c.labels[label] = true
 }
 
@@ -203,23 +232,6 @@ func (c *Case) compile(pattern string) *regexp.Regexp {
 	if err != nil {
 		c.t.Fatalf("pattern /%s/: %v", pattern, err)
 	}
+
 	return re
-}
-
-// Describe summarises a result for the detail of a check.
-func (r *Result) Describe() string { return describe(r) }
-
-func describe(r *Result) string {
-	if r.TimedOut {
-		return fmt.Sprintf("timed out (hang) after %s", r.Duration.Round(time.Millisecond))
-	}
-	return fmt.Sprintf("exit %d, stdout %s, stderr %s", r.Code,
-		strconv.Quote(truncate(r.Stdout, maxDetailOutput)), strconv.Quote(truncate(r.Stderr, maxDetailOutput)))
-}
-
-func truncate(s string, n int) string {
-	if len(s) > n {
-		return s[:n] + "…"
-	}
-	return s
 }

@@ -1,5 +1,5 @@
 session {
-  name               = "sv"
+  name               = "save-rich"
   starting_directory = "$WORK/d"
 
   window {

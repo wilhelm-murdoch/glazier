@@ -12,6 +12,7 @@ func TestColorEnabled(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not create a pipe: %v", err)
 	}
+
 	t.Cleanup(func() { _ = r.Close(); _ = w.Close() })
 
 	t.Run("a pipe is not a terminal", func(t *testing.T) {

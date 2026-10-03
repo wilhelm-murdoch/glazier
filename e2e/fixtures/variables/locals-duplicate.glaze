@@ -1,3 +1,4 @@
+# Two locals blocks declare the same local.
 locals {
   a = "1"
 }

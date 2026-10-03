@@ -1,5 +1,6 @@
+# A user option starts with @, and tmux accepts any such name.
 session {
-  name = "ou"
+  name = "user-option"
   options = {
     "@my-flag" = "yes"
   }

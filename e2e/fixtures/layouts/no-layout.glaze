@@ -1,6 +1,6 @@
 # No layout attribute: glaze uses tiled.
 session {
-  name = "lay"
+  name = "no-layout"
   window {
     name = "w"
     pane {

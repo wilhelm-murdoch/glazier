@@ -1,6 +1,6 @@
 # The session command appends one line to the file o on each run.
 session {
-  name               = "id"
+  name               = "up-twice"
   starting_directory = "."
   commands           = ["echo run >> o"]
   window {

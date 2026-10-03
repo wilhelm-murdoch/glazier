@@ -113,7 +113,7 @@ func TestDirectories(t *testing.T) {
 		c.Fixture("directories/relative.glaze", "prof/.glaze")
 		c.Cd("elsewhere")
 		c.OK(c.Up("--profile-path", "../prof/.glaze"), "up with a relative starting_directory from another directory")
-		c.Equal("relative starting_directory is relative to the profile", c.Path("prof/sub"), c.PanePaths("=dr:"))
+		c.EventuallyPanePaths("relative starting_directory is relative to the profile", c.Path("prof/sub"), "=relative:")
 	})
 }
 ```
@@ -132,14 +132,17 @@ func TestDirectories(t *testing.T) {
 | `c.Write(rel, text)`   | Writes a file and its parent directories.                              |
 | `c.TmuxConf(text)`     | Writes `~/.tmux.conf`, which the server of the case reads at start.    |
 | `c.ShortDir()`         | Makes a directory with a short path, for a `--socket-path` socket.     |
-| `c.SocketPath()`       | The path of the socket of the server of the case.                      |
+| `c.ShortSocket()`      | Returns a socket path in a new `ShortDir`.                             |
 
 ### Commands
 
 | Helper                     | Runs                                                             |
 | -------------------------- | ---------------------------------------------------------------- |
 | `c.Up(args...)`            | `glaze up --detached --socket-name <socket> args...`             |
+| `c.StartUp(opts, args...)` | `c.Up` in the background, for a case that signals glaze.         |
 | `c.Down(args...)`          | `glaze down --socket-name <socket> args...`                      |
+| `c.Save(args...)`          | `glaze save --socket-name <socket> args...`                      |
+| `c.Ls(args...)`            | `glaze ls --socket-name <socket> args...`                        |
 | `c.Glaze(args...)`         | `glaze args...`                                                  |
 | `c.Exec(opts, name, ...)`  | Any program, with the environment of the case.                   |
 | `c.Start(opts, name, ...)` | A program in the background. `Wait` and `Signal` control it.     |
@@ -148,7 +151,9 @@ func TestDirectories(t *testing.T) {
 | `c.Type(target, line)`     | Types a line into a pane and presses Enter, as a user does.      |
 | `c.KillServer()`           | Stops the server of the case and waits until it is gone.         |
 
-Use `harness.ShellQuote` for each word of a line that you type into a pane. `r.Describe()` summarises a result for the detail of a `c.True` check.
+Use `harness.ShellQuote` for each word of a line that you type into a pane. `r.Describe()` summarises a result for the detail of a `c.True` check. `r.Succeeded()` is an exit 0 before the deadline and `r.Failed()` is a non-zero exit before the deadline.
+
+A command that only prepares a case, for example an `up` before a `save`, is not a check. Wrap it in `c.Must(r, "step")`: when it fails, the case stops with the reason, and a later check does not fail for a misleading reason.
 
 Each command runs in a process group of its own. After its deadline (20 s, or `Opts.Timeout`), it gets SIGTERM, and 2 s later SIGKILL. A `Result` with `TimedOut` set is a hang. `Fails` does not accept a hang as a failure.
 
@@ -175,6 +180,8 @@ Each check takes a label first and records one line in the report.
 | `c.NoServer(label)`                   | No server runs on the socket of the case.    |
 | `c.EventuallyEqual(label, want, fn)`  | `fn()` returns `want` within 5 s.            |
 | `c.EventuallyMatch(label, re, fn)`    | `fn()` matches `re` within 5 s.              |
+| `c.EventuallyExists(label, rel)`      | The file `rel` appears within 5 s.           |
+| `c.EventuallyPanePaths(label, want, target)` | The pane paths of `target` become `want` within 5 s. |
 | `c.Eventually(label, d, fn)`          | `fn()` returns true within `d`.              |
 | `c.Golden(label, name, got)`          | `got` is the content of `golden/<name>`.     |
 
@@ -183,6 +190,9 @@ Obey these rules for a label:
 - Make each label unique in its case. The harness stops a case that uses a label twice.
 - Keep each label the same on every run and every target. Do not put a path, a time, a process id or a tmux version in a label. The harness stops a case with a path of the run in a label.
 - Write what the check expects, for example `window order` or `--clear inside the target says why`.
+- Build a label with a value with `fmt.Sprintf`, for example `fmt.Sprintf("invalid layout [%s] rejected", layout)`.
+
+Match a diagnostic or a log line on `r.Stderr`, where glaze writes them. Use `r.Output()` only when the stream does not matter.
 
 A check that fails does not stop the case. Use `c.T().Fatal` only when the next steps cannot run.
 
@@ -192,7 +202,7 @@ Do not use `time.Sleep` in a case. tmux and the shells in panes work in the back
 
 Some state is ready only some time after glaze exits, so read it with an `Eventually` check:
 
-- the path of a pane (`PanePaths`): tmux reads it from the process in the pane, which changes to its directory after tmux starts it.
+- the path of a pane: use `EventuallyPanePaths`. tmux reads the path from the process in the pane, which changes to its directory after tmux starts it.
 - a file that a command in a pane writes.
 - a process, for example a tmux client that glaze stops: it exits after glaze.
 
@@ -206,7 +216,9 @@ make e2e-matrix MATRIX_FLAGS='-count 5 -cpus 1'
 
 ### Read tmux
 
-The tmux helpers read the state with plain tmux commands: `Sessions`, `WindowNames`, `WindowCount`, `WindowID`, `ActiveWindow`, `PaneTitles`, `PanePaths`, `ActivePane`, `PaneSize`, `Geometry`, `ReferenceGeometry`, `ClientSessions` and `Snapshot`. Use `c.Tmux(args...)` for any other query. `c.TmuxOn(socket, ...)` reaches a second server of the case and `c.TmuxDefault(...)` reaches the default server in the `TMUX_TMPDIR` of the case.
+The tmux helpers read the state with plain tmux commands: `Sessions`, `WindowNames`, `WindowIndexes`, `WindowCount`, `WindowID`, `ActiveWindow`, `PaneTitles`, `PaneIndexes`, `PaneCount`, `PanePaths`, `ActivePane`, `PaneSize`, `Geometry`, `ReferenceGeometry`, `Option`, `ClientSessions` and `State`. Use `c.Tmux(args...)` for any other query. `c.TmuxOn(socket, ...)` reaches a second server of the case, `c.TmuxAt(path, ...)` reaches a server on a socket path and `c.TmuxDefault(...)` reaches the default server in the `TMUX_TMPDIR` of the case.
+
+`c.State(session, harness.WindowState, harness.PaneState)` returns every window and pane of a session on one line each. Compare two states to show that a step left a session as it was. When a check fails, `c.Snapshot(session)` writes the state to the log.
 
 Find a window by its id (`c.WindowID`) or with an exact target such as `=name:`. Do not use an index: a `tmux.conf` can change the base index.
 
@@ -227,7 +239,19 @@ A fixture is a profile in `fixtures/<area>/`. Rules:
 - Put a comment at the top when the purpose is not clear from the content.
 - Reuse a fixture when two cases need the same profile.
 
-A case can also write a profile with `c.Write`, for example a profile with a hostile name. Use `harness.Quote` and `harness.List` to write HCL strings.
+A case can also write a profile with `c.Write`, for example a profile with a hostile name. Use `harness.Quote` and `harness.List` to write HCL strings, in a raw-string template.
+
+`fixtures/malformed/` holds every fixture that is not in the canonical format: the profiles that glaze must reject and the input of the `format` cases. `TestFixtures` skips this directory. The label of a malformed case names its file, so a comment in the file does not change the check.
+
+## Style
+
+The module follows the style of glaze, with these rules for cases:
+
+- Give each `Test` function a doc comment of one sentence, and each case a purpose comment above `harness.Run` when its name does not say it.
+- Start the names of all cases of one `Test` with the same prefix, for example `cmd_` in `TestCommands`.
+- Give each session in a fixture a name that says what it is, and use a different name in each fixture of an area.
+- Name a magic value with a constant: the exit codes and `hangTimeout` are in `cases/helpers_test.go`.
+- Put a blank line after a statement that ends with a closing brace, for example an `if` or a `for`, unless the enclosing block ends there too. A `case` label and `} else {` need no blank line. `make e2e-check` checks this rule for all Go code in the repository.
 
 ## Golden files
 

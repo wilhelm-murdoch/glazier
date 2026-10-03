@@ -12,6 +12,13 @@ import (
 
 const tmuxTimeout = 10 * time.Second
 
+// The formats of State that show every window and every pane: the name, the
+// focus, the path and the geometry.
+const (
+	WindowState = "W #{window_index}|#{window_name}|#{window_active}|#{window_panes}"
+	PaneState   = "  P #{pane_index}|#{pane_title}|#{pane_active}|#{pane_current_path}|#{pane_left},#{pane_top},#{pane_width}x#{pane_height}"
+)
+
 var referenceCounter atomic.Int64
 
 // Tmux runs tmux on the server of the case and returns its standard output
@@ -34,7 +41,15 @@ func (c *Case) TmuxOn(socket string, args ...string) *Result {
 	if socket != "" {
 		args = append([]string{"-L", socket}, args...)
 	}
+
 	return c.Exec(Opts{Timeout: tmuxTimeout, Quiet: true}, c.env.Tmux, args...)
+}
+
+// TmuxAt runs tmux on a server with a socket path (-S), for example one that
+// glaze reaches with --socket-path.
+func (c *Case) TmuxAt(socketPath string, args ...string) *Result {
+	c.t.Helper()
+	return c.Exec(Opts{Timeout: tmuxTimeout, Quiet: true}, c.env.Tmux, append([]string{"-S", socketPath}, args...)...)
 }
 
 // TmuxDefault runs tmux without -L, on the default server of the case.
@@ -83,6 +98,12 @@ func (c *Case) WindowCount(session string) int {
 	return len(c.lines("list-windows", "-t", "="+session, "-F", "#{window_id}"))
 }
 
+// WindowIndexes returns the window indexes of a session, joined with commas.
+func (c *Case) WindowIndexes(session string) string {
+	c.t.Helper()
+	return strings.Join(c.lines("list-windows", "-t", "="+session, "-F", "#{window_index}"), ",")
+}
+
 // WindowID returns the id (@N) of the first window of a session with this name.
 func (c *Case) WindowID(session, name string) string {
 	c.t.Helper()
@@ -91,6 +112,7 @@ func (c *Case) WindowID(session, name string) string {
 			return id
 		}
 	}
+
 	return ""
 }
 
@@ -104,6 +126,18 @@ func (c *Case) ActiveWindow(session string) string {
 func (c *Case) PaneTitles(target string) string {
 	c.t.Helper()
 	return strings.Join(c.lines("list-panes", "-t", target, "-F", "#{pane_title}"), ",")
+}
+
+// PaneIndexes returns the pane indexes of a window target, joined with commas.
+func (c *Case) PaneIndexes(target string) string {
+	c.t.Helper()
+	return strings.Join(c.lines("list-panes", "-t", target, "-F", "#{pane_index}"), ",")
+}
+
+// PaneCount returns the number of panes of a window target.
+func (c *Case) PaneCount(target string) int {
+	c.t.Helper()
+	return len(c.lines("list-panes", "-t", target, "-F", "#{pane_id}"))
 }
 
 // PanePaths returns the current paths of the panes of a window target, joined with commas.
@@ -126,6 +160,7 @@ func (c *Case) PaneSize(target, title string) string {
 			return size
 		}
 	}
+
 	return ""
 }
 
@@ -145,6 +180,7 @@ func (c *Case) ReferenceGeometry(layout string, panes int) string {
 		c.Tmux("split-window", "-t", "="+s+":")
 		c.Tmux("select-layout", "-t", "="+s+":", "tiled")
 	}
+
 	c.Tmux("select-layout", "-t", "="+s+":", layout)
 	g := c.Geometry("=" + s + ":")
 	c.Tmux("kill-session", "-t", "="+s)
@@ -170,23 +206,39 @@ func ShellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// Option returns the value of an option. Give "-w" for a window option and
+// "-p" for a pane option; without a flag it reads a session option.
+func (c *Case) Option(target, name string, scope ...string) string {
+	c.t.Helper()
+	args := append([]string{"show-options"}, scope...)
+	return c.Tmux(append(args, "-t", target, "-v", name)...)
+}
+
 // ClientSessions returns the session of each attached client.
 func (c *Case) ClientSessions() []string {
 	c.t.Helper()
 	return c.lines("list-clients", "-F", "#{client_session}")
 }
 
-// Snapshot logs every window and pane of a session, for the log of a failure.
+// State returns one line for each window of a session in a window format,
+// each followed by one line for each of its panes in a pane format. Compare
+// two states to show that a step left a session as it was.
+func (c *Case) State(session, windowFormat, paneFormat string) string {
+	c.t.Helper()
+	var lines []string
+	for _, w := range c.lines("list-windows", "-t", "="+session, "-F", "#{window_id}") {
+		lines = append(lines, c.lines("display-message", "-p", "-t", w, windowFormat)...)
+		lines = append(lines, c.lines("list-panes", "-t", w, "-F", paneFormat)...)
+	}
+
+	return strings.Join(lines, "\n")
+}
+
+// Snapshot logs every window and pane of a session. Call it when a check
+// fails, to show what tmux had.
 func (c *Case) Snapshot(session string) {
 	c.t.Helper()
-	var b strings.Builder
-	for _, w := range c.lines("list-windows", "-t", "="+session, "-F", "#{window_id}") {
-		fmt.Fprintf(&b, "%s\n", c.Tmux("display-message", "-p", "-t", w, "W #{window_index}|#{window_name}|#{window_active}|#{window_layout}"))
-		for _, p := range c.lines("list-panes", "-t", w, "-F", "  P #{pane_index}|#{pane_title}|#{pane_active}|#{pane_current_path}|#{pane_left},#{pane_top},#{pane_width}x#{pane_height}") {
-			fmt.Fprintf(&b, "%s\n", p)
-		}
-	}
-	c.t.Logf("snapshot of %s:\n%s", session, b.String())
+	c.t.Logf("snapshot of %s:\n%s", session, c.State(session, WindowState, PaneState))
 }
 
 // lines runs a tmux query and returns its lines. tmux 3.4, and only 3.4,
@@ -197,9 +249,11 @@ func (c *Case) lines(args ...string) []string {
 	if out == "" {
 		return nil
 	}
+
 	if c.env.TmuxVersion == "3.4" {
 		out = strings.ReplaceAll(out, `\$`, "$")
 	}
+
 	return strings.Split(out, "\n")
 }
 
@@ -210,5 +264,6 @@ func (c *Case) active(args ...string) string {
 			return name
 		}
 	}
+
 	return ""
 }

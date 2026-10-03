@@ -31,6 +31,7 @@ func Quote(s string) string {
 			b.WriteRune(r)
 		}
 	}
+
 	b.WriteByte('"')
 	return b.String()
 }
@@ -41,5 +42,6 @@ func List(items ...string) string {
 	for i, s := range items {
 		quoted[i] = Quote(s)
 	}
+
 	return "[" + strings.Join(quoted, ", ") + "]"
 }

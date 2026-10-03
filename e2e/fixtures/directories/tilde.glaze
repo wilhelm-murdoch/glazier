@@ -1,5 +1,6 @@
+# One window starts in ~/proj and one window starts in ~.
 session {
-  name               = "dt"
+  name               = "tilde"
   starting_directory = "~/proj"
   window {
     name = "proj"

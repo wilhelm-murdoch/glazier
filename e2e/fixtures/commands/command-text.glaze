@@ -1,6 +1,6 @@
 # The command text can hold a secret, so glaze prints it only at the debug level.
 session {
-  name = "ct"
+  name = "command-text"
   window {
     name = "w"
     pane {

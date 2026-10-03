@@ -16,6 +16,7 @@ func TestExecResult(t *testing.T) {
 		if r.Code != 3 || r.Stdout != "inout\n" || r.Stderr != "err\n" || r.TimedOut {
 			t.Errorf("result %+v", r)
 		}
+
 		if r := c.Exec(Opts{}, "sh", "-c", "kill -TERM $$"); r.Code != 128+int(syscall.SIGTERM) {
 			t.Errorf("a signal gives exit %d, want %d", r.Code, 128+int(syscall.SIGTERM))
 		}
@@ -51,6 +52,7 @@ func TestEnvironmentIsIsolated(t *testing.T) {
 				t.Errorf("%s reached the case:\n%s", leak, env)
 			}
 		}
+
 		for _, want := range []string{"HOME=" + c.Home, "TMUX_TMPDIR=" + c.tmpdir, "EXTRA=1", "SHELL=/bin/sh"} {
 			if !strings.Contains(env, want+"\n") {
 				t.Errorf("missing %s in:\n%s", want, env)
@@ -66,6 +68,7 @@ func TestCdAndPaths(t *testing.T) {
 		if got := strings.TrimSpace(c.Exec(Opts{}, "pwd", "-P").Stdout); got != c.Path("sub") {
 			t.Errorf("pwd %q, want %q", got, c.Path("sub"))
 		}
+
 		if c.Path("/abs") != "/abs" {
 			t.Error("Path changed an absolute path")
 		}
@@ -98,14 +101,17 @@ func TestShortDirSocketsAreStopped(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+
 		defer func() { _ = l.Close() }()
 		found := false
 		for _, args := range c.killArgs() {
 			found = found || strings.Join(args, " ") == "-S "+sock+" kill-server"
 		}
+
 		if !found {
 			t.Errorf("killArgs %q does not stop the server on %s", c.killArgs(), sock)
 		}
+
 		if len(sock) > 100 {
 			t.Errorf("the socket path %q is too long for macOS", sock)
 		}
@@ -120,6 +126,7 @@ func TestCleanupRestoresModes(t *testing.T) {
 		c.Write("locked/inner/f", "x")
 		c.Chmod("locked", 0)
 	})
+
 	if _, err := os.Stat(dir); !os.IsNotExist(err) {
 		t.Errorf("%s still exists: %v", dir, err)
 	}

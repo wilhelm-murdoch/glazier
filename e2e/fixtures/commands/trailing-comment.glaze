@@ -1,5 +1,6 @@
+# The first command ends with a comment, which must not hide the commands after it.
 session {
-  name = "cc"
+  name = "trailing-comment"
   window {
     name = "w"
     pane {

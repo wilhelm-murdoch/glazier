@@ -53,6 +53,7 @@ func decode(t *testing.T, content string) (*decoders.Session, bool) {
 	if diags.HasErrors() {
 		return nil, true
 	}
+
 	ctx := BuildEvalContext(map[string]cty.Value{})
 	session, diags := p.Decode(spec.Session(""), ctx)
 	return session, diags.HasErrors()
@@ -70,6 +71,7 @@ func TestDecodeWarnsAboutWindowAndPaneNames(t *testing.T) {
 	for _, d := range diags {
 		summaries = append(summaries, d.Summary)
 	}
+
 	assert.ElementsMatch(t, []string{"Window name will be changed", "Pane name will be changed"}, summaries)
 }
 

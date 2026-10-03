@@ -1,5 +1,6 @@
+# automatic-rename accepts only on or off.
 session {
-  name = "ov"
+  name = "invalid-option-value"
   window {
     options = {
       "automatic-rename" = "maybe"

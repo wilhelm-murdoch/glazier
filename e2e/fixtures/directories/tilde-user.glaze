@@ -1,6 +1,6 @@
 # glaze expands only ~ and ~/, not ~user.
 session {
-  name               = "dtu"
+  name               = "tilde-user"
   starting_directory = "~root/x"
   window {
     pane {}

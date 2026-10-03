@@ -1,5 +1,6 @@
+# One option on the session, two on the window and one on the pane.
 session {
-  name = "op"
+  name = "option-scopes"
   options = {
     "history-limit" = "4242"
     "status"        = "off"

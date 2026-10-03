@@ -1,6 +1,6 @@
 # The pane writes to o in the work directory, which is the directory of glaze.
 session {
-  name = "cs"
+  name = "serial"
   window {
     name = "w"
     pane {

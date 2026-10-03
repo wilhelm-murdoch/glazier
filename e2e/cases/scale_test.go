@@ -2,40 +2,74 @@ package cases
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/wilhelm-murdoch/glazier/e2e/harness"
 )
 
+const (
+	// scaleWindows is the number of windows in scale_windows.
+	scaleWindows = 20
+
+	// scalePanesProfile has the panes of one tiled window as %s.
+	scalePanesProfile = `session {
+  name = "scale-panes"
+  window {
+    name   = "w"
+    layout = "tiled"
+%s  }
+}`
+
+	// scalePane is one pane of scalePanesProfile; %d is its number.
+	scalePane = `    pane {
+      name = "p%d"
+    }`
+
+	// scaleWindowsProfile has the windows as %s.
+	scaleWindowsProfile = `session {
+  name = "scale-windows"
+%s}
+`
+
+	// scaleWindow is one window of scaleWindowsProfile with two panes; %d is its number.
+	scaleWindow = `  window {
+    name = "w%d"
+    pane {
+      commands = ["true", "true"]
+    }
+    pane {}
+  }`
+)
+
+// up builds many panes in one window and many windows in one session.
 func TestScale(t *testing.T) {
-	for _, n := range []int{6, 8, 12} {
-		harness.Run(t, fmt.Sprintf("scale_panes_%d", n), func(c *harness.Case) {
-			var b strings.Builder
-			b.WriteString("session {\n  name = \"sp\"\n  window {\n    name   = \"w\"\n    layout = \"tiled\"\n")
-			for i := range n {
-				fmt.Fprintf(&b, "    pane {\n      name = \"p%d\"\n    }\n", i)
+	for _, panes := range []int{6, 8, 12} {
+		harness.Run(t, fmt.Sprintf("scale_panes_%d", panes), func(c *harness.Case) {
+			var blocks strings.Builder
+			for i := range panes {
+				fmt.Fprintf(&blocks, scalePane+"\n", i)
 			}
-			b.WriteString("  }\n}\n")
-			c.Write(".glaze", b.String())
+
+			c.Write(".glaze", fmt.Sprintf(scalePanesProfile, blocks.String()))
 			r := c.Up()
-			panes := len(strings.Split(c.Tmux("list-panes", "-t", "=sp:w"), "\n"))
-			c.True(fmt.Sprintf("%d panes in one window (80x24)", n), r.Code == 0 && !r.TimedOut && panes == n, "panes %d; %s", panes, r.Describe())
-			c.Logf("%d panes timing: %s, session left: %t", n, r.Duration, c.HasSession("sp"))
+			got := c.PaneCount("=scale-panes:w")
+			c.True(fmt.Sprintf("%d panes in one window (80x24)", panes), r.Succeeded() && got == panes, "panes %d; %s", got, r.Describe())
+			c.Logf("%d panes timing: %s, session left: %t", panes, r.Duration, c.HasSession("scale-panes"))
 		})
 	}
 
 	harness.Run(t, "scale_windows", func(c *harness.Case) {
-		var b strings.Builder
-		b.WriteString("session {\n  name = \"sw\"\n")
-		for i := 1; i <= 20; i++ {
-			fmt.Fprintf(&b, "  window {\n    name = \"w%d\"\n    pane {\n      commands = [\"true\", \"true\"]\n    }\n    pane {}\n  }\n", i)
+		var blocks strings.Builder
+		for i := 1; i <= scaleWindows; i++ {
+			fmt.Fprintf(&blocks, scaleWindow+"\n", i)
 		}
-		b.WriteString("}\n")
-		c.Write(".glaze", b.String())
+
+		c.Write(".glaze", fmt.Sprintf(scaleWindowsProfile, blocks.String()))
 		r := c.Up()
-		c.OK(r, "20 windows x 2 panes")
-		c.Equal("20 windows", "20", fmt.Sprint(len(strings.Split(c.Tmux("list-windows", "-t", "=sw"), "\n"))))
-		c.Logf("20 windows timing: %s", r.Duration)
+		c.OK(r, fmt.Sprintf("%d windows x 2 panes", scaleWindows))
+		c.Equal(fmt.Sprintf("%d windows", scaleWindows), strconv.Itoa(scaleWindows), strconv.Itoa(c.WindowCount("scale-windows")))
+		c.Logf("%d windows timing: %s", scaleWindows, r.Duration)
 	})
 }

@@ -47,6 +47,7 @@ func windowWithPane(name string, layout enums.Layout, pane *decoders.Pane) *deco
 		Base:   &decoders.Base{Name: name},
 		Layout: layout,
 	}
+
 	window.Panes = []*decoders.Pane{pane}
 	return window
 }
@@ -115,6 +116,7 @@ func TestActionUpGenerateWindows(t *testing.T) {
 		Base:     &decoders.Base{Name: "breach", StartingDirectory: "/tmp"},
 		Commands: []string{"cd /tmp", "htop"},
 	}
+
 	window := windowWithPane("ice-breaker", enums.LayoutTiled, pane)
 
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -166,6 +168,7 @@ func TestActionUpResizesPanesAfterTheLayout(t *testing.T) {
 		Size:        decoders.Size{X: "20"},
 		Adjustments: []decoders.Adjustment{{Direction: enums.AdjustmentRight, Amount: "5"}},
 	})
+
 	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "b"}})
 
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -177,6 +180,7 @@ func TestActionUpResizesPanesAfterTheLayout(t *testing.T) {
 			order = append(order, call)
 		}
 	}
+
 	assert.Equal(t, [][]string{
 		{"selectl", "-t", "@1", "even-horizontal"},
 		{"resizep", "-t", "%2", "-x", "20"},
@@ -198,6 +202,7 @@ func TestActionUpIgnoresSizeInARawLayout(t *testing.T) {
 		Base: &decoders.Base{Name: "a"},
 		Size: decoders.Size{X: "20"},
 	})
+
 	window.LayoutRaw = "bb62,80x24,0,0"
 
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -235,6 +240,7 @@ func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
 			order = append(order, "selectl "+call[len(call)-1])
 		}
 	}
+
 	assert.Equal(t, []string{
 		"splitw", "selectl tiled",
 		"splitw", "selectl tiled",
@@ -255,6 +261,7 @@ func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 		Base:     &decoders.Base{Name: "runner"},
 		Commands: []string{"true; exit"},
 	})
+
 	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "shell"}})
 
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -266,6 +273,7 @@ func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 			order = append(order, call[0])
 		}
 	}
+
 	assert.Equal(t, []string{"splitw", "splitw", "load-buffer"}, order)
 }
 
@@ -289,6 +297,7 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 		Base:     &decoders.Base{Name: "demo"},
 		Commands: []string{"session"},
 	}
+
 	profile.Windows = []*decoders.Window{window}
 
 	assert.NoError(t, up.provisionSession(profile))
@@ -366,6 +375,7 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 				events = append(events, "split")
 			}
 		}
+
 		assert.Equal(t, []string{
 			"session $1 history-limit",
 			"window @3 remain-on-exit", "split",
@@ -402,6 +412,7 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 				sessionOptions = append(sessionOptions, call[3])
 			}
 		}
+
 		assert.Equal(t, []string{"history-limit", "status"}, sessionOptions)
 		assert.Contains(t, logs.String(), "declared_on=\"window `w`\"")
 		assert.Contains(t, logs.String(), "declared_on=\"pane `p` in window `w`\"")
@@ -423,6 +434,7 @@ func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T
 		Base:     &decoders.Base{Name: "demo"},
 		Commands: []string{"nvm use 18", "tail -f log"},
 	}
+
 	profile.Windows = []*decoders.Window{window}
 
 	assert.NoError(t, up.provisionSession(profile))
@@ -455,6 +467,7 @@ func TestActionUpContinuesAfterCommandsTimeOut(t *testing.T) {
 		Base:     &decoders.Base{Name: "slow"},
 		Commands: []string{"sleep 600", "nvim"},
 	})
+
 	window.Panes = append(window.Panes, &decoders.Pane{Base: &decoders.Base{Name: "next"}, Commands: []string{"htop"}})
 
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -515,6 +528,7 @@ func commandsIn(rec *tmuxtest.Recorder) []string {
 		lines := strings.Split(strings.TrimSuffix(input, "\n"), "\n")
 		last = append(last, lines[len(lines)-1])
 	}
+
 	return last
 }
 
@@ -526,6 +540,7 @@ func lastCall(rec *tmuxtest.Recorder, subcommand string) []string {
 			last = call
 		}
 	}
+
 	return last
 }
 

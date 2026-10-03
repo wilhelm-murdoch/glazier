@@ -14,6 +14,7 @@ func TestLayoutUnknown(t *testing.T) {
 	if LayoutFromString("nonsense") != LayoutUnknown {
 		t.Error("expected LayoutUnknown for an unrecognized string")
 	}
+
 	if LayoutUnknown.String() != LayoutUnknownString {
 		t.Errorf("expected %q, got %q", LayoutUnknownString, LayoutUnknown.String())
 	}
@@ -25,6 +26,7 @@ func TestIsLayoutString(t *testing.T) {
 		"e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}",
 		"a1b2,200x50,0,0[200x25,0,0,1,200x24,0,26,2]",
 	}
+
 	for _, s := range valid {
 		if !IsLayoutString(s) {
 			t.Errorf("expected %q to be a valid layout string", s)
@@ -40,6 +42,7 @@ func TestIsLayoutString(t *testing.T) {
 		"bb62;80x24;0;0", // wrong delimiter
 		"rm -rf /",       // arbitrary string
 	}
+
 	for _, s := range invalid {
 		if IsLayoutString(s) {
 			t.Errorf("expected %q to be rejected as a layout string", s)
@@ -59,6 +62,7 @@ func TestHookUnknown(t *testing.T) {
 	if HookFromString("nonsense") != HookUnknown {
 		t.Error("expected HookUnknown for an unrecognized string")
 	}
+
 	if HookUnknown.String() != HookUnknownString {
 		t.Errorf("expected %q, got %q", HookUnknownString, HookUnknown.String())
 	}
@@ -81,6 +85,7 @@ func TestAdjustmentUnknown(t *testing.T) {
 	if AdjustmentFromString("nonsense") != AdjustmentUnknown {
 		t.Error("expected AdjustmentUnknown for an unrecognized string")
 	}
+
 	if AdjustmentUnknown.String() != AdjustmentUnknownString {
 		t.Errorf("expected %q, got %q", AdjustmentUnknownString, AdjustmentUnknown.String())
 	}
@@ -99,6 +104,7 @@ func TestAdjustmentResizeFlag(t *testing.T) {
 		if !ok {
 			t.Errorf("expected a flag for %s", adjustment)
 		}
+
 		if flag != want {
 			t.Errorf("expected %q for %s, got %q", want, adjustment, flag)
 		}

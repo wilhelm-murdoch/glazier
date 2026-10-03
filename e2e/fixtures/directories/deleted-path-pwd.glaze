@@ -1,5 +1,6 @@
+# The session directory is path.pwd, so glaze needs the current directory.
 session {
-  name               = "dp"
+  name               = "deleted-path-pwd"
   starting_directory = path.pwd
   window {
     pane {}

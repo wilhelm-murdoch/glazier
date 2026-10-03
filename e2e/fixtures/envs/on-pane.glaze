@@ -1,6 +1,6 @@
 # envs is valid on the session only.
 session {
-  name = "ew"
+  name = "envs-on-pane"
   window {
     pane {
       envs = {

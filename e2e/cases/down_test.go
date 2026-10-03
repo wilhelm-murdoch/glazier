@@ -25,6 +25,7 @@ func TestDown(t *testing.T) {
 		c.Match("down with no server says the session is not running", `nothing to do; session is not running session=dn`, r.Stderr)
 	})
 
+	// The case runs down from an empty directory, so glaze finds no profile and uses --session only.
 	harness.Run(t, "down_session_flag", func(c *harness.Case) {
 		c.Mkdir("empty")
 		c.Cd("empty")
@@ -39,6 +40,7 @@ func TestDown(t *testing.T) {
 		c.SessionGone("spaced session killed", "sp ace")
 	})
 
+	// tmux matches a session name by prefix unless the target starts with =.
 	harness.Run(t, "down_prefix_match", func(c *harness.Case) {
 		c.Mkdir("empty")
 		c.Cd("empty")
@@ -74,7 +76,7 @@ func TestDown(t *testing.T) {
 
 	harness.Run(t, "down_vars", func(c *harness.Case) {
 		c.Fixture("variables/typed.glaze")
-		c.Up("--var", "fixer=x", "--var", "district=pacifica")
+		c.Must(c.Up("--var", "fixer=x", "--var", "district=pacifica"), "up with --var")
 		c.SessionExists("up", "gig-pacifica")
 		// Without --var, down computes the name from the default and needs no value for fixer.
 		r := c.Down()

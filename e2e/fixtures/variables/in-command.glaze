@@ -3,7 +3,7 @@ variable "msg" {
   default = "hello"
 }
 session {
-  name               = "vc"
+  name               = "in-command"
   starting_directory = "."
   window {
     pane {

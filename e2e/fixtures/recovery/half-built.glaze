@@ -1,6 +1,6 @@
 # The second window has an invalid option value, so up fails after the first window.
 session {
-  name = "half"
+  name = "half-built"
   window {
     name = "good"
     pane {}

@@ -1,10 +1,11 @@
+# Four panes p0 to p3 with the layout in var.layout.
 variable "layout" {
   type    = string
   default = "tiled"
 }
 
 session {
-  name = "lay"
+  name = "four-panes"
   window {
     name   = "w"
     layout = var.layout

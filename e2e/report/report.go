@@ -53,6 +53,7 @@ func ReadFile(path string) ([]Record, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = f.Close() }()
 	return Read(f)
 }
@@ -66,11 +67,14 @@ func Read(r io.Reader) ([]Record, error) {
 		if len(scanner.Bytes()) == 0 {
 			continue
 		}
+
 		var rec Record
 		if err := json.Unmarshal(scanner.Bytes(), &rec); err != nil {
 			return nil, fmt.Errorf("line %d: %w", n, err)
 		}
+
 		records = append(records, rec)
 	}
+
 	return records, scanner.Err()
 }

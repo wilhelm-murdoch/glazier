@@ -8,26 +8,20 @@ import (
 	"github.com/wilhelm-murdoch/glazier/e2e/report"
 )
 
-// targetRun is the result of one revision on one target.
-type targetRun struct {
-	Target      string
-	Revision    string
-	Tmux        string
-	Exit        int
-	Records     []report.Record
-	FailedTests []failedTest
-	Log         string
-	Err         error
-}
-
-// failedTest is a test that failed, with its first error line.
-type failedTest struct {
-	Name    string
-	Message string
-}
-
 // maxMessage is the longest error line that the summary shows.
 const maxMessage = 160
+
+// targetRun is the result of one revision on one target.
+type targetRun struct {
+	target      string
+	revision    string
+	tmux        string
+	exit        int
+	records     []report.Record
+	failedTests []failedTest
+	log         string
+	err         error
+}
 
 // counts is the number of checks for each status.
 type counts map[report.Status]int
@@ -42,30 +36,34 @@ type summary struct {
 func newSummary(targets []string, revisions []revision, runs []*targetRun) *summary {
 	s := &summary{targets: targets, revisions: revisions, runs: map[string]map[string]*targetRun{}}
 	for _, tr := range runs {
-		if s.runs[tr.Revision] == nil {
-			s.runs[tr.Revision] = map[string]*targetRun{}
+		if s.runs[tr.revision] == nil {
+			s.runs[tr.revision] = map[string]*targetRun{}
 		}
-		s.runs[tr.Revision][tr.Target] = tr
+
+		s.runs[tr.revision][tr.target] = tr
 	}
+
 	return s
 }
 
 func (tr *targetRun) counts() counts {
 	c := counts{}
-	for _, r := range tr.Records {
+	for _, r := range tr.records {
 		c[r.Status]++
 	}
+
 	return c
 }
 
 // failures returns the ids of the checks that failed, sorted.
 func (tr *targetRun) failures() []string {
 	var ids []string
-	for _, r := range tr.Records {
+	for _, r := range tr.records {
 		if r.Failed() {
 			ids = append(ids, r.ID())
 		}
 	}
+
 	slices.Sort(ids)
 	return slices.Compact(ids)
 }
@@ -73,14 +71,15 @@ func (tr *targetRun) failures() []string {
 // broken reports a run that failed outside its checks: a crash, a timeout or a
 // test that the harness stopped.
 func (tr *targetRun) broken() bool {
-	return tr.Err != nil || (tr.Exit != 0 && len(tr.failures()) == 0)
+	return tr.err != nil || (tr.exit != 0 && len(tr.failures()) == 0)
 }
 
 // brief is the cell of the summary table.
 func (tr *targetRun) brief() string {
-	if tr.Err != nil {
-		return "error: " + tr.Err.Error()
+	if tr.err != nil {
+		return "error: " + tr.err.Error()
 	}
+
 	c := tr.counts()
 	parts := []string{fmt.Sprintf("%d pass", c[report.Pass])}
 	for _, st := range []report.Status{report.Fail, report.ExpectedFailure, report.UnexpectedPass} {
@@ -88,9 +87,11 @@ func (tr *targetRun) brief() string {
 			parts = append(parts, fmt.Sprintf("%d %s", c[st], st))
 		}
 	}
+
 	if tr.broken() {
-		parts = append(parts, fmt.Sprintf("exit %d", tr.Exit))
+		parts = append(parts, fmt.Sprintf("exit %d", tr.exit))
 	}
+
 	return strings.Join(parts, ", ")
 }
 
@@ -103,9 +104,11 @@ func (s *summary) problem() string {
 			bad = append(bad, target)
 		}
 	}
+
 	if len(bad) == 0 {
 		return ""
 	}
+
 	return "failures on " + strings.Join(bad, ", ")
 }
 
@@ -116,24 +119,29 @@ func (s *summary) markdown() string {
 	for _, rev := range s.revisions {
 		fmt.Fprintf(&b, " %s (%s) |", rev.name, rev.label)
 	}
+
 	b.WriteString("\n| --- | --- |")
 	for range s.revisions {
 		b.WriteString(" --- |")
 	}
+
 	b.WriteString("\n")
 	for _, target := range s.targets {
 		tmux := ""
 		if tr := s.anyRun(target); tr != nil {
-			tmux = tr.Tmux
+			tmux = tr.tmux
 		}
+
 		fmt.Fprintf(&b, "| %s | %s |", target, tmux)
 		for _, rev := range s.revisions {
 			cell := "not run"
 			if tr := s.runs[rev.name][target]; tr != nil {
 				cell = tr.brief()
 			}
+
 			fmt.Fprintf(&b, " %s |", cell)
 		}
+
 		b.WriteString("\n")
 	}
 
@@ -141,10 +149,12 @@ func (s *summary) markdown() string {
 		s.section(&b, "Fixed: these checks fail on base and pass on head", s.diff(baseRevision, headRevision))
 		s.section(&b, "Broken: these checks pass on base and fail on head", s.diff(headRevision, baseRevision))
 	}
+
 	for _, rev := range s.revisions {
 		s.section(&b, "Failed checks on "+rev.name, s.failuresOf(rev.name))
 		s.section(&b, "Failed tests outside a check on "+rev.name, s.brokenTests(rev.name))
 	}
+
 	return b.String()
 }
 
@@ -154,6 +164,7 @@ func (s *summary) anyRun(target string) *targetRun {
 			return tr
 		}
 	}
+
 	return nil
 }
 
@@ -167,6 +178,7 @@ func (s *summary) failuresOf(rev string) map[string][]string {
 			}
 		}
 	}
+
 	return out
 }
 
@@ -178,16 +190,19 @@ func (s *summary) diff(a, b string) map[string][]string {
 		if ra == nil || rb == nil {
 			continue
 		}
+
 		inB := map[string]bool{}
 		for _, id := range rb.failures() {
 			inB[id] = true
 		}
+
 		for _, id := range ra.failures() {
 			if !inB[id] {
 				out[id] = append(out[id], target)
 			}
 		}
 	}
+
 	return out
 }
 
@@ -199,29 +214,36 @@ func (s *summary) brokenTests(rev string) map[string][]string {
 		if tr == nil {
 			continue
 		}
+
 		failedChecks, failedTests := map[string]bool{}, map[string]bool{}
 		for _, id := range tr.failures() {
 			test, _, _ := strings.Cut(id, report.Separator)
 			failedChecks[test] = true
 		}
-		for _, test := range tr.FailedTests {
-			failedTests[test.Name] = true
+
+		for _, test := range tr.failedTests {
+			failedTests[test.name] = true
 		}
-		for _, test := range tr.FailedTests {
-			if failedChecks[test.Name] || isParentOf(test.Name, failedChecks) || isParentOf(test.Name, failedTests) {
+
+		for _, test := range tr.failedTests {
+			if failedChecks[test.name] || isParentOf(test.name, failedChecks) || isParentOf(test.name, failedTests) {
 				continue
 			}
-			key := test.Name
-			if test.Message != "" {
+
+			key := test.name
+			if test.message != "" {
 				// The summary shows the key in a code span, which a backtick would end.
-				key += ": " + strings.ReplaceAll(truncate(test.Message, maxMessage), "`", "'")
+				key += ": " + strings.ReplaceAll(truncate(test.message, maxMessage), "`", "'")
 			}
+
 			out[key] = append(out[key], target)
 		}
-		if tr.Err != nil {
-			out["(runner) "+tr.Err.Error()] = append(out["(runner) "+tr.Err.Error()], target)
+
+		if tr.err != nil {
+			out["(runner) "+tr.err.Error()] = append(out["(runner) "+tr.err.Error()], target)
 		}
 	}
+
 	return out
 }
 
@@ -233,6 +255,7 @@ func isParentOf(test string, failed map[string]bool) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -240,17 +263,20 @@ func (s *summary) section(b *strings.Builder, title string, items map[string][]s
 	if len(items) == 0 {
 		return
 	}
+
 	fmt.Fprintf(b, "\n%s:\n\n", title)
 	ids := make([]string, 0, len(items))
 	for id := range items {
 		ids = append(ids, id)
 	}
+
 	slices.Sort(ids)
 	for _, id := range ids {
 		where := strings.Join(items[id], ", ")
 		if len(s.targets) > 1 && len(items[id]) == len(s.targets) {
 			where = "all targets"
 		}
+
 		fmt.Fprintf(b, "- `%s` (%s)\n", id, where)
 	}
 }
@@ -259,5 +285,6 @@ func truncate(s string, n int) string {
 	if len(s) > n {
 		return s[:n] + "…"
 	}
+
 	return s
 }

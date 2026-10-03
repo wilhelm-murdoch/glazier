@@ -1,5 +1,6 @@
+# The first two commands fail, and glaze still runs the third command.
 session {
-  name = "cf"
+  name = "failing"
   window {
     name = "w"
     pane {

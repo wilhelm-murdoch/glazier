@@ -1,5 +1,6 @@
+# The first command ends with ;, which tmux reads as a command separator.
 session {
-  name = "cs2"
+  name = "trailing-semicolon"
   window {
     name = "w"
     pane {

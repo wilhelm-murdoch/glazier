@@ -14,17 +14,40 @@ const (
 	limitsDoublings = 22
 	// limitsNesting is the depth of a nested list, past the limit of 256 levels.
 	limitsNesting = 1000
+
+	// limitsLocalsProfile has the locals as %s.
+	limitsLocalsProfile = `locals {
+  a0 = "xxxxxxxx"
+%s}
+session {
+  name = "limits-locals"
+  window {
+    pane {}
+  }
+}`
+
+	// limitsLocal is one local that doubles the local before it; %[1]d is its number and %[2]d the number before.
+	limitsLocal = "  a%[1]d = \"${local.a%[2]d}${local.a%[2]d}\"\n"
+
+	// limitsNestingProfile has the opening and the closing brackets of the nested list as %s.
+	limitsNestingProfile = `session {
+  name = "limits-nesting"
+  window {
+    name = %s"x"%s
+    pane {}
+  }
+}`
 )
 
+// glaze rejects a profile that would use too much memory or stack before it evaluates it.
 func TestLimits(t *testing.T) {
 	harness.Run(t, "limits_locals", func(c *harness.Case) {
-		var b strings.Builder
-		b.WriteString("locals {\n  a0 = \"xxxxxxxx\"\n")
+		var locals strings.Builder
 		for i := 1; i <= limitsDoublings; i++ {
-			fmt.Fprintf(&b, "  a%d = \"${local.a%d}${local.a%d}\"\n", i, i-1, i-1)
+			fmt.Fprintf(&locals, limitsLocal, i, i-1)
 		}
-		b.WriteString("}\nsession {\n  name = \"lb\"\n  window {\n    pane {}\n  }\n}\n")
-		c.Write(".glaze", b.String())
+
+		c.Write(".glaze", fmt.Sprintf(limitsLocalsProfile, locals.String()))
 		r := c.Glaze("format", "--validate")
 		c.Fails(r, "format --validate rejects a locals doubling chain")
 		c.Match("the error names the local past the budget", "Locals too large", r.Stderr)
@@ -32,8 +55,7 @@ func TestLimits(t *testing.T) {
 	})
 
 	harness.Run(t, "limits_nesting", func(c *harness.Case) {
-		c.Write(".glaze", fmt.Sprintf("session {\n  name = \"ln\"\n  window {\n    name = %s\"x\"%s\n    pane {}\n  }\n}\n",
-			strings.Repeat("[", limitsNesting), strings.Repeat("]", limitsNesting)))
+		c.Write(".glaze", fmt.Sprintf(limitsNestingProfile, strings.Repeat("[", limitsNesting), strings.Repeat("]", limitsNesting)))
 		r := c.Glaze("format", "--validate")
 		c.Fails(r, "format --validate rejects deep nesting")
 		c.Match("the error says the nesting is too deep", "Nesting too deep", r.Stderr)

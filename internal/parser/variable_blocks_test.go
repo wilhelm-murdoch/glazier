@@ -18,6 +18,7 @@ func declaredFrom(t *testing.T, content string) ([]*Variable, hcl.Diagnostics) {
 	if diags.HasErrors() {
 		t.Fatalf("unexpected parse error: %s", diags)
 	}
+
 	return p.DecodeVariableBlocks()
 }
 
@@ -51,6 +52,7 @@ variable "b" { type = bool }`)
 		for _, v := range vars {
 			byName[v.Name] = v
 		}
+
 		assert.Equal(t, cty.String, byName["s"].Type)
 		assert.Equal(t, cty.Number, byName["n"].Type)
 		assert.Equal(t, cty.Bool, byName["b"].Type)
@@ -74,6 +76,7 @@ variable "flag" {
 		for _, v := range vars {
 			byName[v.Name] = v
 		}
+
 		assert.True(t, byName["count"].Default.RawEquals(cty.NumberIntVal(1)))
 		assert.True(t, byName["flag"].Default.RawEquals(cty.True))
 	})
@@ -198,6 +201,7 @@ func TestResolveVariables(t *testing.T) {
 			Name: "name", Type: cty.String,
 			Default: cty.StringVal("default"), HasDefault: true,
 		}
+
 		out, diags := ResolveVariables([]*Variable{withDefault}, nil, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("default")))
@@ -208,6 +212,7 @@ func TestResolveVariables(t *testing.T) {
 			Name: "name", Type: cty.String,
 			Default: cty.StringVal("default"), HasDefault: true,
 		}
+
 		out, diags := ResolveVariables([]*Variable{withDefault}, []string{"name=override"}, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("override")))

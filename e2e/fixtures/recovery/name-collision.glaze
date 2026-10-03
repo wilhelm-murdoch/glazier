@@ -1,8 +1,8 @@
 # The session and its first window have the same name.
 session {
-  name = "dev"
+  name = "shared-name"
   window {
-    name = "dev"
+    name = "shared-name"
     pane {}
   }
   window {

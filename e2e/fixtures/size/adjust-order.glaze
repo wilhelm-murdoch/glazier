@@ -1,6 +1,6 @@
 # glaze applies the size first and then each adjust block in file order.
 session {
-  name = "sz"
+  name = "adjust-order"
   window {
     name   = "w"
     layout = "even-horizontal"

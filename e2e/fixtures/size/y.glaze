@@ -4,7 +4,7 @@ variable "y" {
 }
 
 session {
-  name = "sz"
+  name = "size-y"
   window {
     name = "w"
     pane {

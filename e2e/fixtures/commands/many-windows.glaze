@@ -1,5 +1,6 @@
+# Each window has two commands, which write to the same file o.
 session {
-  name = "mw"
+  name = "many-windows"
   window {
     name = "w1"
     pane {

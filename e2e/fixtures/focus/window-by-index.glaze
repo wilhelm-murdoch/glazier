@@ -1,0 +1,23 @@
+# var.focused is the index of the window with focus.
+variable "focused" {
+  type = number
+}
+
+session {
+  name = "window-by-index"
+  window {
+    name  = "w1"
+    focus = var.focused == 0
+    pane {}
+  }
+  window {
+    name  = "w2"
+    focus = var.focused == 1
+    pane {}
+  }
+  window {
+    name  = "w3"
+    focus = var.focused == 2
+    pane {}
+  }
+}

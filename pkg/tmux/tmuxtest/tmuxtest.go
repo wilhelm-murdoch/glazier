@@ -102,6 +102,7 @@ func (r *Recorder) Install(t *testing.T) *Recorder {
 		r.Calls = append(r.Calls, args)
 		return &command{args: args, result: r.resultFor(args), recorder: r, index: len(r.Calls) - 1}
 	})
+
 	t.Cleanup(restore)
 	return r
 }
@@ -113,6 +114,7 @@ func (r *Recorder) resultFor(args []string) Result {
 		r.queues[sub] = q[1:]
 		return res
 	}
+
 	return r.fallback
 }
 
@@ -125,6 +127,7 @@ func (r *Recorder) Called(subcommand string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -138,6 +141,7 @@ func (r *Recorder) CountOf(subcommand string) int {
 			count++
 		}
 	}
+
 	return count
 }
 
@@ -150,6 +154,7 @@ func (r *Recorder) ArgsFor(subcommand string) []string {
 			return c
 		}
 	}
+
 	return nil
 }
 
@@ -163,6 +168,7 @@ func (r *Recorder) InputsFor(subcommand string) []string {
 			inputs = append(inputs, r.inputs[i])
 		}
 	}
+
 	return inputs
 }
 
@@ -175,7 +181,9 @@ func subcommandOf(args []string) string {
 			i++
 			continue
 		}
+
 		return args[i]
 	}
+
 	return ""
 }

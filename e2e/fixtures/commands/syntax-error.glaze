@@ -1,5 +1,6 @@
+# The second and third commands are shell syntax errors, and the commands after them must still run.
 session {
-  name = "se"
+  name = "syntax-error"
   window {
     name = "w"
     pane {

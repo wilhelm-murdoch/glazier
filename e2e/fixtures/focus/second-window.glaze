@@ -1,5 +1,6 @@
+# The first window has focus, and each window has a pane with focus.
 session {
-  name = "fp"
+  name = "second-window"
   window {
     name  = "w1"
     focus = true

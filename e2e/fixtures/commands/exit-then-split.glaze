@@ -1,6 +1,6 @@
 # The command of the first pane exits its shell before glaze splits the next panes.
 session {
-  name = "ex"
+  name = "exit-then-split"
   window {
     name = "w"
     pane {

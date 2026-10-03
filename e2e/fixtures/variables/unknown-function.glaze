@@ -1,3 +1,4 @@
+# The session name calls a function that glaze does not have.
 session {
   name = nosuchfunc("x")
   window {

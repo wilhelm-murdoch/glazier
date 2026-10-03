@@ -1,6 +1,6 @@
 # A pane accepts four adjust blocks at most.
 session {
-  name = "sz"
+  name = "five-adjust"
   window {
     name = "w"
     pane {

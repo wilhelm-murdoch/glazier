@@ -1,5 +1,6 @@
+# The first command ends the only shell, so the second command never runs.
 session {
-  name = "ce"
+  name = "exit"
   window {
     name = "w"
     pane {

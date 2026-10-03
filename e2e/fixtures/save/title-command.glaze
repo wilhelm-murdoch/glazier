@@ -1,6 +1,6 @@
 # The pane command sets the pane title with an escape sequence, as a program can do.
 session {
-  name = "tc"
+  name = "title-command"
   window {
     name = "w"
     pane {

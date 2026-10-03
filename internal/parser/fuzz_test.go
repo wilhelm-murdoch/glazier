@@ -46,6 +46,7 @@ func FuzzDecode(f *testing.F) {
 		`session { window { pane { adjust { direction = "sideways" amount = "x" } } } }`,
 		"session { name = \"\x00\" }",
 	}
+
 	for _, seed := range seeds {
 		f.Add(seed)
 	}
@@ -94,6 +95,7 @@ func FuzzCollectVariables(f *testing.F) {
 		"GLAZE_ENV_=empty",
 		"\x00=\xff",
 	}
+
 	for _, seed := range seeds {
 		f.Add(seed)
 	}

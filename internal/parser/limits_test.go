@@ -25,6 +25,7 @@ func doublingLocals(n int) string {
 	for i := 1; i <= n; i++ {
 		fmt.Fprintf(&b, "  a%d = \"${local.a%d}${local.a%d}\"\n", i, i-1, i-1)
 	}
+
 	b.WriteString("}\nsession {\n  name = \"demo\"\n  window {\n    pane {}\n  }\n}\n")
 
 	return b.String()
@@ -94,6 +95,7 @@ func TestValueSize(t *testing.T) {
 			for i := range items {
 				items[i] = value
 			}
+
 			value = cty.ListVal(items)
 		}
 

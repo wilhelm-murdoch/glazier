@@ -1,6 +1,6 @@
 # The first command blocks, so up waits until a signal stops it.
 session {
-  name = "sg"
+  name = "signal"
   window {
     name = "w"
     pane {

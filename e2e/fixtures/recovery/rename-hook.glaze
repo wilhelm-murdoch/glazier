@@ -1,0 +1,12 @@
+# A tmux.conf hook renames each new window, so up must warn that the second window has another name.
+session {
+  name = "rename-hook"
+  window {
+    name = "first"
+    pane {}
+  }
+  window {
+    name = "second"
+    pane {}
+  }
+}

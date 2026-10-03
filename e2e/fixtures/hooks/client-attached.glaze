@@ -1,12 +1,8 @@
 # The README example: a client-attached hook on the session, which runs when a client attaches.
-variable "dir" {
-  type = string
-}
-
 session {
-  name = "hc"
+  name = "client-attached"
   hooks = {
-    "client-attached" = "run-shell 'touch ${var.dir}/h_attached'"
+    "client-attached" = "run-shell 'touch ${path.pwd}/h_attached'"
   }
   window {
     pane {}

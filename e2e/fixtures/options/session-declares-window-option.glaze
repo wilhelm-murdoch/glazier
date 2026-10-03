@@ -1,6 +1,6 @@
 # A window option declared on the session applies to every window, not only to the first.
 session {
-  name = "ow"
+  name = "session-declares-window-option"
   options = {
     "remain-on-exit" = "on"
     "history-limit"  = "4242"

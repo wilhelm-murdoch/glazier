@@ -1,6 +1,6 @@
 # A directory on each level. A relative path is relative to the directory of the profile.
 session {
-  name               = "dl"
+  name               = "levels"
   starting_directory = "d/s"
   window {
     name = "w1"

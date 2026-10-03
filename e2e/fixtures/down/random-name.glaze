@@ -3,7 +3,7 @@ locals {
   pick = random(["a", "b", "c"])
 }
 session {
-  name = "gig-${local.pick}"
+  name = "random-${local.pick}"
   window {
     pane {}
   }

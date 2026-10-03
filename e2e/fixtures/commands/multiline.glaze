@@ -1,5 +1,6 @@
+# The first command contains a newline, so it is two lines of shell.
 session {
-  name = "ml"
+  name = "multiline"
   window {
     name = "w"
     pane {

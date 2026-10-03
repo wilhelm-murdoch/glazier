@@ -1,5 +1,6 @@
+# The first command ends with &, so it runs in the background.
 session {
-  name = "ca"
+  name = "trailing-ampersand"
   window {
     name = "w"
     pane {

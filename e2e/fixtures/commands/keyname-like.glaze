@@ -1,5 +1,6 @@
+# Each command prints a word that is also a tmux key name.
 session {
-  name = "kn"
+  name = "keyname-like"
   window {
     name = "w"
     pane {

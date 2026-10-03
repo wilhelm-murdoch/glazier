@@ -1,0 +1,15 @@
+# The first command echoes var.text, which the case makes longer than the line limit of a shell.
+variable "text" {
+  type = string
+}
+
+session {
+  name = "long-line"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      commands = ["echo ${var.text} > o", "echo end >> o"]
+    }
+  }
+}

@@ -1,5 +1,6 @@
+# The first command runs for a long time, and glaze waits for it before the second command.
 session {
-  name = "cn"
+  name = "nonfinal-long-running"
   window {
     name = "w"
     pane {

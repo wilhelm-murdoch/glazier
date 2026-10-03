@@ -1,6 +1,6 @@
 # The directory is a regular file.
 session {
-  name               = "df"
+  name               = "is-file"
   starting_directory = "afile"
   window {
     pane {}

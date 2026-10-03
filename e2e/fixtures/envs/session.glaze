@@ -1,6 +1,6 @@
 # The panes write the values that they get to o1 and o2 in the work directory.
 session {
-  name = "ev"
+  name = "session-envs"
   envs = {
     FOO   = "bar baz"
     EMPTY = ""

@@ -1,3 +1,4 @@
+# Two locals refer to each other.
 locals {
   a = local.b
   b = local.a

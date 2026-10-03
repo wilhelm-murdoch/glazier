@@ -1,5 +1,6 @@
+# glaze must accept a hook that runs after a command, such as after-new-window.
 session {
-  name = "hk"
+  name = "after-hook"
   hooks = {
     "after-new-window" = "display-message hi"
   }

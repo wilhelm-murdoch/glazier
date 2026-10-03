@@ -1,3 +1,4 @@
+# Two variable blocks declare the same variable.
 variable "x" {
   default = "a"
 }

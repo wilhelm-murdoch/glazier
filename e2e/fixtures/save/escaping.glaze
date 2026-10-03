@@ -1,6 +1,6 @@
-# Names with characters that HCL or tmux treat as special.
+# Names with characters that HCL or tmux treat as special. glaze replaces the backslash in a pane name with -, because tmux 3.7 and later store it escaped.
 session {
-  name = "esc"
+  name = "escaping"
   window {
     name = "q\"uote"
     pane {

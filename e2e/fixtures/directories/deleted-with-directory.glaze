@@ -1,6 +1,6 @@
 # The session has a directory, so glaze does not need the current directory.
 session {
-  name               = "dw"
+  name               = "deleted-with-directory"
   starting_directory = "."
   window {
     pane {}

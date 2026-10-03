@@ -21,10 +21,12 @@ func TestLoadBaseline(t *testing.T) {
 	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
+
 	b, err := LoadBaseline(path, "bookworm")
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	for id, want := range map[string]bool{
 		report.ID("TestA/x", "check one"):   true,
 		report.ID("TestA/y", "check two"):   true,
@@ -46,6 +48,7 @@ func TestLoadBaselineErrors(t *testing.T) {
 			if err := os.WriteFile(path, []byte(line+"\n"), 0o600); err != nil {
 				t.Fatal(err)
 			}
+
 			if _, err := LoadBaseline(path, "x"); err == nil {
 				t.Error("no error")
 			}
@@ -58,6 +61,7 @@ func TestMissingBaselineIsEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if _, ok := b.Expected("anything"); ok {
 		t.Error("an empty baseline expects a failure")
 	}

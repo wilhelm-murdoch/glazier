@@ -67,18 +67,22 @@ func withCase(t *testing.T, env *Env, fn func(c *Case)) *fakeT {
 	if env == nil {
 		env = &Env{}
 	}
+
 	if env.Shell == "" {
 		env.Shell = "/bin/sh"
 	}
+
 	f := &fakeT{t: t}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
 		fn(newCase(f, env))
 	}()
+
 	<-done
 	for i := len(f.cleanups) - 1; i >= 0; i-- {
 		f.cleanups[i]()
 	}
+
 	return f
 }

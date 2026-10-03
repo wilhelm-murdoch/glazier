@@ -1,5 +1,6 @@
+# The only command runs for a long time, and glaze does not wait for the last command.
 session {
-  name = "cl"
+  name = "single-long-running"
   window {
     name = "w"
     pane {

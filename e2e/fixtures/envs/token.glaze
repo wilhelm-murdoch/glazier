@@ -1,5 +1,6 @@
+# The env value is a secret, so --debug must not print it.
 session {
-  name = "er"
+  name = "token"
   envs = {
     TOKEN = "hunter2"
   }

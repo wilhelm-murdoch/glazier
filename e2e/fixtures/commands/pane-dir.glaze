@@ -1,5 +1,6 @@
+# The pane starts in pd, so its command writes to ../o in the work directory.
 session {
-  name = "pd"
+  name = "pane-dir"
   window {
     pane {
       starting_directory = "pd"

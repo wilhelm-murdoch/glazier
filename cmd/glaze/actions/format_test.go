@@ -219,6 +219,7 @@ session {
 		action := buildFormat(t, profile, map[string]string{
 			"validate": "true", "stdout": "true", "var": "region=us-east-1",
 		})
+
 		assert.NoError(t, action.Run(context.Background()))
 	})
 }

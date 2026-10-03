@@ -1,6 +1,6 @@
 # Three errors in one profile: format --validate reports all of them.
 session {
-  name = "me"
+  name = "multiple-errors"
   window {
     layout = "foo"
     pane {

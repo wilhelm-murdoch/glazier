@@ -1,5 +1,6 @@
+# random has no element to pick from an empty list.
 session {
-  name = "re"
+  name = "random-empty"
   window {
     name = random([])
     pane {}

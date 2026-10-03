@@ -1,5 +1,6 @@
+# The layout "foo" is not a preset and not a raw tmux layout.
 session {
-  name = "dg"
+  name = "invalid-layout"
   window {
     name   = "w"
     layout = "foo"

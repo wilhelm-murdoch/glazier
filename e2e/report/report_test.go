@@ -14,12 +14,15 @@ func TestRead(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	if len(records) != 2 {
 		t.Fatalf("got %d records", len(records))
 	}
+
 	if records[0].Failed() || !records[1].Failed() {
 		t.Error("Failed: a pass failed or an unexpected pass did not")
 	}
+
 	if got := records[1].ID(); got != "TestA/x | two" {
 		t.Errorf("ID %q", got)
 	}

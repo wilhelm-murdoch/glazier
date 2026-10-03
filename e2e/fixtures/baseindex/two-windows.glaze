@@ -1,6 +1,6 @@
-# Two windows with two and three panes, for each base-index setting.
+# Two windows with two and three panes, for the base-index cases.
 session {
-  name = "bi"
+  name = "base-index"
   window {
     name = "w1"
     pane {

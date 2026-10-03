@@ -1,6 +1,6 @@
 # Each command is hard for one shell or another. The pane changes to d, so it writes to ../o.
 session {
-  name = "sh"
+  name = "shells"
   window {
     name = "w"
     pane {

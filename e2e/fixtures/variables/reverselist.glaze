@@ -1,5 +1,6 @@
+# reverselist reverses a list, and reverse reverses a string.
 session {
-  name = "rl"
+  name = "reverselist"
   window {
     name = join("+", reverselist(["a", "b", "c"]))
     pane {

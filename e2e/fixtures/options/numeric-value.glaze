@@ -1,5 +1,6 @@
+# The option value is a number, not a string.
 session {
-  name = "on"
+  name = "numeric-option"
   options = {
     "history-limit" = 5000
   }

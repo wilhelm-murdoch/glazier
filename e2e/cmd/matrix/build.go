@@ -24,14 +24,17 @@ func (m *matrix) buildGlaze(ctx context.Context, rev revision) error {
 	if rev.name == baseRevision {
 		given = m.cfg.baseGlaze
 	}
+
 	if given != "" {
 		return copyFile(given, rev.glaze)
 	}
+
 	if rev.name == headRevision {
 		st, err := m.stampOf(ctx, "HEAD", true)
 		if err != nil {
 			return err
 		}
+
 		return m.goBuild(ctx, m.repo, rev.glaze, st)
 	}
 
@@ -39,14 +42,17 @@ func (m *matrix) buildGlaze(ctx context.Context, rev revision) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = os.RemoveAll(src) }()
 	if err := m.export(ctx, m.cfg.base, src); err != nil {
 		return err
 	}
+
 	st, err := m.stampOf(ctx, m.cfg.base, false)
 	if err != nil {
 		return err
 	}
+
 	return m.goBuild(ctx, src, rev.glaze, st)
 }
 
@@ -85,14 +91,17 @@ func (m *matrix) stampOf(ctx context.Context, ref string, dirty bool) (stamp, er
 	} else {
 		args = append(args, ref)
 	}
+
 	version, err := gitOutput(ctx, m.repo, args...)
 	if err != nil {
 		version = "dev"
 	}
+
 	commit, err := gitOutput(ctx, m.repo, "rev-parse", "--short", ref)
 	if err != nil {
 		return stamp{}, fmt.Errorf("resolve %s: %w", ref, err)
 	}
+
 	return stamp{version: version, commit: commit}, nil
 }
 
@@ -105,14 +114,17 @@ func (m *matrix) export(ctx context.Context, ref, dir string) error {
 	if err != nil {
 		return err
 	}
+
 	untar.Stdin = pipe
 	archive.Stderr, untar.Stderr = os.Stderr, os.Stderr
 	if err := untar.Start(); err != nil {
 		return err
 	}
+
 	if err := archive.Run(); err != nil {
 		return fmt.Errorf("git archive %s: %w", ref, err)
 	}
+
 	return untar.Wait()
 }
 
@@ -128,6 +140,7 @@ func runLogged(cmd *exec.Cmd) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w\n%s", strings.Join(cmd.Args, " "), err, out)
 	}
+
 	return nil
 }
 
@@ -136,14 +149,17 @@ func copyFile(from, to string) error {
 	if err != nil {
 		return err
 	}
+
 	defer func() { _ = in.Close() }()
 	out, err := os.OpenFile(filepath.Clean(to), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755) // #nosec G302 -- an executable for the containers
 	if err != nil {
 		return err
 	}
+
 	if _, err := io.Copy(out, in); err != nil {
 		_ = out.Close()
 		return err
 	}
+
 	return out.Close()
 }

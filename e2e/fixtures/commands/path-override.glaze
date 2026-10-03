@@ -1,6 +1,6 @@
 # The PATH of the panes has no tmux, but glaze signals with the absolute path of tmux.
 session {
-  name = "po"
+  name = "path-override"
   envs = {
     PATH = "/nonexistent"
   }

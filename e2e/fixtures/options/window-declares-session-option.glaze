@@ -1,6 +1,6 @@
 # A session option declared on a window applies to the session, with a warning.
 session {
-  name = "os"
+  name = "window-declares-session-option"
   window {
     name    = "w"
     options = { "history-limit" = "4321" }

@@ -1,5 +1,6 @@
+# The first command removes TMUX from the shell, so glaze cannot use it to signal.
 session {
-  name = "ut"
+  name = "unset-tmux"
   window {
     name = "w"
     pane {

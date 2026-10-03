@@ -58,6 +58,7 @@ func main() {
 		if errors.As(err, &failed) {
 			os.Exit(1)
 		}
+
 		os.Exit(2)
 	}
 }
@@ -67,19 +68,23 @@ func run(ctx context.Context, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	repo, err := gitOutput(ctx, "", "rev-parse", "--show-toplevel")
 	if err != nil {
 		return fmt.Errorf("find the repository: %w", err)
 	}
+
 	m := &matrix{cfg: cfg, repo: repo, root: filepath.Join(repo, "e2e")}
 	if cfg.out == "" {
 		cfg.out = filepath.Join(m.root, "results")
 	}
+
 	if cfg.arch == "" {
 		if cfg.arch, err = dockerArch(ctx); err != nil {
 			return err
 		}
 	}
+
 	return m.run(ctx)
 }
 
@@ -103,26 +108,34 @@ func parseFlags(args []string) (*config, error) {
 	if err := fs.Parse(args); err != nil {
 		return nil, err
 	}
+
 	if fs.NArg() > 0 {
 		return nil, fmt.Errorf("unexpected arguments: %s", strings.Join(fs.Args(), " "))
 	}
+
 	for _, t := range strings.Split(*targets, ",") {
 		if t = strings.TrimSpace(t); t == "" {
 			continue
 		}
+
 		if !slices.Contains(allTargets, t) && !slices.Contains(extraTargets, t) {
 			return nil, fmt.Errorf("unknown target %q; the targets are %s", t, strings.Join(append(slices.Clone(allTargets), extraTargets...), ", "))
 		}
+
 		cfg.targets = append(cfg.targets, t)
 	}
+
 	if len(cfg.targets) == 0 {
 		return nil, errors.New("no target")
 	}
+
 	if cfg.baseGlaze != "" && cfg.base == "" {
 		cfg.base = "base"
 	}
+
 	if cfg.parallel < 1 || cfg.count < 1 {
 		return nil, errors.New("-parallel and -count must be 1 or more")
 	}
+
 	return cfg, nil
 }

@@ -1,6 +1,6 @@
 # tmux has session-created, not session-create.
 session {
-  name = "hu"
+  name = "unknown-hook"
   hooks = {
     "session-create" = "true"
   }

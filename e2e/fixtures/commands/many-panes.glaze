@@ -1,6 +1,6 @@
 # glaze waits for the commands of one pane before it starts the commands of the next pane.
 session {
-  name = "mp"
+  name = "many-panes"
   window {
     name = "w"
     pane {

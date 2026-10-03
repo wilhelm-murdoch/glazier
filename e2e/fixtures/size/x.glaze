@@ -9,7 +9,7 @@ variable "x" {
 }
 
 session {
-  name = "sz"
+  name = "size-x"
   window {
     name   = "w"
     layout = var.layout

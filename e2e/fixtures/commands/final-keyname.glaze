@@ -1,5 +1,6 @@
+# The last command is the tmux key name Enter, which the shell runs as an unknown command.
 session {
-  name = "fk"
+  name = "final-keyname"
   window {
     name = "w"
     pane {

@@ -26,9 +26,11 @@ func LoadBaseline(path, target string) (*Baseline, error) {
 	if errors.Is(err, os.ErrNotExist) {
 		return b, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
+
 	defer func() { _ = f.Close() }()
 
 	scanner := bufio.NewScanner(f)
@@ -37,20 +39,25 @@ func LoadBaseline(path, target string) (*Baseline, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
+
 		fields := strings.Split(line, report.Separator)
 		if len(fields) != 4 {
 			return nil, fmt.Errorf("%s:%d: want TARGET | TEST/CASE | CHECK | REASON", path, n)
 		}
+
 		for i := range fields {
 			fields[i] = strings.TrimSpace(fields[i])
 		}
+
 		if fields[3] == "" {
 			return nil, fmt.Errorf("%s:%d: an expected failure needs a reason", path, n)
 		}
+
 		if fields[0] == "*" || fields[0] == target {
 			b.entries[report.ID(fields[1], fields[2])] = fields[3]
 		}
 	}
+
 	return b, scanner.Err()
 }
 
@@ -59,6 +66,7 @@ func (b *Baseline) Expected(id string) (string, bool) {
 	if b == nil {
 		return "", false
 	}
+
 	reason, ok := b.entries[id]
 	return reason, ok
 }

@@ -1,6 +1,6 @@
 # Three windows with three, one and two panes, each with a name.
 session {
-  name = "st"
+  name = "three-windows"
   window {
     name   = "w1"
     layout = "even-horizontal"

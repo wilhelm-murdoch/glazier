@@ -1,5 +1,6 @@
+# The session starts in path.pwd, and the window name is path.base in upper case.
 session {
-  name               = "pp"
+  name               = "path-namespace"
   starting_directory = path.pwd
   window {
     name = upper(path.base)

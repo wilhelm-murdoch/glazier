@@ -233,6 +233,7 @@ func TestLayoutCellsDiagnostic(t *testing.T) {
 
 		return cty.ObjectVal(map[string]cty.Value{"layout": layout, "panes": cty.TupleVal(items)})
 	}
+
 	twoCells := cty.StringVal("e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}")
 
 	assert.Empty(t, LayoutCellsDiagnostic(window(twoCells, 2)))

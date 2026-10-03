@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -59,6 +61,13 @@ type syncBuffer struct {
 	buf bytes.Buffer
 }
 
+// Succeeded reports whether the command exited 0 before its deadline.
+func (r *Result) Succeeded() bool { return r.Code == 0 && !r.TimedOut }
+
+// Failed reports whether the command exited non-zero before its deadline. A
+// hang is neither a success nor a failure.
+func (r *Result) Failed() bool { return r.Code != 0 && !r.TimedOut }
+
 // Output is the standard output and then the standard error.
 func (r *Result) Output() string { return r.Stdout + r.Stderr }
 
@@ -69,6 +78,7 @@ func (c *Case) Start(o Opts, name string, args ...string) *Process {
 	if timeout == 0 {
 		timeout = DefaultTimeout
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	cmd := exec.CommandContext(ctx, name, args...) // #nosec G204 -- the harness runs the binaries under test
 	cmd.Dir = c.resolve(o.Dir)
@@ -76,6 +86,7 @@ func (c *Case) Start(o Opts, name string, args ...string) *Process {
 	if o.Stdin != "" {
 		cmd.Stdin = strings.NewReader(o.Stdin)
 	}
+
 	p := &Process{c: c, cmd: cmd, cancel: cancel, ctx: ctx, stdout: &syncBuffer{}, stderr: &syncBuffer{}, quiet: o.Quiet}
 	cmd.Stdout, cmd.Stderr = p.stdout, p.stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -87,6 +98,7 @@ func (c *Case) Start(o Opts, name string, args ...string) *Process {
 		cancel()
 		c.t.Fatalf("start %s: %v", name, err)
 	}
+
 	c.track(cmd)
 	return p
 }
@@ -97,19 +109,13 @@ func (c *Case) Exec(o Opts, name string, args ...string) *Result {
 	return c.Start(o, name, args...).Wait()
 }
 
-// Pid is the process id, which is also the id of its process group.
-func (p *Process) Pid() int { return p.cmd.Process.Pid }
-
 // Signal sends a signal to the process only, not to its group.
 func (p *Process) Signal(sig syscall.Signal) {
 	p.c.t.Helper()
 	if err := p.cmd.Process.Signal(sig); err != nil {
-		p.c.t.Errorf("signal %v to %d: %v", sig, p.Pid(), err)
+		p.c.t.Errorf("signal %v to %d: %v", sig, p.cmd.Process.Pid, err)
 	}
 }
-
-// Stdout is the standard output so far.
-func (p *Process) Stdout() string { return p.stdout.String() }
 
 // Wait waits until the process ends or its deadline passes.
 func (p *Process) Wait() *Result {
@@ -123,6 +129,7 @@ func (p *Process) Wait() *Result {
 		if timedOut {
 			_ = killGroup(p.cmd, syscall.SIGKILL)
 		}
+
 		p.result = &Result{
 			Args:     p.cmd.Args,
 			Code:     exitCode(p.cmd, err),
@@ -132,10 +139,22 @@ func (p *Process) Wait() *Result {
 			TimedOut: timedOut,
 		}
 	})
+
 	if first && !p.quiet {
 		p.c.logResult(p.result)
 	}
+
 	return p.result
+}
+
+// Describe summarises a result for the detail of a check.
+func (r *Result) Describe() string {
+	if r.TimedOut {
+		return fmt.Sprintf("timed out (hang) after %s", r.Duration.Round(time.Millisecond))
+	}
+
+	return fmt.Sprintf("exit %d, stdout %s, stderr %s", r.Code,
+		strconv.Quote(truncate(r.Stdout, maxDetailOutput)), strconv.Quote(truncate(r.Stderr, maxDetailOutput)))
 }
 
 func (c *Case) logResult(r *Result) {
@@ -144,6 +163,7 @@ func (c *Case) logResult(r *Result) {
 	if r.TimedOut {
 		state = " (timed out)"
 	}
+
 	c.t.Logf("$ %s\nexit %d in %s%s\n--- stdout\n%s--- stderr\n%s",
 		strings.Join(r.Args, " "), r.Code, r.Duration.Round(time.Millisecond), state,
 		clip(r.Stdout, maxLoggedOutput), clip(r.Stderr, maxLoggedOutput))
@@ -155,11 +175,14 @@ func exitCode(cmd *exec.Cmd, err error) int {
 		if err != nil {
 			return -1
 		}
+
 		return 0
 	}
+
 	if ws, ok := state.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
 		return signalExitOffset + int(ws.Signal())
 	}
+
 	return state.ExitCode()
 }
 
@@ -167,17 +190,56 @@ func killGroup(cmd *exec.Cmd, sig syscall.Signal) error {
 	if cmd.Process == nil {
 		return nil
 	}
+
 	return syscall.Kill(-cmd.Process.Pid, sig)
 }
 
+// clip shortens output for the log and ends it with a newline.
 func clip(s string, n int) string {
-	if len(s) > n {
-		s = s[:n] + "…\n"
-	}
+	s = truncate(s, n)
 	if s != "" && !strings.HasSuffix(s, "\n") {
 		s += "\n"
 	}
+
 	return s
+}
+
+func truncate(s string, n int) string {
+	if len(s) > n {
+		return s[:n] + "…"
+	}
+
+	return s
+}
+
+// Processes returns the command line of each process that contains every
+// substring. Give the socket of the case as one substring, so that a
+// parallel case cannot match.
+func (c *Case) Processes(substrings ...string) []string {
+	c.t.Helper()
+	out, err := exec.Command("ps", "-A", "-o", "args=").Output()
+	if err != nil {
+		c.t.Fatalf("ps: %v", err)
+	}
+
+	var found []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if containsAll(line, substrings) {
+			found = append(found, strings.TrimSpace(line))
+		}
+	}
+
+	return found
+}
+
+func containsAll(s string, substrings []string) bool {
+	for _, sub := range substrings {
+		if !strings.Contains(s, sub) {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (b *syncBuffer) Write(p []byte) (int, error) {
