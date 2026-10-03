@@ -331,7 +331,7 @@ func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
 	assert.NoError(t, up.provisionSession(profile))
 
 	// Only the second window is created; the first reuses the window that tmux made.
-	assert.Equal(t, []string{"renamew", "-t", "@3", "first"}, rec.ArgsFor("renamew"))
+	assert.Equal(t, []string{"renamew", "-t", "@3", "--", "first"}, rec.ArgsFor("renamew"))
 	assert.Equal(t, 1, rec.CountOf("neww"))
 	assert.Subset(t, rec.ArgsFor("neww"), []string{"-n", "second"})
 	assert.False(t, rec.Called("killw"))
@@ -365,12 +365,13 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 		assert.NoError(t, up.provisionSession(profile))
 
 		var events []string
+		// A call is set-option [-w] -t TARGET -- NAME VALUE.
 		for _, call := range rec.Calls {
 			switch {
 			case call[0] == "set-option" && call[1] == "-w":
-				events = append(events, "window "+call[3]+" "+call[4])
+				events = append(events, "window "+call[3]+" "+call[5])
 			case call[0] == "set-option":
-				events = append(events, "session "+call[2]+" "+call[3])
+				events = append(events, "session "+call[2]+" "+call[4])
 			case call[0] == "splitw":
 				events = append(events, "split")
 			}
@@ -409,7 +410,7 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 			if call[0] == "set-option" {
 				assert.NotContains(t, call, "-w")
 				assert.NotContains(t, call, "-p")
-				sessionOptions = append(sessionOptions, call[3])
+				sessionOptions = append(sessionOptions, call[4])
 			}
 		}
 

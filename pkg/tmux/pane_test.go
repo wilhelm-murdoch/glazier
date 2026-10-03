@@ -27,11 +27,7 @@ func TestPaneSetHook(t *testing.T) {
 		pane := testPane(testWindow(testSession(client)))
 		assert.NoError(t, pane.SetHook("pane-focus-in", "echo focus"))
 
-		args := rec.ArgsFor("set-hook")
-		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, "%0")
-		assert.Contains(t, args, "pane-focus-in")
-		assert.Contains(t, args, "echo focus")
+		assert.Equal(t, []string{"set-hook", "-p", "-t", "%0", "--", "pane-focus-in", "echo focus"}, rec.ArgsFor("set-hook"))
 	})
 
 	t.Run("propagates errors", func(t *testing.T) {
@@ -74,11 +70,7 @@ func TestPaneSetOption(t *testing.T) {
 		pane := testPane(testWindow(testSession(client)))
 		assert.NoError(t, pane.SetOption("remain-on-exit", "on"))
 
-		args := rec.ArgsFor("set-option")
-		assert.Contains(t, args, "-p")
-		assert.Contains(t, args, "%0")
-		assert.Contains(t, args, "remain-on-exit")
-		assert.Contains(t, args, "on")
+		assert.Equal(t, []string{"set-option", "-p", "-t", "%0", "--", "remain-on-exit", "on"}, rec.ArgsFor("set-option"))
 	})
 
 	t.Run("propagates errors", func(t *testing.T) {

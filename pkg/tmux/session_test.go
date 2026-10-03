@@ -118,10 +118,7 @@ func TestSessionSetEnv(t *testing.T) {
 		client := testClient()
 		assert.NoError(t, testSession(client).SetEnv("EDITOR", "vim"))
 
-		args := rec.ArgsFor("setenv")
-		assert.Contains(t, args, "$0")
-		assert.Contains(t, args, "EDITOR")
-		assert.Contains(t, args, "vim")
+		assert.Equal(t, []string{"setenv", "-t", "$0", "--", "EDITOR", "vim"}, rec.ArgsFor("setenv"))
 	})
 
 	t.Run("propagates errors", func(t *testing.T) {

@@ -96,11 +96,15 @@ func redactSecrets(args []string) []string {
 	}
 
 	// The operands are NAME and VALUE. Flags and the target of -t come before them, so a VALUE such as "-t" is still an operand.
+	// After "--" every argument is an operand, also a NAME that starts with "-".
 	var operands []int
+	flagsEnded := false
 	for i := subcommandIndex(args) + 1; i < len(args); i++ {
 		switch {
-		case len(operands) > 0 || !strings.HasPrefix(args[i], "-"):
+		case flagsEnded || len(operands) > 0 || !strings.HasPrefix(args[i], "-"):
 			operands = append(operands, i)
+		case args[i] == "--":
+			flagsEnded = true
 		case args[i] == "-t":
 			i++
 		}

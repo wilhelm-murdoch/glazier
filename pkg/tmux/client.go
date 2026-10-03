@@ -72,13 +72,14 @@ func (c Client) output(args ...string) (string, error) {
 }
 
 // setScoped runs set-hook or set-option on target. The scope flag is "" for a session, "-w" for a window and "-p" for a pane.
+// "--" ends the flags, so a name or a value that starts with "-" stays an operand.
 func (c Client) setScoped(command, scope, target, name, value string) error {
 	args := []string{command}
 	if scope != "" {
 		args = append(args, scope)
 	}
 
-	return c.run(append(args, "-t", target, name, value)...)
+	return c.run(append(args, "-t", target, "--", name, value)...)
 }
 
 // parseLines parses each line of a tmux listing with parse. Empty output, for example from a server with no sessions, has no items.

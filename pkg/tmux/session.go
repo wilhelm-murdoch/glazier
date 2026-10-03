@@ -51,8 +51,9 @@ func (s Session) Kill() error {
 }
 
 // SetEnv sets an environment variable on the session, which only processes that start later inherit.
+// "--" ends the flags, so a key or a value that starts with "-" stays an operand.
 func (s Session) SetEnv(key, value string) error {
-	return s.Client.run("setenv", "-t", s.Target(), key, value)
+	return s.Client.run("setenv", "-t", s.Target(), "--", key, value)
 }
 
 // SetHook sets a session hook.
