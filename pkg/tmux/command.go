@@ -47,6 +47,16 @@ func OverrideCommandFactory(factory func(client Client, args ...string) Commande
 	}
 }
 
+// OverrideTerminalCheck replaces the check that standard input is a terminal and returns a function that restores it.
+// It lets tests in other packages attach without a terminal. Production code must not call it.
+func OverrideTerminalCheck(check func() bool) func() {
+	previous := stdinIsTerminal
+	stdinIsTerminal = check
+	return func() {
+		stdinIsTerminal = previous
+	}
+}
+
 // Command is one tmux command, ready to run.
 type Command struct {
 	cmd  *exec.Cmd

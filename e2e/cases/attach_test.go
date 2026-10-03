@@ -32,8 +32,10 @@ func TestAttach(t *testing.T) {
 	harness.Run(t, "attach_no_tty", func(c *harness.Case) {
 		c.Simple("nt")
 		r := c.Glaze("up", "--socket-name", c.Socket)
-		c.Finishes(r, "up without --detached and no TTY ends")
-		c.Logf("up without --detached and no TTY: rc=%d session_exists=%t windows=%s", r.Code, c.HasSession("nt"), c.WindowNames("nt"))
+		c.OK(r, "up without --detached and no TTY")
+		c.SessionExists("up without a TTY keeps the session", "nt")
+		c.Match("up without a TTY says why it does not attach", "no terminal to attach to", r.Stderr)
+		c.Match("up without a TTY shows the attach command", "attach -t '=nt'", r.Stderr)
 	})
 
 	// glaze runs in a pane of an attached client, so ls and save see the session of that client.

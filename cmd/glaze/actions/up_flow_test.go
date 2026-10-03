@@ -269,6 +269,7 @@ func TestActionUpResolveSession(t *testing.T) {
 
 	t.Run("attaches to an existing session when not detached", func(t *testing.T) {
 		t.Setenv("TMUX", "")
+		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return true }))
 		up, rec := buildUp(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
@@ -303,6 +304,26 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.False(t, rec.Called("attach"))
 		assert.False(t, rec.Called("switchc"))
 		assert.Contains(t, logs.String(), "does not attach")
+		assert.Contains(t, logs.String(), "tmux attach -t '=demo'")
+	})
+
+	t.Run("shows the attach command without a terminal", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return false }))
+		up, rec := buildUp(t, validProfile, nil)
+		rec.On("has-session", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		_, err = up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.False(t, rec.Called("attach"))
+		assert.Contains(t, logs.String(), "no terminal to attach to")
 		assert.Contains(t, logs.String(), "tmux attach -t '=demo'")
 	})
 
@@ -421,6 +442,17 @@ func TestActionUpRun(t *testing.T) {
 		assert.ErrorContains(t, err, "failed to provision session `demo`")
 		assert.ErrorContains(t, err, "no space for new pane")
 		assert.Equal(t, []string{"kill-session", "-t", "$1"}, rec.ArgsFor("kill-session"))
+	})
+
+	t.Run("says that the session ended when it is gone after a failure", func(t *testing.T) {
+		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
+		failingProvision(rec, nil)
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+
+		err := up.Run(context.Background())
+		assert.ErrorContains(t, err, "session `demo` ended while glaze set it up")
+		assert.ErrorContains(t, err, "no space for new pane")
+		assert.False(t, rec.Called("kill-session"))
 	})
 
 	t.Run("keeps the session with --keep-on-failure", func(t *testing.T) {

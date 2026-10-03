@@ -92,6 +92,7 @@ func TestRecovery(t *testing.T) {
 			c.SessionGone(fmt.Sprintf("SIG%s removes the partly built session", s.name), "signal")
 			c.EventuallyEqual(fmt.Sprintf("SIG%s leaves no wait-for client", s.name), "", func() string { return strings.Join(waitClients(), "\n") })
 			c.Match("up names the signal", "glaze stopped on SIG"+s.name, r.Stderr)
+			c.NoMatch("up does not blame the pane for the signal", "shell exited", r.Stderr)
 		})
 	}
 

@@ -395,6 +395,24 @@ func TestCommandRunnerWait(t *testing.T) {
 		assert.Equal(t, []string{"delete-buffer", "-b", "glaze-x"}, rec.ArgsFor("delete-buffer"))
 	})
 
+	t.Run("reports the cancel, not a dead pane, when the cancel stops the pane check", func(t *testing.T) {
+		rec := setupRecorder(t)
+		release := make(chan struct{})
+		rec.On("wait-for", fakeResult{OnExec: func() { <-release }})
+		t.Cleanup(func() { close(release) })
+
+		cause := errors.New("stopped on SIGTERM")
+		ctx, cancel := context.WithCancelCause(context.Background())
+		runner := testRunner(0)
+		runner.client = runner.client.WithContext(ctx)
+		// The signal arrives while the pane check runs, so the check fails like a tmux command that the context stopped.
+		rec.On("display-message", fakeResult{Err: context.Canceled, OnExec: func() { cancel(cause) }})
+
+		err := waitFor(t, runner)
+		assert.ErrorIs(t, err, cause)
+		assert.NotErrorIs(t, err, ErrPaneExited)
+	})
+
 	t.Run("stops after the timeout", func(t *testing.T) {
 		rec := setupRecorder(t)
 		blockWait(rec)

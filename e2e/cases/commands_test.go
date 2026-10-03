@@ -90,7 +90,8 @@ func TestCommands(t *testing.T) {
 		c.Finishes(r, "non-final 'exit' command does not hang")
 		c.Match("up warns that it stopped waiting", `stopped waiting`, r.Stderr)
 		c.SessionGone("the only pane exits, so tmux ends the session", "exit")
-		c.Logf("up exits %d after the session ended", r.Code)
+		c.ExitCode(r, "up fails when its session ends (exit 1)", exitFailure)
+		c.Match("up says that the session ended", "ended while glaze set it up", r.Stderr)
 	})
 
 	harness.Run(t, "cmd_command_timeout", func(c *harness.Case) {

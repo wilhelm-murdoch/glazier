@@ -224,7 +224,8 @@ func (r *CommandRunner) wait(pane, name string) error {
 		case <-deadline:
 			return r.giveUp(name, done, ErrCommandTimeout)
 		case <-ticker.C:
-			if r.paneAlive(pane) {
+			// A cancelled context also stops the pane check, so the next loop takes the ctx.Done case instead.
+			if r.paneAlive(pane) || ctx.Err() != nil {
 				continue
 			}
 
