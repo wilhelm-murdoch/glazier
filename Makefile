@@ -16,6 +16,8 @@ REL_DIR    := $(ROOT_DIR)/release
 SRC_DIR    := $(ROOT_DIR)/cmd
 
 VERSION    := $(shell git describe --tags 2>/dev/null || echo dev)
+# Linux packages take the version without the leading v.
+PKG_VERSION = $(patsubst v%,%,$(VERSION))
 COMMIT     := $(shell git rev-parse --short HEAD 2>/dev/null || echo none)
 DATE       := $(shell date "+%FT%T%z")
 STAGE      ?= development
@@ -37,6 +39,7 @@ GOOS       ?= $(shell go env GOOS)
 LINTER       := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 TESTRUNNER   := go run gotest.tools/gotestsum@v1.13.0
 VULNCHECKER  := go run golang.org/x/vuln/cmd/govulncheck@v1.3.0
+PACKAGER     := go run github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.47.0
 COVER_FLOOR  := 80
 FUZZTIME     ?= 10s
 
@@ -106,7 +109,7 @@ ifneq ($(P),windows)
 	@chmod +x $(T)/$(P)-$(GOARCH)/$(B)
 endif
 	@echo -e "$(ATTN_COLOR)==> $@ zip $(B)-$(P)-$(GOARCH).zip $(NO_COLOR)"
-	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") >/dev/null
+	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(ROOT_DIR)/LICENSE.md >/dev/null
 
 .PHONY: release
 release: $(REL_DIR)
@@ -121,16 +124,30 @@ release: $(REL_DIR)
 			done; \
 		done; \
 	done
+	@$(MAKE) packages
 	@$(MAKE) checksums
 
-# One SHA256SUMS over every zip, keyed by bare filename so a user who
+# A .deb, an .rpm and an unsigned .apk for each Linux architecture, from the binaries that `release` built.
+.PHONY: packages
+packages:
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@for a in ${GOARCHES}; \
+	do \
+		for k in deb rpm apk; \
+		do \
+			GOARCH=$${a} PKG_VERSION=$(PKG_VERSION) $(PACKAGER) package --config $(ROOT_DIR)/packaging/nfpm.yaml \
+				--packager $${k} --target $(REL_DIR)/linux-$${a}/glazier-linux-$${a}.$${k} || exit 1; \
+		done; \
+	done
+
+# One SHA256SUMS over every zip and package, keyed by bare filename so a user who
 # downloads a single asset can verify it with `shasum -a 256 -c SHA256SUMS
 # --ignore-missing`. shasum (perl) rather than sha256sum: it exists on both
 # the linux runners and macOS.
 .PHONY: checksums
 checksums:
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
-	@cd $(REL_DIR) && rm -f SHA256SUMS && for f in */*.zip; do \
+	@cd $(REL_DIR) && rm -f SHA256SUMS && for f in */*.zip */*.deb */*.rpm */*.apk; do \
 		(cd $$(dirname $$f) && shasum -a 256 $$(basename $$f)); \
 	done > SHA256SUMS
 	@cat $(REL_DIR)/SHA256SUMS

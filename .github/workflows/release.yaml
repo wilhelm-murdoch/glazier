@@ -2,8 +2,10 @@
 # v0.2.0` — the Forgejo mirror forwards tags). This re-verifies the tagged
 # commit, cross-compiles the version-stamped binaries via `make release`,
 # runs the end-to-end cases against those exact zips on real tmux binaries,
-# and only then publishes a GitHub Release with the zips attached and notes
-# generated from the merged PRs since the previous tag.
+# and only then publishes a GitHub Release with the zips, the .deb, .rpm and
+# .apk packages and notes generated from the merged PRs since the previous tag.
+# After that, it pushes the formula to the Homebrew tap and the PKGBUILD to the
+# AUR, so a failed push never blocks or changes the release.
 #
 # The e2e gate tests what ships, not a fresh build: each job unzips the
 # release asset for its platform and checks that `glaze --version` reports
@@ -50,12 +52,15 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: make release STAGE=production # builds the zips + SHA256SUMS
+      - run: make release STAGE=production # builds the zips, the .deb, .rpm and .apk packages and SHA256SUMS
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release
           path: |
             release/*/*.zip
+            release/*/*.deb
+            release/*/*.rpm
+            release/*/*.apk
             release/SHA256SUMS
           if-no-files-found: error
 
@@ -155,7 +160,11 @@ jobs:
       - uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         id: attest
         with:
-          subject-path: release/*/*.zip
+          subject-path: |
+            release/*/*.zip
+            release/*/*.deb
+            release/*/*.rpm
+            release/*/*.apk
       - run: cp "${{ steps.attest.outputs.bundle-path }}" release/attestations.intoto.jsonl
       - name: Create GitHub Release
         env:
@@ -167,5 +176,81 @@ jobs:
             --verify-tag \
             --generate-notes \
             release/*/*.zip \
+            release/*/*.deb \
+            release/*/*.rpm \
+            release/*/*.apk \
             release/SHA256SUMS \
             release/attestations.intoto.jsonl
+
+  # Installs the rendered formula from a local copy of the tap and runs its test before the push.
+  homebrew:
+    needs: release
+    # render.sh accepts only a vX.Y.Z tag, so a pre-release gets no formula.
+    if: github.ref_type == 'tag' && !contains(github.ref_name, '-')
+    runs-on: macos-latest
+    # The release environment holds the deploy key and allows only v* tags.
+    environment: release
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: wilhelm-murdoch/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: tap
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+      - name: Render and commit the formula
+        run: |
+          mkdir -p tap/Formula
+          packaging/render.sh "$GITHUB_REF_NAME" release/SHA256SUMS packaging/homebrew/glazier.rb > tap/Formula/glazier.rb
+          cd tap
+          git add Formula/glazier.rb
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "glazier $GITHUB_REF_NAME"
+      - name: Install and test the formula
+        run: |
+          brew tap wilhelm-murdoch/tap "$PWD/tap"
+          brew style wilhelm-murdoch/tap/glazier
+          brew install wilhelm-murdoch/tap/glazier
+          brew test wilhelm-murdoch/tap/glazier
+      - run: git -C tap push origin HEAD
+
+  # Checks the rendered PKGBUILD with makepkg in an Arch container before the push.
+  aur:
+    needs: release
+    # pacman does not accept a pre-release version such as 1.0.0-rc1; set the AUR_ENABLED repo variable to true once AUR_SSH_KEY exists.
+    if: github.ref_type == 'tag' && !contains(github.ref_name, '-') && vars.AUR_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    # The release environment holds the AUR key and allows only v* tags.
+    environment: release
+    env:
+      GIT_SSH_COMMAND: ssh -i ${{ github.workspace }}/.aur-key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=${{ github.workspace }}/packaging/aur/known_hosts
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release
+          path: release
+      - name: Install the AUR key
+        env:
+          AUR_SSH_KEY: ${{ secrets.AUR_SSH_KEY }}
+        run: |
+          install -m 600 /dev/null .aur-key
+          printf '%s\n' "$AUR_SSH_KEY" > .aur-key
+      - name: Render the PKGBUILD and .SRCINFO
+        run: |
+          git clone ssh://aur@aur.archlinux.org/glazier-bin.git aur
+          packaging/render.sh "$GITHUB_REF_NAME" release/SHA256SUMS packaging/aur/PKGBUILD > aur/PKGBUILD
+          # makepkg refuses to run as root; --verifysource downloads the published zips and checks them against the PKGBUILD.
+          docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -v "$PWD/aur":/pkg -w /pkg archlinux:base \
+            bash -c 'makepkg --verifysource && makepkg --printsrcinfo > .SRCINFO'
+          rm -f aur/*.zip
+      - name: Commit and push
+        working-directory: aur
+        run: |
+          git add PKGBUILD .SRCINFO
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+            commit -m "glazier-bin ${GITHUB_REF_NAME#v}"
+          git push origin HEAD:master
