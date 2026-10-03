@@ -9,11 +9,17 @@
 # release asset for its platform and checks that `glaze --version` reports
 # the tag. Each e2e job blocks the release: linux/amd64 and linux/arm64 on
 # all six tmux targets, and darwin/arm64 on the macOS host.
+#
+# Run the workflow by hand (Actions > Release > Run workflow) for a dry run
+# before you tag: it builds the zips and runs every e2e job on them, checks
+# only the form of the version line and does not publish.
 name: Release
 
 on:
   push:
     tags: ["v*"]
+  # A manual run is a dry run: it builds the zips and runs every e2e job on them, but it does not publish.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -74,14 +80,18 @@ jobs:
         with:
           name: release
           path: release
+      # SHA256SUMS names each zip without its directory, so the check runs in the directory of the zip.
       - name: Verify and unzip the release asset
         run: |
-          cd release
-          shasum -a 256 -c SHA256SUMS --ignore-missing
-          unzip -o "linux-${{ matrix.arch }}/glaze-linux-${{ matrix.arch }}.zip" -d "$RUNNER_TEMP/glaze"
+          cd "release/linux-${{ matrix.arch }}"
+          shasum -a 256 -c ../SHA256SUMS --ignore-missing
+          unzip -o "glaze-linux-${{ matrix.arch }}.zip" -d "$RUNNER_TEMP/glaze"
       - name: Run the cases on every tmux target
         working-directory: e2e
-        run: go run ./cmd/matrix -arch "${{ matrix.arch }}" -glaze "$RUNNER_TEMP/glaze/glaze" -expect-version "$GITHUB_REF_NAME" -markdown "$RUNNER_TEMP/e2e.md"
+        run: go run ./cmd/matrix -arch "${{ matrix.arch }}" -glaze "$RUNNER_TEMP/glaze/glaze" -expect-version "$EXPECT_VERSION" -markdown "$RUNNER_TEMP/e2e.md"
+        env:
+          # Only a tag has a version to expect; a dry run checks only the form of the version line.
+          EXPECT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
       - if: always()
         run: cat "$RUNNER_TEMP/e2e.md" >> "$GITHUB_STEP_SUMMARY" || true
       # Keep the reports and logs of every run: a flaky check on base passes the job, but its detail is still needed.
@@ -109,11 +119,12 @@ jobs:
           name: release
           path: release
       - run: brew install tmux fish
+      # SHA256SUMS names each zip without its directory, so the check runs in the directory of the zip.
       - name: Verify and unzip the release asset
         run: |
-          cd release
-          shasum -a 256 -c SHA256SUMS --ignore-missing
-          unzip -o darwin-arm64/glaze-darwin-arm64.zip -d "$RUNNER_TEMP/glaze"
+          cd release/darwin-arm64
+          shasum -a 256 -c ../SHA256SUMS --ignore-missing
+          unzip -o glaze-darwin-arm64.zip -d "$RUNNER_TEMP/glaze"
       - name: Run the cases on the macOS host
         working-directory: e2e
         run: go test -count=1 ./cases/
@@ -121,10 +132,11 @@ jobs:
           GLAZE_BIN: ${{ runner.temp }}/glaze/glaze
           E2E_REQUIRE: "1"
           E2E_TARGET: macos
-          E2E_EXPECT_VERSION: ${{ github.ref_name }}
+          E2E_EXPECT_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
 
   release:
     needs: [build, e2e-linux, e2e-macos]
+    if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     permissions:
       contents: write # create the GitHub Release

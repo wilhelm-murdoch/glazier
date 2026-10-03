@@ -298,4 +298,6 @@ With `E2E_REPORT` set, the harness appends one JSON object for each check to tha
 | Release, linux/arm64 and macOS| The same on the arm64 zip, and on the darwin zip on the macOS host.       | Yes    |
 | E2E canary, each Monday       | The matrix on `tmuxnext`.                                                 | No     |
 
+Run the release workflow by hand for a dry run before you push a tag. It builds the zips and runs every e2e job on them, but it does not publish.
+
 The release publishes only when the cases pass on each zip that it ships: linux/amd64 and linux/arm64 on all six targets, and darwin/arm64 on the macOS host. The darwin/amd64 zip has no runner of its own; it shares its source and its tests with darwin/arm64.
