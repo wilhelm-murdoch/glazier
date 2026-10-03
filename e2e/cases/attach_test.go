@@ -40,7 +40,7 @@ func TestAttach(t *testing.T) {
 	harness.Run(t, "attach_inside_tmux", func(c *harness.Case) {
 		c.Simple("inner", "inner.glaze")
 		c.Mkdir("hostdir")
-		c.Tmux("new-session", "-d", "-s", "host", "-c", c.Path("hostdir"))
+		c.TmuxSetup("new-session", "-d", "-s", "host", "-c", c.Path("hostdir"))
 		attachTerminal(c, c.Socket, "host")
 		attachWaitClient(c, "host client attached", "host")
 		out, _ := attachRun(c, c.Socket, "host", "", "ls.txt", "ls", "--socket-name", c.Socket)
@@ -57,7 +57,7 @@ func TestAttach(t *testing.T) {
 	// glaze in a pane without a socket flag uses the server of that pane.
 	harness.Run(t, "attach_inside_tmux_default_server", func(c *harness.Case) {
 		c.Simple("nd", "nd.glaze")
-		c.Tmux("new-session", "-d", "-s", "host")
+		c.TmuxSetup("new-session", "-d", "-s", "host")
 		out, _ := attachRun(c, c.Socket, "host", "", "o", "up", "--detached", "--profile-path", c.Path("nd.glaze"))
 		c.True("glaze inside a pane without socket flags targets the enclosing server", c.HasSession("nd"), "session not on enclosing server; out %q", out)
 	})

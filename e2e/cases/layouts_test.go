@@ -45,12 +45,12 @@ func TestLayouts(t *testing.T) {
 
 	// The reference window has panes of different sizes, so a preset cannot give the same geometry by chance.
 	harness.Run(t, "layout_raw_replay", func(c *harness.Case) {
-		c.Tmux("new-session", "-d", "-s", "ref")
-		c.Tmux("split-window", "-h", "-l", "20", "-t", "=ref:")
-		c.Tmux("split-window", "-v", "-l", "5", "-t", "=ref:")
+		c.TmuxSetup("new-session", "-d", "-s", "ref")
+		c.TmuxSetup("split-window", "-h", "-l", "20", "-t", "=ref:")
+		c.TmuxSetup("split-window", "-v", "-l", "5", "-t", "=ref:")
 		raw := c.Tmux("display-message", "-p", "-t", "=ref:", "#{window_layout}")
 		want := c.Geometry("=ref:")
-		c.Tmux("kill-session", "-t", "=ref")
+		c.TmuxSetup("kill-session", "-t", "=ref")
 		c.Fixture("layouts/three-panes.glaze")
 		c.OK(c.Up("--var", "layout="+raw), "up with a raw layout")
 		c.Equal("raw layout geometry replayed", want, c.Geometry("=three-panes:w"))

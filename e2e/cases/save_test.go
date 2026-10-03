@@ -106,7 +106,7 @@ func TestSave(t *testing.T) {
 
 	// tmux matches a session name by prefix unless the target starts with =.
 	harness.Run(t, "save_prefix_session", func(c *harness.Case) {
-		c.Tmux("new-session", "-d", "-s", "project-long")
+		c.TmuxSetup("new-session", "-d", "-s", "project-long")
 		r := c.Save("--session", "project", "--stdout")
 		c.True("save --session does not prefix-match", r.Failed(), "saved %q", firstLine(r.Stdout))
 	})
@@ -118,14 +118,14 @@ func TestSave(t *testing.T) {
 	// A session that glaze did not make has tmux names, so the round trip compares everything but the names.
 	harness.Run(t, "save_foreign_session", func(c *harness.Case) {
 		c.Mkdir("fdir")
-		c.Tmux("new-session", "-d", "-s", "raw", "-c", c.Path("fdir"))
-		c.Tmux("split-window", "-h", "-t", "=raw:")
-		c.Tmux("new-window", "-t", "=raw:", "-n", "two")
+		c.TmuxSetup("new-session", "-d", "-s", "raw", "-c", c.Path("fdir"))
+		c.TmuxSetup("split-window", "-h", "-t", "=raw:")
+		c.TmuxSetup("new-window", "-t", "=raw:", "-n", "two")
 		c.WaitForPanes("raw")
 		before := c.State("raw", unnamedWindow, unnamedPane)
 		c.OK(c.Save("--session", "raw", "--profile-path", "raw.glaze"), "save non-glaze session")
 		c.Logf("saved profile:\n%s", c.Read("raw.glaze"))
-		c.Tmux("kill-session", "-t", "=raw")
+		c.TmuxSetup("kill-session", "-t", "=raw")
 		c.OK(c.Up("--profile-path", "raw.glaze"), "up from foreign save")
 		roundTrip := func() string { return c.State("raw", unnamedWindow, unnamedPane) }
 		if !c.EventuallyEqual("foreign round-trip (ignoring titles)", before, roundTrip) {
@@ -155,7 +155,7 @@ func TestSave(t *testing.T) {
 
 	harness.Run(t, "save_deleted_dir", func(c *harness.Case) {
 		c.Mkdir("gonedir")
-		c.Tmux("new-session", "-d", "-s", "dd", "-c", c.Path("gonedir"))
+		c.TmuxSetup("new-session", "-d", "-s", "dd", "-c", c.Path("gonedir"))
 		// The shell must be in the directory before the case deletes it.
 		c.WaitForPanes("dd")
 		c.Remove("gonedir")
@@ -168,8 +168,8 @@ func TestSave(t *testing.T) {
 
 	// tmux titles a new pane with the host name and names a window after its program; neither belongs in a profile.
 	harness.Run(t, "save_default_names", func(c *harness.Case) {
-		c.Tmux("new-session", "-d", "-s", "raw")
-		c.Tmux("new-window", "-t", "=raw:", "-n", "two")
+		c.TmuxSetup("new-session", "-d", "-s", "raw")
+		c.TmuxSetup("new-window", "-t", "=raw:", "-n", "two")
 		automaticName := c.Tmux("display-message", "-p", "-t", "=raw:^", "#{window_name}")
 		host := c.Tmux("display-message", "-p", "-t", "=raw:", "#{host}")
 		r := c.Save("--session", "raw", "--stdout")

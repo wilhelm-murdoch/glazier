@@ -77,9 +77,9 @@ func modeOf(c *harness.Case, rel string) string {
 // rawLayout returns the layout string of a window with n side-by-side panes.
 // It stops the server, so the next up starts a new server and NoServer can pass.
 func rawLayout(c *harness.Case, n int) string {
-	c.Tmux("new-session", "-d", "-s", "ref")
+	c.TmuxSetup("new-session", "-d", "-s", "ref")
 	for i := 1; i < n; i++ {
-		c.Tmux("split-window", "-h", "-t", "=ref:")
+		c.TmuxSetup("split-window", "-h", "-t", "=ref:")
 	}
 
 	raw := c.Tmux("display-message", "-p", "-t", "=ref:", "#{window_layout}")

@@ -31,7 +31,7 @@ func TestRecovery(t *testing.T) {
 	})
 
 	harness.Run(t, "recovery_other_session_window", func(c *harness.Case) {
-		c.Tmux("new-session", "-d", "-s", "web")
+		c.TmuxSetup("new-session", "-d", "-s", "web")
 		c.Fixture("recovery/other-session-window.glaze")
 		c.OK(c.Up(), "window named after another session")
 		c.Equal("api windows", "web,db", c.WindowNames("api"))
@@ -43,17 +43,20 @@ func TestRecovery(t *testing.T) {
 		c.Fixture("recovery/numeric-name.glaze")
 		for _, name := range []string{"1", "42", "0"} {
 			c.KillServer()
-			c.Tmux("new-session", "-d", "-s", "other")
-			c.Tmux("new-window", "-t", "=other:")
+			c.TmuxSetup("new-session", "-d", "-s", "other")
+			c.TmuxSetup("new-window", "-t", "=other:")
 			c.OK(c.Up("--var", "name="+name), fmt.Sprintf("numeric session name [%s]", name))
 			c.Equal(fmt.Sprintf("numeric session [%s] windows", name), "a,b", c.WindowNames(name))
-			c.Equal(fmt.Sprintf("other session untouched by numeric [%s]", name), "2", strconv.Itoa(c.WindowCount("other")))
+			if !c.Equal(fmt.Sprintf("other session untouched by numeric [%s]", name), "2", strconv.Itoa(c.WindowCount("other"))) {
+				c.Logf("sessions: %q", c.Sessions())
+				c.Snapshot("other")
+			}
 		}
 	})
 
 	harness.Run(t, "recovery_prefix_existing", func(c *harness.Case) {
 		c.Simple("project")
-		c.Tmux("new-session", "-d", "-s", "project-long")
+		c.TmuxSetup("new-session", "-d", "-s", "project-long")
 		c.OK(c.Up(), "up [project] while [project-long] runs")
 		c.SessionExists("project created", "project")
 	})

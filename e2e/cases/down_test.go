@@ -10,7 +10,7 @@ import (
 func TestDown(t *testing.T) {
 	harness.Run(t, "down_basic", func(c *harness.Case) {
 		c.Simple("dn")
-		c.Tmux("new-session", "-d", "-s", "other")
+		c.TmuxSetup("new-session", "-d", "-s", "other")
 		c.OK(c.Up(), "up")
 		c.OK(c.Down(), "down")
 		c.SessionGone("down kills profile session", "dn")
@@ -29,13 +29,13 @@ func TestDown(t *testing.T) {
 	harness.Run(t, "down_session_flag", func(c *harness.Case) {
 		c.Mkdir("empty")
 		c.Cd("empty")
-		c.Tmux("new-session", "-d", "-s", "tgt")
-		c.Tmux("new-session", "-d", "-s", "keep")
+		c.TmuxSetup("new-session", "-d", "-s", "tgt")
+		c.TmuxSetup("new-session", "-d", "-s", "keep")
 		c.OK(c.Down("--session", "tgt"), "down --session without profile")
 		c.SessionGone("tgt killed", "tgt")
 		c.SessionExists("keep survives", "keep")
 		c.OK(c.Down("--session", "nonexistent"), "down --session unknown is a no-op")
-		c.Tmux("new-session", "-d", "-s", "sp ace")
+		c.TmuxSetup("new-session", "-d", "-s", "sp ace")
 		c.OK(c.Down("--session", "sp ace"), "down --session with space")
 		c.SessionGone("spaced session killed", "sp ace")
 	})
@@ -44,7 +44,7 @@ func TestDown(t *testing.T) {
 	harness.Run(t, "down_prefix_match", func(c *harness.Case) {
 		c.Mkdir("empty")
 		c.Cd("empty")
-		c.Tmux("new-session", "-d", "-s", "project-long")
+		c.TmuxSetup("new-session", "-d", "-s", "project-long")
 		c.OK(c.Down("--session", "project"), "down --session prefix")
 		c.SessionExists("prefix does not kill project-long", "project-long")
 	})

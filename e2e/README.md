@@ -153,7 +153,7 @@ func TestDirectories(t *testing.T) {
 
 Use `harness.ShellQuote` for each word of a line that you type into a pane. `r.Describe()` summarises a result for the detail of a `c.True` check. `r.Succeeded()` is an exit 0 before the deadline and `r.Failed()` is a non-zero exit before the deadline.
 
-A command that only prepares a case, for example an `up` before a `save`, is not a check. Wrap it in `c.Must(r, "step")`: when it fails, the case stops with the reason, and a later check does not fail for a misleading reason.
+A command that only prepares a case, for example an `up` before a `save`, is not a check. Wrap it in `c.Must(r, "step")`: when it fails, the case stops with the reason, and a later check does not fail for a misleading reason. Use `c.TmuxSetup(args...)` for a tmux command that prepares a case, for example a session that glaze must leave alone, and `c.Tmux(args...)` only for a query.
 
 Each command runs in a process group of its own. After its deadline (20 s, or `Opts.Timeout`), it gets SIGTERM, and 2 s later SIGKILL. A `Result` with `TimedOut` set is a hang. `Fails` does not accept a hang as a failure.
 

@@ -31,6 +31,19 @@ func (c *Case) Tmux(args ...string) string {
 	return strings.TrimRight(c.TmuxResult(args...).Stdout, "\n")
 }
 
+// TmuxSetup runs a tmux command that prepares a case, for example a session
+// that glaze must leave alone. It logs the command and stops the case when
+// tmux fails, so that a later check does not fail for a misleading reason.
+func (c *Case) TmuxSetup(args ...string) string {
+	c.t.Helper()
+	r := c.Exec(Opts{Timeout: tmuxTimeout}, c.env.Tmux, append([]string{"-L", c.Socket}, args...)...)
+	if !r.Succeeded() {
+		c.t.Fatalf("setup step tmux %s: %s", strings.Join(args, " "), r.Describe())
+	}
+
+	return strings.TrimRight(r.Stdout, "\n")
+}
+
 // TmuxResult runs tmux on the server of the case and returns the full result.
 func (c *Case) TmuxResult(args ...string) *Result {
 	c.t.Helper()
@@ -202,15 +215,15 @@ func (c *Case) Geometry(target string) string {
 func (c *Case) ReferenceGeometry(layout string, panes int) string {
 	c.t.Helper()
 	s := fmt.Sprintf("ref%d", referenceCounter.Add(1))
-	c.Tmux("new-session", "-d", "-s", s)
+	c.TmuxSetup("new-session", "-d", "-s", s)
 	for i := 1; i < panes; i++ {
-		c.Tmux("split-window", "-t", "="+s+":")
-		c.Tmux("select-layout", "-t", "="+s+":", "tiled")
+		c.TmuxSetup("split-window", "-t", "="+s+":")
+		c.TmuxSetup("select-layout", "-t", "="+s+":", "tiled")
 	}
 
-	c.Tmux("select-layout", "-t", "="+s+":", layout)
+	c.TmuxSetup("select-layout", "-t", "="+s+":", layout)
 	g := c.Geometry("=" + s + ":")
-	c.Tmux("kill-session", "-t", "="+s)
+	c.TmuxSetup("kill-session", "-t", "="+s)
 	return g
 }
 

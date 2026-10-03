@@ -41,8 +41,8 @@ func TestIdempotence(t *testing.T) {
 		c.Fixture("idempotence/clear.glaze")
 		c.OK(c.Up(), "first up")
 		before := c.State("clear-rebuild", structureWindow, structurePane)
-		c.Tmux("new-window", "-t", "=clear-rebuild:", "-n", "extra")
-		c.Tmux("split-window", "-t", "=clear-rebuild:w1")
+		c.TmuxSetup("new-window", "-t", "=clear-rebuild:", "-n", "extra")
+		c.TmuxSetup("split-window", "-t", "=clear-rebuild:w1")
 		c.OK(c.Up("--clear"), "up --clear")
 		c.Equal("--clear rebuilds to profile", before, c.State("clear-rebuild", structureWindow, structurePane))
 		c.Equal("--clear window list", "w1", c.WindowNames("clear-rebuild"))
@@ -56,14 +56,14 @@ func TestIdempotence(t *testing.T) {
 
 	harness.Run(t, "up_clear_other_sessions", func(c *harness.Case) {
 		c.Simple("cm")
-		c.Tmux("new-session", "-d", "-s", "bystander")
+		c.TmuxSetup("new-session", "-d", "-s", "bystander")
 		c.OK(c.Up("--clear"), "up --clear")
 		c.SessionExists("bystander survives --clear", "bystander")
 	})
 
 	harness.Run(t, "up_existing_foreign", func(c *harness.Case) {
 		c.Simple("fg")
-		c.Tmux("new-session", "-d", "-s", "fg", "-n", "mine")
+		c.TmuxSetup("new-session", "-d", "-s", "fg", "-n", "mine")
 		c.OK(c.Up(), "up against a foreign session")
 		c.Equal("foreign session untouched", "mine", c.WindowNames("fg"))
 	})

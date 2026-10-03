@@ -43,9 +43,9 @@ func TestLs(t *testing.T) {
 
 	harness.Run(t, "ls_sessions", func(c *harness.Case) {
 		c.Mkdir("a", "b dir")
-		c.Tmux("new-session", "-d", "-s", "alpha", "-c", c.Path("a"))
-		c.Tmux("new-window", "-t", "=alpha:")
-		c.Tmux("new-session", "-d", "-s", "beta two", "-c", c.Path("b dir"))
+		c.TmuxSetup("new-session", "-d", "-s", "alpha", "-c", c.Path("a"))
+		c.TmuxSetup("new-window", "-t", "=alpha:")
+		c.TmuxSetup("new-session", "-d", "-s", "beta two", "-c", c.Path("b dir"))
 		r := c.Ls()
 		c.OK(r, "ls")
 		c.Match("ls header", "NAME +WINDOWS +PATH", r.Stdout)
@@ -57,7 +57,7 @@ func TestLs(t *testing.T) {
 
 	// The socket of the case is short enough for every platform; a socket in the work directory is not.
 	harness.Run(t, "ls_socket_path", func(c *harness.Case) {
-		c.Tmux("new-session", "-d", "-s", "sp")
+		c.TmuxSetup("new-session", "-d", "-s", "sp")
 		socket := c.Tmux("display-message", "-p", "#{socket_path}")
 		r := c.Glaze("ls", "--socket-path", socket)
 		c.OK(r, "ls --socket-path")

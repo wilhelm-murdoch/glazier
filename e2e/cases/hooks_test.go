@@ -14,9 +14,9 @@ func TestHooks(t *testing.T) {
 		c.Match("session hook registered", `session-renamed`, c.Tmux("show-hooks", "-t", "=hook-scopes:"))
 		c.Match("window hook registered", `window-renamed`, c.Tmux("show-hooks", "-w", "-t", "=hook-scopes:w"))
 		c.Match("pane hook registered", `pane-focus-in`, c.Tmux("show-hooks", "-p", "-t", "=hook-scopes:w"))
-		c.Tmux("rename-window", "-t", "=hook-scopes:w", "w2")
+		c.TmuxSetup("rename-window", "-t", "=hook-scopes:w", "w2")
 		c.EventuallyExists("window hook fires", "h_window")
-		c.Tmux("rename-session", "-t", "=hook-scopes", "hook-scopes-renamed")
+		c.TmuxSetup("rename-session", "-t", "=hook-scopes", "hook-scopes-renamed")
 		c.EventuallyExists("session hook fires", "h_session")
 	})
 
