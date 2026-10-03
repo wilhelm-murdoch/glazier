@@ -69,8 +69,7 @@ func TestFormat(t *testing.T) {
 		errorCount := strings.Count(r.Stderr, "Error:")
 		c.True("all errors reported in one run", errorCount >= multipleErrors, "saw %d errors, want %d: %s", errorCount, multipleErrors, r.Stderr)
 		c.NoMatch("diagnostics show source snippets", "source code not available", r.Stderr)
-		// The order of the three errors changes from run to run, so the output is no golden file.
-		c.Logf("diagnostic rendering:\n%s", r.Stderr)
+		c.Golden("diagnostics in the order of the profile", "format/multiple-errors.txt", r.Stderr)
 	})
 
 	// The formatted file must equal the golden output of format --stdout for the same fixture.
