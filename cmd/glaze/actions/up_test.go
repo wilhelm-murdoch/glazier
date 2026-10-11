@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -601,4 +602,78 @@ func TestActionUpDoesNotWarnWhenTheNamesMatch(t *testing.T) {
 	up.warnRenamedWindows()
 
 	assert.NotContains(t, logs.String(), "renamed")
+}
+
+func TestActionUpProvisionSessionSetsSynchronizePanesAfterTheCommands(t *testing.T) {
+	// synchronizedProfile declares synchronize-panes on the session, turns it off on the second window and runs commands everywhere.
+	synchronizedProfile := func() *decoders.Session {
+		one := &decoders.Window{Base: &decoders.Base{Name: "one"}, Layout: enums.LayoutTiled}
+		one.Panes = []*decoders.Pane{
+			{Base: &decoders.Base{Name: "p"}, Commands: []string{"a"}},
+			{Base: &decoders.Base{Name: "q"}, Commands: []string{"b"}},
+		}
+
+		two := windowWithPane("two", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "r"}, Commands: []string{"c"}})
+		two.Options = map[string]string{"synchronize-panes": "off"}
+
+		profile := &decoders.Session{
+			Base:     &decoders.Base{Name: "demo", Options: map[string]string{"synchronize-panes": "on"}},
+			Commands: []string{"s"},
+		}
+
+		profile.Windows = []*decoders.Window{one, two}
+		return profile
+	}
+
+	queueWindows := func(rec *tmuxtest.Recorder) {
+		rec.On("show-options", tmuxtest.Result{Output: ""})
+		rec.On("show-options", tmuxtest.Result{Output: "synchronize-panes off"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
+		rec.On("neww", tmuxtest.Result{Output: "@4;2;two;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+		rec.On("lsp", tmuxtest.Result{Output: "%5;1;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%3;2;q;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%6;1;r;1;/tmp"})
+		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-1000/default"})
+		rec.On("display-message", tmuxtest.Result{Output: "%9"})
+	}
+
+	t.Run("each window gets its value once, after the last key is typed", func(t *testing.T) {
+		up, rec := newTestUp(t)
+		queueWindows(rec)
+
+		assert.NoError(t, up.provisionSession(synchronizedProfile()))
+
+		// A call is set-option -w -t TARGET -- NAME VALUE. The option never goes to the session.
+		var events []string
+		for _, call := range rec.Calls {
+			switch {
+			case call[0] == "set-option" && call[1] == "-w" && call[5] == "synchronize-panes":
+				events = append(events, "window "+call[3]+" "+call[6])
+			case call[0] == "set-option":
+				assert.NotEqual(t, "synchronize-panes", call[4])
+			case call[0] == "send-keys":
+				events = append(events, "keys "+call[slices.Index(call, "-t")+1])
+			}
+		}
+
+		assert.Equal(t, []string{
+			"keys %2", "keys %2", "keys %3", "keys %3", "keys %6", "keys %6", "keys %9", "keys %9",
+			"window @3 on", "window @4 off",
+		}, events)
+	})
+
+	t.Run("a value that tmux rejects stops up", func(t *testing.T) {
+		up, rec := newTestUp(t)
+		queueWindows(rec)
+		rec.On("set-option", tmuxtest.Failure("bad value: maybe"))
+
+		profile := synchronizedProfile()
+		profile.Options["synchronize-panes"] = "maybe"
+
+		err := up.provisionSession(profile)
+		assert.ErrorContains(t, err, "could not set option `synchronize-panes` on window `one`")
+		assert.Equal(t, 8, rec.CountOf("send-keys"))
+	})
 }

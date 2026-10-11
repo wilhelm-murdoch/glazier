@@ -15,6 +15,10 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+// deferredWindowOptions lists the window options that glaze sets after it types the last command.
+// Each of them changes where tmux delivers typed keys: synchronize-panes sends every key to all panes of the window.
+var deferredWindowOptions = []string{"synchronize-panes"}
+
 // ActionUp creates and provisions the session of a profile.
 type ActionUp struct {
 	ActionBase
@@ -27,6 +31,9 @@ type ActionUp struct {
 	// windowDefaults holds the window options declared on the session, which apply to every window.
 	windowDefaults map[string]string
 
+	// deferredOptions holds the window options from deferredWindowOptions, which glaze sets after every command.
+	deferredOptions []deferredOption
+
 	// runner runs pane and session commands. It is created when the first command runs.
 	runner *tmux.CommandRunner
 
@@ -35,6 +42,13 @@ type ActionUp struct {
 
 	// windowNames holds the name that glaze gave each window it created, so it can see a window that tmux renamed.
 	windowNames map[tmux.WindowId]string
+}
+
+// deferredOption is a window option that glaze sets after it types the last command.
+type deferredOption struct {
+	window *tmux.Window
+	key    string
+	value  string
 }
 
 // NewUp returns the up action, with the profile parsed and a tmux client.
@@ -179,6 +193,20 @@ func (a *ActionUp) provisionSession(profile *decoders.Session) error {
 		}
 	}
 
+	return a.applyDeferredOptions()
+}
+
+// applyDeferredOptions sets the deferred options of each window, after glaze types the last command.
+// The options change where tmux delivers typed keys, so they must wait for the pane and session commands.
+func (a *ActionUp) applyDeferredOptions() error {
+	for _, option := range a.deferredOptions {
+		target := fmt.Sprintf("window `%s`", option.window.Name)
+		a.Logger.Info("setting option after the commands", "option", option.key, "on", target)
+		if err := option.window.SetOption(option.key, option.value); err != nil {
+			return fmt.Errorf("could not set option `%s` on %s: %w", option.key, target, err)
+		}
+	}
+
 	return nil
 }
 
@@ -288,9 +316,10 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 }
 
 // applyWindowOptions sets the window options from the session block, then the window's own options, before any pane exists.
+// It holds back the options in deferredWindowOptions, because they would send the commands of one pane to other panes.
 func (a *ActionUp) applyWindowOptions(ws *decoders.Window, wtmx *tmux.Window) error {
 	target := fmt.Sprintf("window `%s`", wtmx.Name)
-	if err := a.apply("option", target, a.windowDefaults, wtmx.SetOption); err != nil {
+	if err := a.apply("option", target, a.deferWindowOptions(wtmx, a.windowDefaults), wtmx.SetOption); err != nil {
 		return err
 	}
 
@@ -299,7 +328,24 @@ func (a *ActionUp) applyWindowOptions(ws *decoders.Window, wtmx *tmux.Window) er
 		return err
 	}
 
-	return a.apply("option", target, onWindow, wtmx.SetOption)
+	return a.apply("option", target, a.deferWindowOptions(wtmx, onWindow), wtmx.SetOption)
+}
+
+// deferWindowOptions records the deferred options of wtmx that options holds and returns the other options.
+// The window's own value replaces the one from the session block, so glaze sets each option once per window.
+func (a *ActionUp) deferWindowOptions(wtmx *tmux.Window, options map[string]string) map[string]string {
+	deferred, rest := partition(options, func(key string) bool { return slices.Contains(deferredWindowOptions, key) })
+	for _, key := range slices.Sorted(maps.Keys(deferred)) {
+		option := deferredOption{window: wtmx, key: key, value: deferred[key]}
+		index := slices.IndexFunc(a.deferredOptions, func(o deferredOption) bool { return o.window == wtmx && o.key == key })
+		if index < 0 {
+			a.deferredOptions = append(a.deferredOptions, option)
+		} else {
+			a.deferredOptions[index] = option
+		}
+	}
+
+	return rest
 }
 
 // setSessionOptions warns that session options declared on a window or a pane apply to the whole session, then sets them.

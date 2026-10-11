@@ -1,0 +1,27 @@
+# The session turns synchronize-panes on for every window and the second window turns it off again.
+# The session commands run in the active pane, which is in the synchronized window.
+session {
+  name     = "synchronize-panes-session"
+  options  = { "synchronize-panes" = "on" }
+  commands = ["echo s >> s"]
+  window {
+    name  = "one"
+    focus = true
+    pane {
+      name     = "p"
+      commands = ["echo p >> p"]
+    }
+    pane {
+      name     = "q"
+      commands = ["echo q >> q"]
+    }
+  }
+  window {
+    name    = "two"
+    options = { "synchronize-panes" = "off" }
+    pane {
+      name     = "r"
+      commands = ["echo r >> r"]
+    }
+  }
+}
