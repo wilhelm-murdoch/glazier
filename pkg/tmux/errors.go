@@ -11,6 +11,12 @@ var (
 	// ErrUnreachable means that glaze cannot run tmux or cannot connect to the tmux server.
 	ErrUnreachable = errors.New("tmux is unreachable")
 
+	// ErrOldTmux means that the tmux binary is older than MinVersion, so glaze cannot use it.
+	ErrOldTmux = errors.New("tmux is too old")
+
+	// ErrUnknownVersion means that `tmux -V` printed a string that glaze cannot read as a version.
+	ErrUnknownVersion = errors.New("tmux: could not read the version")
+
 	// ErrOtherServer means that glaze runs inside a different tmux server, so attaching would nest a client in a pane.
 	ErrOtherServer = errors.New("glaze runs inside a different tmux server")
 

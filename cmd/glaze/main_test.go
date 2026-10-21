@@ -33,6 +33,7 @@ func TestExitCode(t *testing.T) {
 		{"an invalid profile", fmt.Errorf("could not decode: %w", diagnostics.ErrHasDiagnostics), exitInvalidProfile},
 		{"a missing profile", fmt.Errorf("%w: `x.glaze`", files.ErrProfileNotFound), exitInvalidProfile},
 		{"tmux is unreachable", fmt.Errorf("%w: permission denied", tmux.ErrUnreachable), exitUnreachable},
+		{"tmux is too old", fmt.Errorf("%w: found tmux 3.0a", tmux.ErrOldTmux), exitUnreachable},
 		{"stopped by SIGINT", fmt.Errorf("%w: exit status 1", signalError{signal: syscall.SIGINT}), 130},
 		{"stopped by SIGTERM", fmt.Errorf("%w: %w", signalError{signal: syscall.SIGTERM}, tmux.ErrUnreachable), 143},
 	}

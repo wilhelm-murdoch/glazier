@@ -55,7 +55,7 @@ func exitCode(err error) int {
 		return exitUsage
 	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound):
 		return exitInvalidProfile
-	case errors.Is(err, tmux.ErrUnreachable):
+	case errors.Is(err, tmux.ErrUnreachable), errors.Is(err, tmux.ErrOldTmux):
 		return exitUnreachable
 	default:
 		return exitFailure

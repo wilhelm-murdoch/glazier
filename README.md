@@ -56,7 +56,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 
 ## Requirements
 - Go **1.26+** (to build from source)
-- `tmux` available on your `PATH`
+- `tmux` 3.2a or later on your `PATH`. `glaze up` and `glaze save` read `tmux -V` first and stop with exit code 4 on an older tmux.
 
 ## Installation
 
@@ -169,7 +169,7 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 | `1` | A run failed, for example because tmux rejected an option value or Glazier could not write a profile. |
 | `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
 | `3` | The profile has errors, or Glazier cannot find the profile. |
-| `4` | Glazier cannot reach tmux, for example because tmux is not on `PATH` or the socket does not give access. Glazier does not treat this as "no server". |
+| `4` | Glazier cannot use tmux, for example because tmux is not on `PATH`, is older than 3.2a or the socket does not give access. Glazier does not treat this as "no server". |
 | `130` | SIGINT, for example Ctrl-C, stopped Glazier. |
 | `143` | SIGTERM stopped Glazier. |
 
