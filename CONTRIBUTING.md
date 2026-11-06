@@ -75,5 +75,11 @@ reasoning behind deliberate omissions (notably what `save` refuses to export).
 - Write clear, imperative commit messages explaining the *why*.
 - Make sure `make test`, `make race`, `make lint`, and `make vet` pass.
 - New behavior needs tests.
+- Give the pull request one label. The release notes group the pull requests
+  by label (`.github/release.yml`): `profile-format` for a change to what a
+  `.glaze` file accepts, `breaking` for a change that stops an existing
+  profile or command line from working, `feature`, `fix` or `packaging`.
+  A pull request with `profile-format` must say in its description what a
+  user has to change in a profile.
 
 By contributing, you agree that your work is licensed under the project's [MIT License](LICENSE.md).
