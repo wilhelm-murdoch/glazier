@@ -1,0 +1,29 @@
+# Groups the pull requests in the generated release notes by label.
+# A change to what a .glaze file accepts carries the profile-format label, so it is the first thing a user reads.
+# Dependabot pull requests stay out: a release note is not a list of bumps.
+changelog:
+  exclude:
+    labels:
+      - dependencies
+    authors:
+      - dependabot
+      - dependabot[bot]
+  categories:
+    - title: Profile format
+      labels:
+        - profile-format
+    - title: Breaking changes
+      labels:
+        - breaking
+    - title: Features
+      labels:
+        - feature
+    - title: Fixes
+      labels:
+        - fix
+    - title: Packaging
+      labels:
+        - packaging
+    - title: Other changes
+      labels:
+        - "*"
