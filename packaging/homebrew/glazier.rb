@@ -33,9 +33,13 @@ class Glazier < Formula
 
   def install
     bin.install "glaze"
+    bash_completion.install "glaze.bash" => "glaze"
+    zsh_completion.install "_glaze"
+    fish_completion.install "glaze.fish"
   end
 
   test do
     assert_match "Version: v#{version},", shell_output("#{bin}/glaze --version")
+    assert_match "complete -c glaze", shell_output("#{bin}/glaze completion fish")
   end
 end
