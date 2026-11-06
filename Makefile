@@ -52,6 +52,7 @@ E2E_GLAZE    := $(HOST_GLAZE)
 
 # The shell completion scripts that every zip and package ships, rendered once by the host binary.
 COMPLETIONS  := $(REL_DIR)/completions/glaze.bash $(REL_DIR)/completions/_glaze $(REL_DIR)/completions/glaze.fish
+MANPAGE      := $(ROOT_DIR)/packaging/glaze.1
 
 NO_COLOR   :=\033[0m
 ATTN_COLOR :=\033[33;01m
@@ -113,7 +114,7 @@ ifneq ($(P),windows)
 	@chmod +x $(T)/$(P)-$(GOARCH)/$(B)
 endif
 	@echo -e "$(ATTN_COLOR)==> $@ zip $(B)-$(P)-$(GOARCH).zip $(NO_COLOR)"
-	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(ROOT_DIR)/LICENSE.md $(COMPLETIONS) >/dev/null
+	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(ROOT_DIR)/LICENSE.md $(COMPLETIONS) $(MANPAGE) >/dev/null
 
 # A completion script only carries the program name, so the host binary renders the same files for every target.
 .PHONY: completions
