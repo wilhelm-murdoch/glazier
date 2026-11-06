@@ -51,10 +51,8 @@ func (w *Window) Split(parentId, name, startingDirectory string) (*Pane, error) 
 		return nil, err
 	}
 
-	// tmux can report an empty path for a pane that has only just started.
-	if pane.StartingDirectory == "" {
-		pane.StartingDirectory = startingDirectory
-	}
+	// tmux reads the path from the shell, which has not always changed directory yet, so keep the requested one.
+	pane.StartingDirectory = startingDirectory
 
 	if err := client.run("selectp", "-T", escapeFormat(name), "-t", pane.Target()); err != nil {
 		return pane, err
