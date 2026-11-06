@@ -65,6 +65,10 @@ func NewSave(cmd *cli.Command, logLevel string) (*ActionSave, error) {
 func (a *ActionSave) Run(ctx context.Context) error {
 	a.tmux = a.tmux.WithContext(ctx)
 
+	if err := a.tmux.CheckVersion(); err != nil {
+		return err
+	}
+
 	running, err := a.tmux.IsRunning()
 	if err != nil {
 		return err
