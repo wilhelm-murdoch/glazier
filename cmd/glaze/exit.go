@@ -62,6 +62,18 @@ func exitCode(err error) int {
 	}
 }
 
+// configureCompletion shows the completion command in the help and makes an unknown shell a usage error, like an unknown command.
+func configureCompletion(cmd *cli.Command) {
+	cmd.Hidden = false
+	cmd.Action = func(_ context.Context, cmd *cli.Command) error {
+		if cmd.Args().Present() {
+			return fmt.Errorf("%w: unknown shell `%s` (see `glaze completion --help`)", errUsage, cmd.Args().First())
+		}
+
+		return cli.ShowSubcommandHelp(cmd)
+	}
+}
+
 // rootAction shows the help, or returns a usage error for an unknown command.
 // The CLI library reports an unknown command with an ExitCoder, which a failed tmux command also unwraps to.
 func rootAction(_ context.Context, cmd *cli.Command) error {

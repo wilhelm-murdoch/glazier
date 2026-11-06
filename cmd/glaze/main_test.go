@@ -92,6 +92,9 @@ func TestRun(t *testing.T) {
 		{"short version", []string{"-v"}, exitOK, ""},
 		{"version flag after a subcommand", []string{"up", "-v"}, exitUsage, "flag provided but not defined: -v"},
 		{"long version flag after a subcommand", []string{"down", "--version"}, exitUsage, "flag provided but not defined: -version"},
+		{"completion script", []string{"completion", "zsh"}, exitOK, ""},
+		{"completion without a shell shows the help", []string{"completion"}, exitOK, ""},
+		{"completion for an unknown shell", []string{"completion", "nope"}, exitUsage, "unknown shell `nope`"},
 	}
 
 	for _, c := range cases {
