@@ -96,6 +96,11 @@ $ gh attestation verify glaze-darwin-arm64.zip \
     --repo wilhelm-murdoch/glazier                  # verify that this repo's release workflow built the zip
 ```
 
+The macOS binaries are not signed or notarized, because that needs an Apple Developer ID. Gatekeeper blocks a `glaze` from a zip on the first run. Remove the quarantine attribute, or install with Homebrew, which does not set it.
+```console
+$ xattr -d com.apple.quarantine glaze
+```
+
 ### From source
 These commands build and install the `glaze` binary with `go install`.
 ```console
@@ -193,6 +198,9 @@ $ glaze up --clear                  # first kill an existing session with the sa
 $ glaze up --profile-path ./gig.glaze
 $ glaze up --var district=watson --var fixer=wakako
 ```
+
+> [!CAUTION]
+> A profile runs its `commands` and `hooks` in your shell, with your permissions. Read a profile from another person before you apply it. `glaze format --validate` checks the syntax, not what the commands do.
 
 | Flag | Description |
 |------|-------------|
