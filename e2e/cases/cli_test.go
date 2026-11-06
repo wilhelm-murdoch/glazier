@@ -37,7 +37,7 @@ func TestCLI(t *testing.T) {
 		r := c.Glaze("--help")
 		c.OK(r, "--help")
 		c.Match("--help shows the author as a name and an address", `Wilhelm Murdoch <wilhelm@devilmayco\.de>`, r.Stdout)
-		for _, sub := range []string{"up", "down", "ls", "format", "save"} {
+		for _, sub := range []string{"up", "down", "ls", "format", "save", "completion"} {
 			c.OK(c.Glaze(sub, "--help"), fmt.Sprintf("%s --help", sub))
 		}
 

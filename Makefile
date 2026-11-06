@@ -47,7 +47,11 @@ FUZZTIME     ?= 10s
 # pattern, TARGETS a comma-separated list of targets and BASE a git revision to
 # compare with.
 E2E_DIR      := $(ROOT_DIR)/e2e
-E2E_GLAZE    := $(BIN_DIR)/$(GOOS)-$(GOARCH)/glaze
+HOST_GLAZE   := $(BIN_DIR)/$(GOOS)-$(GOARCH)/glaze
+E2E_GLAZE    := $(HOST_GLAZE)
+
+# The shell completion scripts that every zip and package ships, rendered once by the host binary.
+COMPLETIONS  := $(REL_DIR)/completions/glaze.bash $(REL_DIR)/completions/_glaze $(REL_DIR)/completions/glaze.fish
 
 NO_COLOR   :=\033[0m
 ATTN_COLOR :=\033[33;01m
@@ -109,10 +113,19 @@ ifneq ($(P),windows)
 	@chmod +x $(T)/$(P)-$(GOARCH)/$(B)
 endif
 	@echo -e "$(ATTN_COLOR)==> $@ zip $(B)-$(P)-$(GOARCH).zip $(NO_COLOR)"
-	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(ROOT_DIR)/LICENSE.md >/dev/null
+	@zip -j $(T)/$(P)-$(GOARCH)/$(B)-$(P)-$(GOARCH).zip $(T)/$(P)-$(GOARCH)/$(B)$(if $(findstring $(P),windows),".exe","") $(ROOT_DIR)/LICENSE.md $(COMPLETIONS) >/dev/null
+
+# A completion script only carries the program name, so the host binary renders the same files for every target.
+.PHONY: completions
+completions: build
+	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
+	@mkdir -p $(REL_DIR)/completions
+	@$(HOST_GLAZE) completion bash > $(REL_DIR)/completions/glaze.bash
+	@$(HOST_GLAZE) completion zsh > $(REL_DIR)/completions/_glaze
+	@$(HOST_GLAZE) completion fish > $(REL_DIR)/completions/glaze.fish
 
 .PHONY: release
-release: $(REL_DIR)
+release: $(REL_DIR) completions
 	@echo -e "$(ATTN_COLOR)==> $@ $(NO_COLOR)"
 	@for b in ${BINARIES}; \
 	do \

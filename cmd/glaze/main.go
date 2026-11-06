@@ -192,6 +192,9 @@ func newApp() *cli.Command {
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		OnUsageError:   usageError,
 		Action:         rootAction,
+		// The library hides its `completion` command; glaze shows it, so `--help` tells a user that it exists.
+		EnableShellCompletion:           true,
+		ConfigureShellCompletionCommand: configureCompletion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",
