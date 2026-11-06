@@ -12,6 +12,7 @@ What does this change, and why? Link any related issue (e.g. `Closes #12`).
 - [ ] `make test`, `make race`, `make lint`, and `make vet` pass
 - [ ] New or changed behavior has tests
 - [ ] User-facing changes (flags, commands, profile syntax) are reflected in the README
+- [ ] The PR has one label for the release notes (`profile-format`, `breaking`, `feature`, `fix` or `packaging`)
 - [ ] Shared mutable state stays safe under `-race`
 
 ### Notes
