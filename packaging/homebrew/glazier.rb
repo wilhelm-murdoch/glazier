@@ -36,6 +36,7 @@ class Glazier < Formula
     bash_completion.install "glaze.bash" => "glaze"
     zsh_completion.install "_glaze"
     fish_completion.install "glaze.fish"
+    man1.install "glaze.1"
   end
 
   test do
