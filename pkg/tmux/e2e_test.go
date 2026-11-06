@@ -66,11 +66,10 @@ func TestEndToEndProvisioning(t *testing.T) {
 	defaultPane, err := firstPaneOf(client, window)
 	assert.NoError(t, err)
 	assert.NotNil(t, defaultPane)
-	// The window's default pane should inherit the window's starting directory.
-	// tmux reports the symlink-resolved path, so compare against that.
+	// The default pane inherits the window's starting directory, which tmux reports symlink-resolved.
 	resolvedDir, err := filepath.EvalSymlinks(windowDir)
 	assert.NoError(t, err)
-	assert.Equal(t, resolvedDir, defaultPane.StartingDirectory)
+	waitForPaneDirectory(t, client, window, resolvedDir)
 
 	pane, err := window.Split(defaultPane.Target(), "shell", dir)
 	assert.NoError(t, err)
@@ -359,7 +358,7 @@ func TestEndToEndFormatSequencesInNames(t *testing.T) {
 		return
 	}
 
-	assert.Equal(t, resolvedDir, defaultPane.StartingDirectory)
+	waitForPaneDirectory(t, client, window, resolvedDir)
 
 	pane, err := window.Split(defaultPane.Target(), "p#{pane_id}", dir)
 	if !assert.NoError(t, err) {
@@ -540,6 +539,17 @@ func hasSession(t *testing.T, client Client, name string) bool {
 }
 
 // firstPaneOf returns the pane that tmux created with the window, which has the lowest id.
+// waitForPaneDirectory polls until the first pane of the window reports dir as its current path.
+// tmux reads the path from the shell, which still holds the server's directory right after the fork.
+func waitForPaneDirectory(t *testing.T, client Client, window *Window, dir string) {
+	t.Helper()
+
+	assert.Eventually(t, func() bool {
+		pane, err := firstPaneOf(client, window)
+		return err == nil && pane.StartingDirectory == dir
+	}, 5*time.Second, 50*time.Millisecond, "first pane of %s did not report %s", window.Name, dir)
+}
+
 func firstPaneOf(client Client, window *Window) (*Pane, error) {
 	panes, err := client.Panes(window)
 	if err != nil {
