@@ -60,7 +60,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 
 ## Installation
 
-Each package installs the `glaze` binary and also installs `tmux` as a dependency.
+Each package installs the `glaze` binary, the shell completion for bash, zsh and fish, and `tmux` as a dependency.
 
 ### With Homebrew (macOS and Linux)
 ```console
@@ -87,7 +87,7 @@ $ apk add --allow-untrusted ./glazier-linux-amd64.apk
 
 ### From a GitHub release
 
-Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips. Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The checksums and the attestation also cover the `.deb`, `.rpm` and `.apk` packages.
+Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips, with the licence and the completion scripts for bash (`glaze.bash`), zsh (`_glaze`) and fish (`glaze.fish`). Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The checksums and the attestation also cover the `.deb`, `.rpm` and `.apk` packages.
 
 ```console
 $ unzip glaze-darwin-arm64.zip
@@ -137,12 +137,13 @@ AUTHOR:
    Wilhelm Murdoch <wilhelm@devilmayco.de>
 
 COMMANDS:
-   up       apply the specified glaze profile
-   down     kill the session described by the specified glaze profile
-   ls       list the sessions running on the target tmux server
-   format   rewrites the target glaze profile file to a canonical format
-   save     running this within a tmux session will save its current state to the specified glaze profile
-   help, h  Shows a list of commands or help for one command
+   up          apply the specified glaze profile
+   down        kill the session described by the specified glaze profile
+   ls          list the sessions running on the target tmux server
+   format      rewrites the target glaze profile file to a canonical format
+   save        running this within a tmux session will save its current state to the specified glaze profile
+   help, h     Shows a list of commands or help for one command
+   completion  Output shell completion script for bash, zsh, fish, or Powershell
 
 GLOBAL OPTIONS:
    --log-level string  specify a log level (default: "info")
@@ -174,6 +175,14 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 | `143` | SIGTERM stopped Glazier. |
 
 When `up` fails or a signal stops it, Glazier removes the session that this run created, so the next `up` starts again from nothing. Glazier never removes a session that existed before the run. A second signal stops Glazier at once, with no clean-up.
+
+### Shell completion
+`glaze completion <shell>` prints a completion script for bash, zsh or fish. The script asks the `glaze` binary for the subcommands and the flags each time you press Tab, so it stays correct after an upgrade. The packages, the Homebrew formula and the AUR package install the scripts for you. With `go install` or a release zip, load the script yourself:
+```console
+$ source <(glaze completion bash)                            # bash: add this line to ~/.bashrc
+$ source <(glaze completion zsh)                             # zsh: add this line to ~/.zshrc
+$ glaze completion fish > ~/.config/fish/completions/glaze.fish
+```
 
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
