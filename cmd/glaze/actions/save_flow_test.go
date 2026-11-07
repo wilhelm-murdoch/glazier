@@ -12,8 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
+	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/internal/parser"
+	"github.com/wilhelm-murdoch/glazier/internal/spec"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/tmuxtest"
@@ -22,6 +25,13 @@ import (
 // buildSave constructs an ActionSave with a tmuxtest recorder installed and the
 // given save-command flags applied.
 func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Recorder) {
+	t.Helper()
+
+	return buildSaveAt(t, "critical", "", flags)
+}
+
+// buildSaveAt is buildSave with the log level of the action and a positional profile name, which goes after the flags as it does from main.
+func buildSaveAt(t *testing.T, logLevel, name string, flags map[string]string) (*ActionSave, *tmuxtest.Recorder) {
 	t.Helper()
 
 	rec := tmuxtest.New().Default(tmuxtest.Result{})
@@ -43,14 +53,14 @@ func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Re
 			&cli.BoolFlag{Name: "force"},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
-			action, actErr = NewSave(c, "critical")
+			action, actErr = NewSave(c, logLevel)
 			return nil
 		},
 	}
 
-	args := []string{"save"}
-	for k, v := range flags {
-		args = append(args, "--"+k+"="+v)
+	args := append([]string{"save"}, flagArgs(flags)...)
+	if name != "" {
+		args = append(args, name)
 	}
 
 	assert.NoError(t, cmd.Run(context.Background(), args))
@@ -59,6 +69,14 @@ func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Re
 	}
 
 	return action, rec
+}
+
+// recordSession queues the replies for a capture of the session `sv` through --session, with one window and one pane in dir.
+func recordSession(rec *tmuxtest.Recorder, dir string) {
+	rec.On("list-sessions", tmuxtest.Result{})
+	rec.On("ls", tmuxtest.Result{Output: "$1;sv;" + dir})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;" + dir})
 }
 
 // insidePane sets the environment of pane %4 of the tmux server on /tmp/tmux-501/default.
@@ -266,5 +284,239 @@ func TestActionSaveRun(t *testing.T) {
 		err := save.Run(context.Background())
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "not found")
+	})
+}
+
+func TestActionSaveRunWithAProfileName(t *testing.T) {
+	t.Run("writes the profile of the name into the profile registry and creates it with mode 0700", func(t *testing.T) {
+		registry := newRegistry(t)
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		recordSession(rec, dir)
+
+		require.NoError(t, save.Run(context.Background()))
+
+		// MkdirAll with 0700 cannot lose a bit under any umask; the file mode can, so only its guaranteed bits are checked.
+		info, err := os.Stat(registry)
+		require.NoError(t, err)
+		assert.True(t, info.IsDir())
+		assert.Equal(t, os.FileMode(0o700), info.Mode().Perm())
+
+		path := filepath.Join(registry, "work.glaze")
+		fileInfo, err := os.Stat(path)
+		require.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o600), fileInfo.Mode().Perm()&0o600)
+		assert.Zero(t, fileInfo.Mode().Perm()&^0o644)
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304
+		require.NoError(t, err)
+		assert.Contains(t, string(contents), `"sv"`)
+		assert.Contains(t, string(contents), `"main"`)
+		assert.Contains(t, string(contents), `"shell"`)
+	})
+
+	t.Run("logs the absolute path of the registry profile", func(t *testing.T) {
+		registry := newRegistry(t)
+		dir := t.TempDir()
+
+		var err error
+		stderr := capture(t, &os.Stderr, func() {
+			save, rec := buildSaveAt(t, "info", "work", map[string]string{"session": "sv"})
+			recordSession(rec, dir)
+			err = save.Run(context.Background())
+		})
+
+		require.NoError(t, err)
+		path := filepath.Join(registry, "work.glaze")
+		assert.Contains(t, stderr, "saving session")
+		assert.Contains(t, stderr, "saved session")
+		assert.Equal(t, 2, strings.Count(stderr, "path="+path), stderr)
+	})
+
+	t.Run("accepts --session together with a name", func(t *testing.T) {
+		registry := newRegistry(t)
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		recordSession(rec, dir)
+
+		// The flag names the session to capture and the name names the file, so both go into the same run.
+		require.NoError(t, save.Run(context.Background()))
+		assert.True(t, rec.Called("ls"))
+		assert.FileExists(t, filepath.Join(registry, "work.glaze"))
+
+		// --session bypasses the current-session lookup, which reads the session of the pane.
+		for _, call := range rec.Calls {
+			if call[0] == "display-message" {
+				assert.NotContains(t, strings.Join(call, " "), "session_id")
+			}
+		}
+	})
+
+	t.Run("refuses a second save of the name before the capture", func(t *testing.T) {
+		registry := newRegistry(t)
+		path := writeRegistryProfile(t, registry, "work", "# hand-written\n")
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		rec.On("list-sessions", tmuxtest.Result{})
+
+		err := save.Run(context.Background())
+		assert.ErrorIs(t, err, files.ErrFileExists)
+		assert.ErrorContains(t, err, "could not save to `"+path+"`")
+		assert.ErrorContains(t, err, "use --force to replace it")
+		assert.False(t, rec.Called("ls"))
+		assert.False(t, rec.Called("lsw"))
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304
+		require.NoError(t, err)
+		assert.Equal(t, "# hand-written\n", string(contents))
+	})
+
+	t.Run("replaces the registry profile with --force", func(t *testing.T) {
+		registry := newRegistry(t)
+		path := writeRegistryProfile(t, registry, "work", "# hand-written\n")
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv", "force": "true"})
+		recordSession(rec, dir)
+
+		require.NoError(t, save.Run(context.Background()))
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304
+		require.NoError(t, err)
+		assert.Contains(t, string(contents), `"sv"`)
+		assert.NotContains(t, string(contents), "hand-written")
+	})
+
+	t.Run("prints the profile of the name with --stdout and creates nothing", func(t *testing.T) {
+		registry := newRegistry(t)
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv", "stdout": "true"})
+		recordSession(rec, dir)
+
+		var err error
+		stdout := captureStdout(t, func() { err = save.Run(context.Background()) })
+
+		require.NoError(t, err)
+		assert.Contains(t, stdout, `"sv"`)
+		assert.Contains(t, stdout, `"shell"`)
+		assert.NoDirExists(t, registry)
+		assert.NoDirExists(t, filepath.Dir(registry))
+		assert.NoFileExists(t, filepath.Join(registry, "work.glaze"))
+	})
+
+	t.Run("creates no directory when the capture fails", func(t *testing.T) {
+		registry := newRegistry(t)
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "nope"})
+		rec.On("list-sessions", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+
+		err := save.Run(context.Background())
+		assert.ErrorContains(t, err, "not found")
+		assert.NoDirExists(t, registry)
+		assert.NoDirExists(t, filepath.Dir(registry))
+	})
+
+	t.Run("fails before the capture on a relative GLAZE_REGISTRY", func(t *testing.T) {
+		newRegistry(t)
+		t.Setenv("GLAZE_REGISTRY", "rel")
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		rec.On("list-sessions", tmuxtest.Result{})
+
+		err := save.Run(context.Background())
+		assert.ErrorIs(t, err, files.ErrRegistryUnusable)
+		assert.ErrorContains(t, err, "GLAZE_REGISTRY must be an absolute path, but it is `rel`")
+		assert.False(t, rec.Called("ls"))
+		assert.False(t, rec.Called("lsw"))
+	})
+
+	t.Run("fails after the capture and before the write on a registry under a file", func(t *testing.T) {
+		newRegistry(t)
+		parent := filepath.Join(t.TempDir(), "parentfile")
+		require.NoError(t, os.WriteFile(parent, []byte("x"), 0o600))
+		t.Setenv("XDG_CONFIG_HOME", parent)
+
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		recordSession(rec, dir)
+
+		err := save.Run(context.Background())
+		assert.ErrorIs(t, err, files.ErrRegistryUnusable)
+		assert.ErrorContains(t, err, "cannot be the profile registry, because a part of its path is a file; set XDG_CONFIG_HOME to a directory, or set GLAZE_REGISTRY")
+		assert.True(t, rec.Called("lsw"), "the capture runs before the registry check")
+
+		info, err := os.Stat(parent)
+		require.NoError(t, err)
+		assert.True(t, info.Mode().IsRegular(), "the file stays a file")
+		assert.NoDirExists(t, filepath.Join(parent, "glaze"))
+	})
+
+	t.Run("does not create the parent of a --profile-path target", func(t *testing.T) {
+		newRegistry(t)
+		path := filepath.Join(t.TempDir(), "missing", "out.glaze")
+		save, rec := buildSave(t, map[string]string{"session": "sv", "profile-path": path})
+		recordSession(rec, t.TempDir())
+
+		err := save.Run(context.Background())
+		assert.ErrorContains(t, err, "could not write profile `"+path+"`")
+		assert.NoDirExists(t, filepath.Dir(path))
+	})
+
+	t.Run("warns about a relative XDG_CONFIG_HOME with a name", func(t *testing.T) {
+		registry := newRegistry(t)
+		t.Setenv("XDG_CONFIG_HOME", "rel")
+		dir := t.TempDir()
+
+		var err error
+		stderr := capture(t, &os.Stderr, func() {
+			save, rec := buildSaveAt(t, "warn", "work", map[string]string{"session": "sv"})
+			recordSession(rec, dir)
+			err = save.Run(context.Background())
+		})
+
+		require.NoError(t, err)
+		assert.Equal(t, 1, strings.Count(stderr, "WRN XDG_CONFIG_HOME is not absolute, so the profile registry is ~/.config/glaze"), stderr)
+		assert.Contains(t, stderr, "XDG_CONFIG_HOME=rel")
+		assert.FileExists(t, filepath.Join(registry, "work.glaze"))
+	})
+
+	t.Run("does not warn about a relative XDG_CONFIG_HOME for a path", func(t *testing.T) {
+		newRegistry(t)
+		t.Setenv("XDG_CONFIG_HOME", "rel")
+		dir := t.TempDir()
+		path := filepath.Join(dir, "out.glaze")
+
+		var err error
+		stderr := capture(t, &os.Stderr, func() {
+			save, rec := buildSaveAt(t, "warn", "", map[string]string{"session": "sv", "profile-path": path})
+			recordSession(rec, dir)
+			err = save.Run(context.Background())
+		})
+
+		require.NoError(t, err)
+		assert.NotContains(t, stderr, "XDG_CONFIG_HOME")
+		assert.FileExists(t, path)
+	})
+
+	t.Run("writes a registry profile that round-trips through the parser", func(t *testing.T) {
+		registry := newRegistry(t)
+		dir := t.TempDir()
+		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
+		recordSession(rec, dir)
+
+		require.NoError(t, save.Run(context.Background()))
+
+		p, diags := parser.New(filepath.Join(registry, "work.glaze"))
+		require.False(t, diags.HasErrors(), diags.Error())
+
+		session, decodeDiags := p.Decode(spec.Session(registry), parser.BuildEvalContext(map[string]cty.Value{}))
+		require.False(t, decodeDiags.HasErrors(), decodeDiags.Error())
+		require.NotNil(t, session)
+
+		assert.Equal(t, "sv", session.Name)
+		assert.Equal(t, dir, session.StartingDirectory)
+		require.Len(t, session.Windows, 1)
+		assert.Equal(t, "main", session.Windows[0].Name)
+		assert.True(t, session.Windows[0].Focus)
+		require.Len(t, session.Windows[0].Panes, 1)
+		assert.Equal(t, "shell", session.Windows[0].Panes[0].Name)
+		assert.True(t, session.Windows[0].Panes[0].Focus)
 	})
 }
