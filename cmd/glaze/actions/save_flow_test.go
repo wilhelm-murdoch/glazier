@@ -198,8 +198,9 @@ func TestActionSaveRun(t *testing.T) {
 		session, err := save.resolveSession()
 		require.NoError(t, err)
 
-		captured, err := save.captureSession(session)
+		captured, err := captureSession(save.tmux, session, save.Logger)
 		require.NoError(t, err)
+		pruneMissingDirectories(&captured, save.Logger)
 
 		assert.Empty(t, captured.Windows[0].Name, "tmux named this window after its program")
 		assert.Empty(t, captured.Windows[0].Panes[0].Name, "the host name is the default title of a pane")

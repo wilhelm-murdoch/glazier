@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -24,6 +25,12 @@ import (
 const (
 	registryDescription = "A name selects <name>.glaze in the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze.\n" +
 		"Without a name, glaze uses --profile-path, ./.glaze or $GLAZE_PATH/.glaze."
+	diffDescription = "diff compares the profile with the session that runs under its name. It prints what `glaze up --clear` would change. It reads the session and changes nothing.\n" +
+		"A `+` line is a window or pane that the profile has and the session does not have. A `-` line is a window or pane that the session has and the profile does not have. " +
+		"A `~` line is a value that differs and that `up --clear` would set. A `?` line is a value that differs, but tmux cannot tell if glaze set it or a user changed it. A `?` line does not change the exit code.\n" +
+		"diff compares the session directory, the windows by name, the panes by position, the window order and the focus that the profile declares. " +
+		"It does not compare commands, envs, hooks and options, because tmux does not report what glaze set. It does not compare size, adjust and layout, because tmux reports them in a form that changes with the terminal size.\n" +
+		"Exit code 0 means no counted difference. Exit code 5 means a difference or a session that does not run.\n"
 	saveDescription = "A name writes <name>.glaze into the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze. It creates the profile registry when it is missing.\n" +
 		"Without a name, save writes --profile-path or ./.glaze."
 )
@@ -127,8 +134,12 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 		err = fmt.Errorf("%w: %w", context.Cause(ctx), err)
 	}
 
-	if err != nil {
+	// The report of diff already said that the session differs, so that result gets no message.
+	if err != nil && !errors.Is(err, actions.ErrDifferences) {
 		_, _ = fmt.Fprintln(stderr, err)
+	}
+
+	if err != nil {
 		return exitCode(err)
 	}
 
@@ -288,6 +299,22 @@ func newApp() *cli.Command {
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
 				Action: actionFor(actions.NewUp, &logLevel, true),
+			},
+			{
+				Name:          "diff",
+				Usage:         "show what up --clear would change in the running session",
+				ArgsUsage:     "[name]",
+				Description:   diffDescription + registryDescription,
+				ShellComplete: completeProfileNames,
+				Flags: slices.Concat([]cli.Flag{
+					&cli.BoolFlag{
+						Name:    "quiet",
+						Aliases: []string{"q"},
+						Usage:   "print nothing; the exit code carries the result",
+					},
+					profilePathFlag(),
+				}, socketFlags(), variableFlags()),
+				Action: actionFor(actions.NewDiff, &logLevel, true),
 			},
 			{
 				Name:          "down",

@@ -229,7 +229,7 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Window) error {
 	a.windowNames = make(map[tmux.WindowId]string, len(windows))
 	for i, ws := range windows {
-		a.warnRename("window", ws.Name, tmux.SanitizeName(ws.Name))
+		warnRename(a.Logger, "window", ws.Name, tmux.SanitizeName(ws.Name))
 
 		wtmx, err := a.createWindow(ws, i == 0, first)
 		if err != nil {
@@ -344,7 +344,7 @@ func (a *ActionUp) generatePanes(
 	created := make([]*tmux.Pane, 0, len(panes))
 	target := defaultPane.Target()
 	for _, ps := range panes {
-		a.warnRename("pane", ps.Name, tmux.SanitizeName(ps.Name))
+		warnRename(a.Logger, "pane", ps.Name, tmux.SanitizeName(ps.Name))
 		a.Logger.Info("splitting pane", "name", ps.Name, "from", target)
 		ptmx, err := wtmx.Split(target, ps.Name, ps.StartingDirectory)
 		if err != nil {
@@ -518,21 +518,10 @@ func (a *ActionUp) createWindow(ws *decoders.Window, isFirst bool, first *tmux.W
 	return wtmx, nil
 }
 
-// warnRename tells the user when glaze must change a name because tmux would rewrite it.
-func (a *ActionUp) warnRename(kind, name, sanitized string) {
-	if name != sanitized {
-		a.Logger.Warn(
-			fmt.Sprintf("tmux cannot use some characters in this %s name; replacing them with hyphens", kind),
-			"name", name,
-			"tmux_name", sanitized,
-		)
-	}
-}
-
 // resolveSession returns true for a session that already runs, after it attaches to it unless --detached is set.
 // Otherwise it creates the session, which the caller then provisions.
 func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
-	a.warnRename("session", profile.Name, tmux.SanitizeSessionName(profile.Name))
+	warnRename(a.Logger, "session", profile.Name, tmux.SanitizeSessionName(profile.Name))
 
 	if a.Command.Bool("clear") {
 		current, err := a.tmux.CurrentSession()
@@ -544,9 +533,19 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 			return false, fmt.Errorf("glaze runs inside session `%s`, so --clear would also end glaze; run it from another session or outside tmux", current.Name)
 		}
 
-		a.Logger.Info("clearing previous session", "session", profile.Name)
-		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
-			a.Logger.Warn("could not kill session", "session", profile.Name, "error", err)
+		// A session that does not run needs no kill, so the documented `diff` idiom prints no warning.
+		running, err := a.tmux.HasSession(profile.Name)
+		if err != nil {
+			return false, fmt.Errorf("could not check for session `%s`: %w", profile.Name, err)
+		}
+
+		if running {
+			a.Logger.Info("clearing previous session", "session", profile.Name)
+			if err := a.tmux.KillSessionByName(profile.Name); err != nil {
+				a.Logger.Warn("could not kill session", "session", profile.Name, "error", err)
+			}
+		} else {
+			a.Logger.Debug("no session to clear", "session", profile.Name)
 		}
 	}
 
@@ -586,7 +585,7 @@ func (a *ActionUp) useExistingSession(profile *decoders.Session) error {
 	a.session = session
 
 	if !a.Command.Bool("detached") {
-		a.Logger.Info("attaching to existing session", "session", profile.Name)
+		a.Logger.Info("attaching to existing session; run `glaze diff` to see what `up --clear` would change", "session", profile.Name)
 	}
 
 	return a.attachToSession()

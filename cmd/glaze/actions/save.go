@@ -17,28 +17,6 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-// savedPane is an intermediate representation of a tmux pane captured for output.
-type savedPane struct {
-	Name              string
-	StartingDirectory string
-	Focus             bool
-}
-
-// savedWindow is an intermediate representation of a tmux window captured for output.
-type savedWindow struct {
-	Name   string
-	Layout string
-	Focus  bool
-	Panes  []savedPane
-}
-
-// savedSession is the captured session, kept apart from the tmux types so the generator can be tested without tmux.
-type savedSession struct {
-	Name              string
-	StartingDirectory string
-	Windows           []savedWindow
-}
-
 // ActionSave captures a running session and writes it as a profile.
 type ActionSave struct {
 	Command *cli.Command
@@ -105,10 +83,12 @@ func (a *ActionSave) Run(ctx context.Context) error {
 		a.Logger.Info("saving session", "session", session.Name, "path", path)
 	}
 
-	captured, err := a.captureSession(session)
+	captured, err := captureSession(a.tmux, session, a.Logger)
 	if err != nil {
 		return err
 	}
+
+	pruneMissingDirectories(&captured, a.Logger)
 
 	output := generateProfile(captured)
 
@@ -185,91 +165,6 @@ func (a *ActionSave) resolveSession() (*tmux.Session, error) {
 	}
 
 	return a.tmux.FindSessionByName(name)
-}
-
-// captureSession reads the windows and panes of the given session into the
-// intermediate model used for HCL generation.
-func (a *ActionSave) captureSession(session *tmux.Session) (savedSession, error) {
-	captured := savedSession{
-		Name:              session.Name,
-		StartingDirectory: a.existingDirectory(session.StartingDirectory, "session", session.Name),
-	}
-
-	// tmux titles a new pane with the host name, so that title says nothing about the pane.
-	host, err := session.Host()
-	if err != nil {
-		return captured, err
-	}
-
-	windows, err := a.tmux.Windows(session)
-	if err != nil {
-		return captured, err
-	}
-
-	for _, window := range windows {
-		a.Logger.Info("capturing window", "name", window.Name)
-
-		// A window that tmux names after its program gets a different name on each run, so the profile leaves it out.
-		automatic, err := window.AutomaticName()
-		if err != nil {
-			return captured, err
-		}
-
-		name := window.Name
-		if automatic {
-			name = ""
-		}
-
-		sw := savedWindow{
-			Name: name,
-
-			// tmux reports a layout only as a coordinate string, so save keeps the string as it is.
-			// `up` replays it with select-layout, and validation accepts a well-formed layout string.
-			Layout: window.RawLayout,
-			Focus:  window.IsActive, // The active window is the one tmux would focus on attach.
-		}
-
-		panes, err := a.tmux.Panes(window)
-		if err != nil {
-			return captured, err
-		}
-
-		for _, pane := range panes {
-			a.Logger.Info("capturing pane", "name", pane.Name)
-
-			name := pane.Name
-			if name == host {
-				name = ""
-			}
-
-			sw.Panes = append(sw.Panes, savedPane{
-				Name:              name,
-				StartingDirectory: a.existingDirectory(pane.StartingDirectory, "pane", pane.Name),
-				Focus:             pane.IsActive, // The active pane is the one tmux would focus within the window.
-			})
-		}
-
-		captured.Windows = append(captured.Windows, sw)
-	}
-
-	return captured, nil
-}
-
-// existingDirectory returns dir, or "" with a warning when dir no longer exists, because the profile would then fail validation.
-// The block without a directory uses the directory of its window or session.
-func (a *ActionSave) existingDirectory(dir, kind, name string) string {
-	if dir == "" {
-		return dir
-	}
-
-	// The directory comes from tmux, which reports where the shell of the pane is.
-	if files.IsDir(dir) {
-		return dir
-	}
-
-	a.Logger.Warn("the directory no longer exists, so the profile leaves it out", kind, name, "directory", dir)
-
-	return ""
 }
 
 // generateProfile renders the captured session as a formatted profile, with names, directories, focus and layout only.

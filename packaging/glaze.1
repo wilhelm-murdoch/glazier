@@ -18,6 +18,10 @@ glaze \- manage tmux sessions, windows and panes from a profile
 .IR key=value ]
 .RI [ name ]
 .br
+.B glaze diff
+.RB [ \-\-quiet ]
+.RI [ name ]
+.br
 .B glaze down
 .RB [ \-\-session
 .IR session ]
@@ -138,6 +142,27 @@ Set a variable. The flag is repeatable.
 .BI \-\-var\-file " path"
 An HCL file of variable values. The path is relative to the current directory,
 also with a profile name.
+.SS diff
+Show what
+.B up \-\-clear
+would change in the session that runs under the name of the profile. The
+command reads the session and changes nothing. Exit status 5 means that the
+session differs from the profile or does not run.
+.TP
+.BR \-\-quiet ", " \-q
+Print nothing. The exit status carries the result.
+.TP
+.BI \-\-profile\-path " path"
+.TQ
+.BI \-\-socket\-path " path"
+.TQ
+.BI \-\-socket\-name " name"
+.TQ
+.BI \-\-var " key=value"
+.TQ
+.BI \-\-var\-file " path"
+As for
+.BR up .
 .SS down
 Kill the session that a profile describes. The command evaluates only the
 session name of the profile. A session that does not run causes no error.

@@ -10,7 +10,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
-// completeProfileNames prints the names of the profile registry for a Tab after up, down or format, and leaves the flags to the library.
+// completeProfileNames prints the names of the profile registry for a Tab after up, down, diff or format, and leaves the flags to the library.
 // It never logs and never fails: zsh shows the stderr of the binary during completion, and a failing completer breaks every Tab.
 func completeProfileNames(ctx context.Context, cmd *cli.Command) {
 	words := cmd.Args().Slice()
