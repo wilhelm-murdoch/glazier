@@ -525,7 +525,7 @@ func TestResolveProfilePathByName(t *testing.T) {
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.Equal(t, filepath.Join(dir, "work.glaze"), resolved)
 		assert.ErrorContains(t, err, "no profile named `work`; the profile registry `"+dir+"` does not exist")
-		assert.ErrorContains(t, err, "\n - create it with `mkdir -p "+dir+"` and put `work.glaze` in it")
+		assert.ErrorContains(t, err, "\n - or create it with `mkdir -p "+dir+"` and put `work.glaze` in it")
 		assert.ErrorContains(t, err, "\n - --profile-path reads a profile from any path")
 		assert.NotContains(t, err.Error(), "current directory")
 	})

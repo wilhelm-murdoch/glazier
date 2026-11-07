@@ -180,7 +180,9 @@ func TestRun(t *testing.T) {
 		{"completion for an unknown shell", []string{"completion", "nope"}, exitUsage, "unknown shell `nope`"},
 		{"a second name", []string{"up", "a", "b"}, exitUsage, "`glaze up` takes one name; got `a` and `b`"},
 		{"a word on ls", []string{"ls", "x"}, exitUsage, "`glaze ls` takes no argument; got `x`"},
-		{"a word on save", []string{"save", "x"}, exitUsage, "`glaze save` takes no argument; got `x`"},
+		{"a name on save with --profile-path", []string{"save", "x", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
+		{"a name with a slash on save", []string{"save", "a/b"}, exitUsage, "`a/b` is not a profile name: a name cannot contain `/`; for a file, use --profile-path"},
+		{"a name without a profile on up points at save", []string{"up", "nope"}, exitInvalidProfile, " - `glaze save nope` in a tmux session writes the profile"},
 		{"a name and --profile-path", []string{"up", "work", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
 		{"--profile-path before a name", []string{"up", "--profile-path", "p", "work"}, exitUsage, "give a name or --profile-path, not both"},
 		{"a name and --session", []string{"down", "work", "--session", "s"}, exitUsage, "give a name or --session, not both"},
@@ -236,11 +238,89 @@ func TestRun(t *testing.T) {
 	t.Run("a word on a command without a name needs no tmux", func(t *testing.T) {
 		t.Setenv("PATH", t.TempDir())
 
-		for _, args := range [][]string{{"ls", "x"}, {"save", "x"}} {
+		for _, args := range [][]string{{"ls", "x"}} {
 			var stderr bytes.Buffer
 			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, args...), &stderr))
 			assert.Contains(t, stderr.String(), "takes no argument")
 		}
+	})
+
+	t.Run("a bad name on save needs no tmux", func(t *testing.T) {
+		t.Setenv("PATH", t.TempDir())
+
+		// The name is checked before the action builds its tmux client, so the usage error comes first.
+		for _, args := range [][]string{{"save", "a/b"}, {"save", "work.glaze"}, {"save", "-1"}, {"save", "work", "--profile-path", "p"}} {
+			var stderr bytes.Buffer
+			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, args...), &stderr), strings.Join(args, " "))
+			assert.Contains(t, stderr.String(), "(see `glaze save --help`)")
+		}
+	})
+
+	t.Run("a name and --session on save reach the action", func(t *testing.T) {
+		requireTmux(t)
+
+		// On save the flag names the session and the name names the file, so checkArgs lets both through.
+		var stderr bytes.Buffer
+		assert.Equal(t, exitFailure, run(context.Background(), []string{"glaze", "save", "work", "--session", "sv", "--socket-name", "glaze-test-no-server"}, &stderr))
+		assert.Contains(t, stderr.String(), "no tmux server is running")
+		assert.NotContains(t, stderr.String(), "not both")
+	})
+
+	t.Run("a name without a registry says how save creates it", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		missing := filepath.Join(home, ".config", "glaze")
+
+		var stderr bytes.Buffer
+		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "up", "nope"}, &stderr))
+		assert.Contains(t, stderr.String(), "no profile named `nope`; the profile registry `"+missing+"` does not exist")
+
+		// The save pointer comes before the mkdir line, because it is the way that needs no hand work.
+		lines := []string{
+			" - `glaze save nope` in a tmux session creates the registry and writes the profile",
+			" - or create it with `mkdir -p " + missing + "` and put `nope.glaze` in it",
+			" - --profile-path reads a profile from any path",
+		}
+
+		last := -1
+		for _, line := range lines {
+			at := strings.Index(stderr.String(), line)
+			assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, stderr.String())
+			last = at
+		}
+	})
+
+	t.Run("a name without a profile in a registry says how save writes it", func(t *testing.T) {
+		var stderr bytes.Buffer
+		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "up", "nope"}, &stderr))
+
+		// The ls line comes first, then the save pointer, then --profile-path.
+		lines := []string{
+			"no profile named `nope` in the profile registry; `" + filepath.Join(registry, "nope.glaze") + "` does not exist",
+			" - `glaze ls --profiles` lists the profiles in `" + registry + "`",
+			" - `glaze save nope` in a tmux session writes the profile",
+			" - --profile-path reads a profile from any path",
+		}
+
+		last := -1
+		for _, line := range lines {
+			at := strings.Index(stderr.String(), line)
+			assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, stderr.String())
+			last = at
+		}
+	})
+
+	t.Run("the help of save names the registry", func(t *testing.T) {
+		readStdout := capture(t, &os.Stdout)
+		var stderr bytes.Buffer
+		code := run(context.Background(), []string{"glaze", "save", "--help"}, &stderr)
+		stdout := readStdout()
+
+		assert.Equal(t, exitOK, code)
+		assert.Contains(t, stdout, "glaze save [options] [name]")
+		assert.Contains(t, stdout, "A name writes <name>.glaze into the profile registry")
+		assert.Contains(t, stdout, "replaces the target profile when it exists")
+		assert.Empty(t, stderr.String())
 	})
 
 	t.Run("the help word is a profile name", func(t *testing.T) {
@@ -336,7 +416,7 @@ func TestRun(t *testing.T) {
 
 		assert.Equal(t, exitOK, code)
 		assert.Empty(t, stdout)
-		assert.Equal(t, 1, strings.Count(logged, "INF no profile registry"), logged)
+		assert.Equal(t, 1, strings.Count(logged, "INF no profile registry; `glaze save <name>` creates it"), logged)
 		assert.Empty(t, stderr.String())
 	})
 

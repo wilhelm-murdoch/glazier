@@ -36,7 +36,7 @@ func TestManPageNamesEveryCommandAndFlag(t *testing.T) {
 		}
 	}
 
-	// The SYNOPSIS shows [ name ] exactly for the commands that take a profile name, so save keeps its line as it is.
+	// The SYNOPSIS shows [ name ] exactly for the commands that take a profile name; ls is the one command without it.
 	synopsis := section(text, "SYNOPSIS")
 	for _, cmd := range app.Commands {
 		entry := synopsisEntry(synopsis, cmd.Name)

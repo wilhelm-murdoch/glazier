@@ -19,9 +19,13 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
-// registryDescription explains the positional name of up, down and format; the help template has no section for arguments.
-const registryDescription = "A name selects <name>.glaze in the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze.\n" +
-	"Without a name, glaze uses --profile-path, ./.glaze or $GLAZE_PATH/.glaze."
+// The help template has no section for arguments, so the descriptions explain the positional name.
+const (
+	registryDescription = "A name selects <name>.glaze in the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze.\n" +
+		"Without a name, glaze uses --profile-path, ./.glaze or $GLAZE_PATH/.glaze."
+	saveDescription = "A name writes <name>.glaze into the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze. It creates the profile registry when it is missing.\n" +
+		"Without a name, save writes --profile-path or ./.glaze."
+)
 
 var (
 	// Version describes the version of the current build.
@@ -200,7 +204,8 @@ func checkArgs(cmd *cli.Command, takesName bool) error {
 		return fmt.Errorf("%w: give a name or --profile-path, not both %s", errUsage, help)
 	}
 
-	if cmd.String("session") != "" {
+	// On down the flag and the name select the same thing; on save the flag names the session and the name names the file.
+	if cmd.Name == "down" && cmd.String("session") != "" {
 		return fmt.Errorf("%w: give a name or --session, not both %s", errUsage, help)
 	}
 
@@ -332,8 +337,10 @@ func newApp() *cli.Command {
 				Action: actionFor(actions.NewFormat, &logLevel, true),
 			},
 			{
-				Name:  "save",
-				Usage: "running this within a tmux session will save its current state to the specified glaze profile",
+				Name:        "save",
+				Usage:       "running this within a tmux session will save its current state to the specified glaze profile",
+				ArgsUsage:   "[name]",
+				Description: saveDescription,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "profile-path",
@@ -349,10 +356,10 @@ func newApp() *cli.Command {
 					},
 					&cli.BoolFlag{
 						Name:  "force",
-						Usage: "replaces the file at --profile-path when it exists",
+						Usage: "replaces the target profile when it exists",
 					},
 				}, socketFlags()),
-				Action: actionFor(actions.NewSave, &logLevel, false),
+				Action: actionFor(actions.NewSave, &logLevel, true),
 			},
 		},
 	}

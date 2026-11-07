@@ -34,11 +34,11 @@ Type this command in a directory that contains a `.glaze` file.
 $ glaze up
 ```
 
-Put a profile in the profile registry to apply it from any directory. The profile name is the file name without `.glaze`.
+Save a running session into the profile registry to apply it from any directory. The profile name is the file name without `.glaze`. `save` writes the structure of the session and not its commands, so copy a hand-written profile into the profile registry to keep them.
 ```console
-$ mkdir -p ~/.config/glaze                 # create the profile registry
-$ cp .glaze ~/.config/glaze/work.glaze     # or write work.glaze there
-$ glaze up work                            # apply it from any directory
+$ glaze save work                          # write the running session to ~/.config/glaze/work.glaze
+$ cd ~/src/other                           # go to any directory
+$ glaze up work                            # apply it from there
 ```
 
 ### Why should I use this?
@@ -277,7 +277,7 @@ work  /home/v/.config/glaze/work.glaze
 
 | Flag | Description |
 |------|-------------|
-| `--profiles` | List the profiles in the profile registry instead of the sessions. The command reads no profile and needs no tmux. When there is no profile registry, it writes nothing to stdout, logs `no profile registry` and exits with code `0`. It warns about a file that `up` cannot use. |
+| `--profiles` | List the profiles in the profile registry instead of the sessions. The command reads no profile and needs no tmux. When there is no profile registry, it writes nothing to stdout, logs that there is no profile registry and that `glaze save <name>` creates it, and exits with code `0`. It warns about a file that `up` cannot use. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
 
 ### `glaze format`
@@ -313,6 +313,7 @@ Capture the current running tmux session, or a named session, into a `.glaze` pr
 
 ```console
 $ glaze save                        # write ./.glaze from the current session
+$ glaze save work                   # write ~/.config/glaze/work.glaze
 $ glaze save --stdout               # print the profile; do not write
 $ glaze save --session daemon-run --profile-path ./daemon-run.glaze
 $ glaze save --force                # replace an existing ./.glaze
@@ -320,11 +321,13 @@ $ glaze save --force                # replace an existing ./.glaze
 
 | Flag | Description |
 |------|-------------|
-| `--session` | The session to capture. The default is the session of the pane that runs `save`. Outside a pane of the target tmux server, the flag is necessary. |
-| `--profile-path` | The output path. The default is `.glaze`. |
+| `--session` | The session to capture. The default is the session of the pane that runs `save`. Outside a pane of the target tmux server, the flag is necessary. The flag combines with a profile name: the name selects the file and the flag selects the session. |
+| `--profile-path` | The output path. The default is `.glaze`. Not together with a profile name. |
 | `--stdout` | Print the profile. Do not write a file. |
-| `--force` | Replace the file at `--profile-path` if it exists. |
+| `--force` | Replace the target profile when it exists. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
+
+A profile name writes `<name>.glaze` into the profile registry. Glazier creates the profile registry with mode `0700` when it is missing, only after a successful capture and right before the write. Thus a failed capture creates nothing. To make a new registry profile, start tmux. Arrange your windows. Run `glaze save work`. Then edit the file. With `--stdout`, `save` prints the profile and writes nothing, but the name still needs a usable profile registry. A path target, `--profile-path` or `./.glaze`, never creates a directory.
 
 `save` does not replace an existing file unless you set `--force`. With `--force`, it writes the same way as `format`: through a temporary file, through a symlink and with the permissions of the old file.
 
@@ -350,9 +353,9 @@ Glazier finds the profile registry in this order:
 - `$XDG_CONFIG_HOME/glaze`, when `XDG_CONFIG_HOME` is set and absolute. Glazier ignores a relative value, as the XDG base directory specification says.
 - `~/.config/glaze`
 
-The rule is the same on macOS and Linux. An empty variable is the same as an unset variable. `GLAZE_PATH` is not the profile registry: it names the directory that holds one `.glaze` file for a command without a name. Glazier does not create the profile registry. Create it with `mkdir -p ~/.config/glaze`. The directory and a profile in it can be symlinks.
+The rule is the same on macOS and Linux. An empty variable is the same as an unset variable. `GLAZE_PATH` is not the profile registry: it names the directory that holds one `.glaze` file for a command without a name. Only `glaze save <name>` creates the profile registry, with mode `0700`. The other commands never create it. The directory and a profile in it can be symlinks.
 
-There is no `new`, `edit` or `delete` command. Write a profile with your editor, for example `$EDITOR ~/.config/glaze/work.glaze`, and remove it with `rm`. Glazier never deletes a profile. Run `glaze format --validate work` to check a new profile.
+There is no `new`, `edit` or `delete` command. `glaze save work` writes a new profile from a running session. Edit a profile with your editor, for example `$EDITOR ~/.config/glaze/work.glaze`, and remove it with `rm`. Glazier never deletes a profile. Run `glaze format --validate work` to check a new profile.
 
 ### Profile names
 
@@ -369,7 +372,7 @@ Glazier reads a word such as `-x` as a flag, so `-x` is an unknown flag with exi
 
 Glazier never reads a word as a path, and a profile name never reads the current directory or `$GLAZE_PATH`. When `work.glaze` exists in one of those places but not in the profile registry, the error says so.
 
-Use lower case. Glazier does not fold case: on a case-insensitive macOS volume, `glaze up Work` opens `work.glaze`, and on Linux it does not. `help` is an ordinary profile name, so `glaze up help` applies the profile `help`. Use `glaze up --help` or `glaze help up` for the help of a command.
+Use lower case. Glazier does not fold case: on a case-insensitive macOS volume, `glaze up Work` opens `work.glaze`, and `glaze save Work --force` replaces `work.glaze` and stores the file as `Work.glaze`; on Linux the two names are two files. `help` is an ordinary profile name, so `glaze up help` applies the profile `help`. Use `glaze up --help` or `glaze help up` for the help of a command.
 
 ### The profile name and the session name
 

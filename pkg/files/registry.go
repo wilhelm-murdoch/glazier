@@ -232,8 +232,8 @@ func resolveRegistryProfile(name string) (string, error) {
 
 	switch err := CheckRegistryDir(dir); {
 	case errors.Is(err, fs.ErrNotExist):
-		return path, fmt.Errorf("%w: no profile named `%s`; the profile registry `%s` does not exist\n - create it with `mkdir -p %s` and put `%s%s` in it\n - --profile-path reads a profile from any path%s",
-			ErrProfileNotFound, name, dir, dir, name, ProfileSuffix, missingHints(name, dir))
+		return path, fmt.Errorf("%w: no profile named `%s`; the profile registry `%s` does not exist\n - `glaze save %s` in a tmux session creates the registry and writes the profile\n - or create it with `mkdir -p %s` and put `%s%s` in it\n - --profile-path reads a profile from any path%s",
+			ErrProfileNotFound, name, dir, name, dir, name, ProfileSuffix, missingHints(name, dir))
 	case err != nil:
 		return path, fmt.Errorf("%w: %w", ErrProfileNotFound, err)
 	}
@@ -263,8 +263,8 @@ func resolveRegistryProfile(name string) (string, error) {
 
 // missingProfile is the error for a well-formed name without a file, with a hint when a file of that name exists elsewhere.
 func missingProfile(name, dir, path string) error {
-	return fmt.Errorf("%w: no profile named `%s` in the profile registry; `%s` does not exist\n - `glaze ls --profiles` lists the profiles in `%s`\n - --profile-path reads a profile from any path%s",
-		ErrProfileNotFound, name, path, dir, missingHints(name, dir))
+	return fmt.Errorf("%w: no profile named `%s` in the profile registry; `%s` does not exist\n - `glaze ls --profiles` lists the profiles in `%s`\n - `glaze save %s` in a tmux session writes the profile\n - --profile-path reads a profile from any path%s",
+		ErrProfileNotFound, name, path, dir, name, missingHints(name, dir))
 }
 
 // missingHints says when a file of the name exists in the current directory or in GLAZE_PATH, which a name never reads.

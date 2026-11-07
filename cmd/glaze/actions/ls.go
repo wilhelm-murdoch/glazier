@@ -125,7 +125,7 @@ func (a *ActionLs) listProfiles() error {
 	profiles, skipped, err := files.ListProfiles(dir)
 	if errors.Is(err, fs.ErrNotExist) {
 		// No registry means no profiles, so stdout stays empty for a script that reads it.
-		a.Logger.Info("no profile registry", "path", dir)
+		a.Logger.Info("no profile registry; `glaze save <name>` creates it", "path", dir)
 		return nil
 	}
 
