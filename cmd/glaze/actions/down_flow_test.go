@@ -30,7 +30,7 @@ func buildDown(t *testing.T, profile string, flags map[string]string) (*ActionDo
 	}
 
 	for k, v := range flags {
-		args = append(args, "--"+k, v)
+		args = append(args, "--"+k+"="+v)
 	}
 
 	var (

@@ -16,7 +16,12 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
+
+// registryDescription explains the positional name of up, down and format; the help template has no section for arguments.
+const registryDescription = "A name selects <name>.glaze in the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze.\n" +
+	"Without a name, glaze uses --profile-path, ./.glaze or $GLAZE_PATH/.glaze."
 
 var (
 	// Version describes the version of the current build.
@@ -150,10 +155,14 @@ type action interface {
 	Run(ctx context.Context) error
 }
 
-// actionFor returns the CLI action that builds a subcommand with build and runs it.
+// actionFor returns the CLI action that checks the positional words, builds a subcommand with build and runs it.
 // logLevel is a pointer, because the global flag is parsed after newApp returns.
-func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string) cli.ActionFunc {
+func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string, takesName bool) cli.ActionFunc {
 	return func(ctx context.Context, cmd *cli.Command) error {
+		if err := checkArgs(cmd, takesName); err != nil {
+			return err
+		}
+
 		a, err := build(cmd, *logLevel)
 		if err != nil {
 			return err
@@ -161,6 +170,41 @@ func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *
 
 		return a.Run(ctx)
 	}
+}
+
+// checkArgs rejects a word that the command does not take, a word that is not a profile name, a second word and a name next to --profile-path or --session.
+// It runs inside the Action, which the library never calls in completion mode, so a bad word cannot break a Tab.
+func checkArgs(cmd *cli.Command, takesName bool) error {
+	// A command built outside the library, for example by a test, has no Args at all.
+	args := cmd.Args()
+	if args == nil || !args.Present() {
+		return nil
+	}
+
+	help := fmt.Sprintf("(see `glaze %s --help`)", cmd.Name)
+	if !takesName {
+		return fmt.Errorf("%w: `glaze %s` takes no argument; got `%s` %s", errUsage, cmd.Name, args.First(), help)
+	}
+
+	// The shape comes first: a word such as `-1` ends the flag parsing, so a flag after it is not the cause.
+	if err := files.ValidateProfileName(args.First()); err != nil {
+		return fmt.Errorf("%w: %w %s", errUsage, err, help)
+	}
+
+	if args.Len() > 1 {
+		return fmt.Errorf("%w: `glaze %s` takes one name; got `%s` and `%s` %s", errUsage, cmd.Name, args.Get(0), args.Get(1), help)
+	}
+
+	// The value and not IsSet, so `--profile-path=` with nothing after it does not count as a path.
+	if cmd.String("profile-path") != "" {
+		return fmt.Errorf("%w: give a name or --profile-path, not both %s", errUsage, help)
+	}
+
+	if cmd.String("session") != "" {
+		return fmt.Errorf("%w: give a name or --session, not both %s", errUsage, help)
+	}
+
+	return nil
 }
 
 // newApp returns the glaze command with all of its subcommands.
@@ -212,8 +256,11 @@ func newApp() *cli.Command {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:  "up",
-				Usage: "apply the specified glaze profile",
+				Name:          "up",
+				Usage:         "apply the specified glaze profile",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.BoolFlag{
 						Name:  "detached",
@@ -237,11 +284,14 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: actionFor(actions.NewUp, &logLevel),
+				Action: actionFor(actions.NewUp, &logLevel, true),
 			},
 			{
-				Name:  "down",
-				Usage: "kill the session described by the specified glaze profile",
+				Name:          "down",
+				Usage:         "kill the session described by the specified glaze profile",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "session",
@@ -249,17 +299,25 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: actionFor(actions.NewDown, &logLevel),
+				Action: actionFor(actions.NewDown, &logLevel, true),
 			},
 			{
-				Name:   "ls",
-				Usage:  "list the sessions running on the target tmux server",
-				Flags:  socketFlags(),
-				Action: actionFor(actions.NewLs, &logLevel),
+				Name:  "ls",
+				Usage: "list the sessions running on the target tmux server",
+				Flags: slices.Concat([]cli.Flag{
+					&cli.BoolFlag{
+						Name:  "profiles",
+						Usage: "list the profiles in the profile registry instead of the sessions",
+					},
+				}, socketFlags()),
+				Action: actionFor(actions.NewLs, &logLevel, false),
 			},
 			{
-				Name:  "format",
-				Usage: "rewrites the target glaze profile file to a canonical format",
+				Name:          "format",
+				Usage:         "rewrites the target glaze profile file to a canonical format",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.BoolFlag{
 						Name:  "stdout",
@@ -271,7 +329,7 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, variableFlags()),
-				Action: actionFor(actions.NewFormat, &logLevel),
+				Action: actionFor(actions.NewFormat, &logLevel, true),
 			},
 			{
 				Name:  "save",
@@ -294,15 +352,17 @@ func newApp() *cli.Command {
 						Usage: "replaces the file at --profile-path when it exists",
 					},
 				}, socketFlags()),
-				Action: actionFor(actions.NewSave, &logLevel),
+				Action: actionFor(actions.NewSave, &logLevel, false),
 			},
 		},
 	}
 
 	// A --var value such as `tags=one,two` can contain commas, so turn off the comma split on every command.
+	// A profile can be named help, so no leaf gets a help subcommand; --help and `glaze help <command>` still work.
 	for _, sub := range app.Commands {
 		sub.DisableSliceFlagSeparator = true
 		sub.OnUsageError = usageError
+		sub.HideHelpCommand = true
 	}
 
 	return app

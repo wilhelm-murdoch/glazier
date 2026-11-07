@@ -50,7 +50,7 @@ func buildSave(t *testing.T, flags map[string]string) (*ActionSave, *tmuxtest.Re
 
 	args := []string{"save"}
 	for k, v := range flags {
-		args = append(args, "--"+k, v)
+		args = append(args, "--"+k+"="+v)
 	}
 
 	assert.NoError(t, cmd.Run(context.Background(), args))

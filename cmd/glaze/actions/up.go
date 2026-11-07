@@ -66,6 +66,10 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		return err
 	}
 
+	if err := a.checkRegistryName(); err != nil {
+		return err
+	}
+
 	if err := a.tmux.CheckVersion(); err != nil {
 		return err
 	}

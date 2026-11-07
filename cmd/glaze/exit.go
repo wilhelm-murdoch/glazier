@@ -51,9 +51,9 @@ func exitCode(err error) int {
 		return exitOK
 	case errors.As(err, &stopped):
 		return exitSignalBase + int(stopped.signal)
-	case errors.Is(err, errUsage):
+	case errors.Is(err, errUsage), errors.Is(err, files.ErrInvalidProfileName):
 		return exitUsage
-	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound):
+	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound), errors.Is(err, files.ErrRegistryUnusable):
 		return exitInvalidProfile
 	case errors.Is(err, tmux.ErrUnreachable), errors.Is(err, tmux.ErrOldTmux):
 		return exitUnreachable
@@ -78,10 +78,21 @@ func configureCompletion(cmd *cli.Command) {
 // The CLI library reports an unknown command with an ExitCoder, which a failed tmux command also unwraps to.
 func rootAction(_ context.Context, cmd *cli.Command) error {
 	if cmd.Args().Present() {
-		return fmt.Errorf("%w: unknown command `%s` (see `glaze --help`)", errUsage, cmd.Args().First())
+		word := cmd.Args().First()
+		return fmt.Errorf("%w: unknown command `%s`%s (see `glaze --help`)", errUsage, word, profileHint(word))
 	}
 
 	return cli.ShowRootCommandHelp(cmd)
+}
+
+// profileHint says how to apply a profile when an unknown command names one; any problem on the way gives no hint.
+func profileHint(word string) string {
+	path, err := files.RegistryProfilePath(word)
+	if err != nil || !files.FileExists(path) {
+		return ""
+	}
+
+	return fmt.Sprintf("; to apply the profile `%s`, run `glaze up %s`", word, word)
 }
 
 // usageError marks err as a usage error. The CLI library calls it for a flag or an argument that it cannot parse.

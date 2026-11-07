@@ -58,7 +58,7 @@ func newFormatAt(t *testing.T, path string, flags map[string]string) (*ActionFor
 
 	args := []string{"format", "--profile-path", path}
 	for k, v := range flags {
-		args = append(args, "--"+k, v)
+		args = append(args, "--"+k+"="+v)
 	}
 
 	assert.NoError(t, cmd.Run(context.Background(), args))

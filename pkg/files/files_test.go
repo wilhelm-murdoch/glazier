@@ -84,13 +84,13 @@ func TestResolveProfilePath(t *testing.T) {
 		file := filepath.Join(dir, "explicit.glaze")
 		assert.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
 
-		resolved, err := ResolveProfilePath(file)
+		resolved, err := ResolveProfilePath(file, "")
 		assert.NoError(t, err)
 		assert.Equal(t, file, resolved)
 	})
 
 	t.Run("errors when the explicit profile path does not exist", func(t *testing.T) {
-		resolved, err := ResolveProfilePath("/definitely/not/here.glaze")
+		resolved, err := ResolveProfilePath("/definitely/not/here.glaze", "")
 		assert.Error(t, err)
 		assert.Equal(t, "/definitely/not/here.glaze", resolved)
 		assert.ErrorIs(t, err, ErrProfileNotFound)
@@ -107,7 +107,7 @@ func TestResolveProfilePath(t *testing.T) {
 		cwd, err := os.Getwd()
 		assert.NoError(t, err)
 
-		resolved, err := ResolveProfilePath("")
+		resolved, err := ResolveProfilePath("", "")
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(cwd, ".glaze"), resolved)
 	})
@@ -120,7 +120,7 @@ func TestResolveProfilePath(t *testing.T) {
 		chdir(t, cwd)
 		t.Setenv("GLAZE_PATH", glazeDir)
 
-		resolved, err := ResolveProfilePath("")
+		resolved, err := ResolveProfilePath("", "")
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(glazeDir, ".glaze"), resolved)
 	})
@@ -130,13 +130,13 @@ func TestResolveProfilePath(t *testing.T) {
 		t.Setenv("HOME", home)
 		assert.NoError(t, os.WriteFile(filepath.Join(home, "p.glaze"), []byte("session {}"), 0o600))
 
-		resolved, err := ResolveProfilePath("~/p.glaze")
+		resolved, err := ResolveProfilePath("~/p.glaze", "")
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, "p.glaze"), resolved)
 	})
 
 	t.Run("rejects ~user in the explicit profile path", func(t *testing.T) {
-		_, err := ResolveProfilePath("~root/p.glaze")
+		_, err := ResolveProfilePath("~root/p.glaze", "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorIs(t, err, ErrTildeUser)
 	})
@@ -150,7 +150,7 @@ func TestResolveProfilePath(t *testing.T) {
 		chdir(t, t.TempDir())
 		t.Setenv("GLAZE_PATH", "~/gp")
 
-		resolved, err := ResolveProfilePath("")
+		resolved, err := ResolveProfilePath("", "")
 		assert.NoError(t, err)
 		assert.Equal(t, filepath.Join(home, "gp", ".glaze"), resolved)
 	})
@@ -160,7 +160,7 @@ func TestResolveProfilePath(t *testing.T) {
 		chdir(t, cwd)
 		t.Setenv("GLAZE_PATH", "")
 
-		_, err := ResolveProfilePath("")
+		_, err := ResolveProfilePath("", "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 	})
 }
@@ -180,7 +180,7 @@ func chdir(t *testing.T, dir string) {
 
 func TestResolveProfilePathSaysWhatIsWrong(t *testing.T) {
 	t.Run("--profile-path is a directory", func(t *testing.T) {
-		_, err := ResolveProfilePath(t.TempDir())
+		_, err := ResolveProfilePath(t.TempDir(), "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "is a directory; --profile-path must name a profile file")
 	})
@@ -191,7 +191,7 @@ func TestResolveProfilePathSaysWhatIsWrong(t *testing.T) {
 		chdir(t, cwd)
 		t.Setenv("GLAZE_PATH", "")
 
-		_, err := ResolveProfilePath("")
+		_, err := ResolveProfilePath("", "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "is a directory, not a profile")
 	})
@@ -203,7 +203,7 @@ func TestResolveProfilePathSaysWhatIsWrong(t *testing.T) {
 		chdir(t, t.TempDir())
 		t.Setenv("GLAZE_PATH", profile)
 
-		_, err := ResolveProfilePath("")
+		_, err := ResolveProfilePath("", "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "GLAZE_PATH must be a directory")
 		assert.ErrorContains(t, err, "set GLAZE_PATH to `"+dir+"`")
@@ -215,7 +215,7 @@ func TestResolveProfilePathSaysWhatIsWrong(t *testing.T) {
 		chdir(t, t.TempDir())
 		t.Setenv("GLAZE_PATH", dir)
 
-		_, err := ResolveProfilePath("")
+		_, err := ResolveProfilePath("", "")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "is a directory, not a profile")
 	})
