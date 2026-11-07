@@ -167,7 +167,7 @@ func TestRegistry(t *testing.T) {
 		c.ExitCode(r, "a name and --profile-path together is a usage error (exit 2)", exitUsage)
 		c.Match("a name and --profile-path message says not both", "not both", r.Stderr)
 		c.ExitCode(c.Ls("work"), "ls with a word is a usage error (exit 2)", exitUsage)
-		c.ExitCode(c.Save("work"), "save with a word is a usage error (exit 2)", exitUsage)
+		c.ExitCode(c.Save("work", "--profile-path", "x.glaze"), "save with a name and --profile-path together is a usage error (exit 2)", exitUsage)
 		c.NoServer("bad arguments")
 	})
 

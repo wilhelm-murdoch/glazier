@@ -180,7 +180,7 @@ func TestRun(t *testing.T) {
 		{"completion for an unknown shell", []string{"completion", "nope"}, exitUsage, "unknown shell `nope`"},
 		{"a second name", []string{"up", "a", "b"}, exitUsage, "`glaze up` takes one name; got `a` and `b`"},
 		{"a word on ls", []string{"ls", "x"}, exitUsage, "`glaze ls` takes no argument; got `x`"},
-		{"a word on save", []string{"save", "x"}, exitUsage, "`glaze save` takes no argument; got `x`"},
+		{"a name on save with --profile-path", []string{"save", "x", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
 		{"a name and --profile-path", []string{"up", "work", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
 		{"--profile-path before a name", []string{"up", "--profile-path", "p", "work"}, exitUsage, "give a name or --profile-path, not both"},
 		{"a name and --session", []string{"down", "work", "--session", "s"}, exitUsage, "give a name or --session, not both"},
@@ -236,7 +236,7 @@ func TestRun(t *testing.T) {
 	t.Run("a word on a command without a name needs no tmux", func(t *testing.T) {
 		t.Setenv("PATH", t.TempDir())
 
-		for _, args := range [][]string{{"ls", "x"}, {"save", "x"}} {
+		for _, args := range [][]string{{"ls", "x"}} {
 			var stderr bytes.Buffer
 			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, args...), &stderr))
 			assert.Contains(t, stderr.String(), "takes no argument")

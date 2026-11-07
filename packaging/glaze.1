@@ -35,6 +35,7 @@ glaze \- manage tmux sessions, windows and panes from a profile
 .RB [ \-\-session
 .IR session ]
 .RB [ \-\-stdout ]
+.RI [ name ]
 .br
 .B glaze completion
 .IR shell
@@ -216,7 +217,8 @@ pane, and the layout of each window. The command does not save commands,
 environment variables, hooks or options, because tmux reports the whole state
 and not what a profile set, and a saved command would run again on each
 .BR up .
-The command takes no profile name.
+A name writes the profile into the profile registry and creates the registry
+when it is missing.
 .TP
 .BI \-\-profile\-path " path"
 The path of the profile to write. The default is

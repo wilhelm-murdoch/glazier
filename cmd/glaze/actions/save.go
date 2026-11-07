@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
+	"path/filepath"
 
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/urfave/cli/v3"
@@ -78,9 +80,13 @@ func (a *ActionSave) Run(ctx context.Context) error {
 		return errors.New("no tmux server is running, so there is no session to save")
 	}
 
-	path := a.Command.String("profile-path")
-	if path == "" {
-		path = ".glaze"
+	path, inRegistry, err := saveTarget(a.Command)
+	if err != nil {
+		return err
+	}
+
+	if inRegistry {
+		warnIgnoredConfigHome(a.Logger)
 	}
 
 	// Check before the capture, so that a refusal captures nothing. A dangling symlink also counts as a file.
@@ -111,12 +117,52 @@ func (a *ActionSave) Run(ctx context.Context) error {
 		return nil
 	}
 
+	if inRegistry {
+		if err := createRegistry(filepath.Dir(path)); err != nil {
+			return err
+		}
+	}
+
 	// Profiles are sharable config meant to be committed; 0644 is intended.
 	if err := files.WriteFile(path, output, 0o644); err != nil {
 		return fmt.Errorf("could not write profile `%s`: %w", path, err)
 	}
 
 	a.Logger.Info("saved session", "session", captured.Name, "path", path)
+
+	return nil
+}
+
+// saveTarget returns the file to write: the registry profile of a positional name, or else --profile-path or `.glaze`.
+func saveTarget(cmd *cli.Command) (path string, inRegistry bool, err error) {
+	if name := profileName(cmd); name != "" {
+		path, err := files.RegistryProfilePath(name)
+		return path, true, err
+	}
+
+	path = cmd.String("profile-path")
+	if path == "" {
+		path = ".glaze"
+	}
+
+	return path, false, nil
+}
+
+// createRegistry makes the registry directory when it is missing; a registry write is the only thing that creates it.
+// The mode is 0700, the XDG rule for a directory that a program creates, because a profile can hold a secret in envs.
+func createRegistry(dir string) error {
+	err := files.CheckRegistryDir(dir)
+	if err == nil {
+		return nil
+	}
+
+	if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return fmt.Errorf("could not create the profile registry `%s`: %w", dir, err)
+	}
 
 	return nil
 }
