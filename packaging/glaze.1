@@ -1,6 +1,6 @@
 .\" The man page of glaze. cmd/glaze/man_test.go checks that it names every
 .\" command, every flag, the profile name and every environment variable.
-.TH GLAZE 1 "2026-11-07" "Glazier" "User Commands"
+.TH GLAZE 1 "2026-11-08" "Glazier" "User Commands"
 .SH NAME
 glaze \- manage tmux sessions, windows and panes from a profile
 .SH SYNOPSIS
@@ -55,6 +55,7 @@ the command before a session exists.
 .PP
 A profile name after
 .BR up ,
+.BR diff ,
 .B down
 or
 .B format
@@ -74,7 +75,8 @@ checks the syntax, not what the commands do.
 .B glaze
 needs tmux 3.2a or later on
 .BR PATH .
-.B up
+.BR up ,
+.B diff
 and
 .B save
 check the version first and stop with exit status 4 on an older tmux.
@@ -83,7 +85,11 @@ check the version first and stop with exit status 4 on an older tmux.
 Apply a profile. The command creates the session, the windows and the panes,
 runs the commands of each pane and attaches your terminal to the session. When
 a session with the same name runs, the command attaches to it and changes
-nothing.
+nothing. Run
+.B glaze diff
+to see what
+.B up \-\-clear
+would change.
 .PP
 A profile name selects the profile
 .IB name .glaze
@@ -101,6 +107,7 @@ First kill an existing session that has the same name.
 .B glaze
 refuses when it runs inside that session, because the kill would also end
 .BR glaze .
+On a session that does not run, the flag creates it without a warning.
 .TP
 .B \-\-keep\-on\-failure
 Keep the partly built session when
@@ -146,8 +153,85 @@ also with a profile name.
 Show what
 .B up \-\-clear
 would change in the session that runs under the name of the profile. The
-command reads the session and changes nothing. Exit status 5 means that the
-session differs from the profile or does not run.
+command reads the session and changes nothing. It writes the report to
+standard output, once, after it read the whole session.
+.PP
+The report is a tree: the session, each window with its position and each
+pane with its position. A window or pane without a difference is left out.
+Each difference has a mark. A
+.B ~
+line and a
+.B ?\&
+line show the live value first and the profile value second.
+.TP
+.B +
+The profile has this window or pane and the session does not.
+.B up \-\-clear
+adds it. The second column is the directory of the pane, or
+.B (current directory)
+for a pane that starts where
+.B up
+runs.
+.TP
+.B \-
+The session has this window or pane and the profile does not.
+.B up \-\-clear
+removes it. A window that tmux names after its program ends with
+.BR "(named by tmux)" .
+A pane with the default title of tmux prints
+.B (unnamed)
+in place of its name.
+.TP
+.B ~
+A value differs and
+.B up \-\-clear
+sets it: the session directory, the window order or a pane that
+.B glaze
+did not create.
+.TP
+.B ?\&
+A value differs, but tmux cannot tell if
+.B glaze
+set it or a user changed it. Examples are the focus, the current directory
+of a pane and a pane title. The line ends with the reason. A
+.B ?\&
+line does not change the exit status.
+.PP
+Windows match by name. A renamed window is one
+.B \-
+line and one
+.B +
+line. A profile window with
+.B automatic\-rename
+on matches the next live window that tmux named, and its name is not
+compared. Panes match by position. A pane at a matched position with the
+default title of tmux is a pane that
+.B glaze
+did not create.
+.B glaze
+titles every pane it creates. The focus is compared only where the profile
+declares it. The last declaration wins, as in
+.BR up .
+.PP
+The command does not compare commands, envs, hooks and options, because tmux
+does not report what
+.B glaze
+set. It does not compare size, adjust and layout, because tmux reports them
+in a form that changes with the terminal size. Two fixed lines in the report
+say so.
+.PP
+Exit status 0 means that the command counted no difference. Exit status 5
+means that the session differs from the profile or does not run. For a
+session that does not run, the report is a creation plan: every line is a
+.B +
+line. The last line of the report says how to apply the profile. Run
+.B glaze up \-\-clear
+from outside the session or from another session, because the kill ends
+every process in the session.
+.B \-\-debug
+is not a flag of this command. Use
+.B glaze \-\-log\-level debug diff
+to see each tmux command that the command runs.
 .TP
 .BR \-\-quiet ", " \-q
 Print nothing. The exit status carries the result.
@@ -510,7 +594,9 @@ with no server,
 .B ls \-\-profiles
 with no profile registry and
 .B down
-for a session that does not run also succeed.
+for a session that does not run and
+.B diff
+for a session that matches its profile also succeed.
 .TP
 .B 1
 A run failed, for example because tmux rejected an option value or
@@ -535,6 +621,12 @@ the profile registry cannot be used.
 cannot use tmux, for example because tmux is not on
 .BR PATH ,
 is older than 3.2a or the socket does not give access.
+.TP
+.B 5
+The session differs from the profile, or does not run. Only
+.B diff
+returns it. The report is on standard output. The status is a result, not a
+failure, so a script must test for 5 and not for a non\-zero status.
 .TP
 .B 130
 SIGINT stopped
@@ -636,6 +728,42 @@ Save the session that you are in into the profile registry as
 .RS
 .nf
 glaze save work
+.fi
+.RE
+.PP
+Show what
+.B up \-\-clear
+would change in the session of the profile
+.BR work :
+.PP
+.RS
+.nf
+glaze diff work
+.fi
+.RE
+.PP
+Show each tmux command that
+.B diff
+runs:
+.PP
+.RS
+.nf
+glaze \-\-log\-level debug diff work
+.fi
+.RE
+.PP
+Apply the profile only when the session differs from it. Test for exit
+status 5, because
+.B ||
+would also run
+.B up \-\-clear
+when
+.B diff
+fails:
+.PP
+.RS
+.nf
+glaze diff \-q work; [ $? \-eq 5 ] && glaze up \-\-clear work
 .fi
 .RE
 .PP

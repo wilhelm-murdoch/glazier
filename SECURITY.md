@@ -39,6 +39,8 @@ What glaze touches that matters for security:
   hooks, environment variables, and options precisely so secrets in a live
   session can't end up in a file you might commit. Anything that defeats that
   boundary - `save` output containing session environment values, for example -
-  is a valuable report.
+  is a valuable report. `glaze diff` does not compare or print commands, envs,
+  hooks or options, for the same reason. Output of `diff` that shows one of
+  them is in scope.
 - **No network exposure.** glaze talks only to a local tmux socket; it makes no
   network connections of its own.

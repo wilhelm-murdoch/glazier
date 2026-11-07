@@ -11,7 +11,7 @@ The module is separate from glaze (`e2e/go.mod`). The compiler thus stops a case
 | `harness/`                | The library: cases, processes, checks, tmux queries, golden files.      |
 | `cases/`                  | The cases. One file for each area of glaze.                             |
 | `fixtures/<area>/*.glaze` | The profiles that the cases use. Each one is a real, formatted profile. |
-| `golden/`                 | The expected output of commands such as `save`, `format` and errors.    |
+| `golden/`                 | The expected output of commands such as `save`, `format`, `diff` and errors. |
 | `expected-failures.txt`   | The baseline: the checks that are known to fail, with a reason.         |
 | `images/Dockerfile`       | One image for each tmux target.                                         |
 | `cmd/matrix/`             | The runner: it builds the images and runs the cases on each target.     |
@@ -141,6 +141,7 @@ func TestDirectories(t *testing.T) {
 | `c.Up(args...)`            | `glaze up --detached --socket-name <socket> args...`             |
 | `c.StartUp(opts, args...)` | `c.Up` in the background, for a case that signals glaze.         |
 | `c.Down(args...)`          | `glaze down --socket-name <socket> args...`                      |
+| `c.Diff(args...)`          | `glaze diff --socket-name <socket> args...`                      |
 | `c.Save(args...)`          | `glaze save --socket-name <socket> args...`                      |
 | `c.Ls(args...)`            | `glaze ls --socket-name <socket> args...`                        |
 | `c.Glaze(args...)`         | `glaze args...`                                                  |
@@ -159,7 +160,7 @@ Each command runs in a process group of its own. After its deadline (20 s, or `O
 
 Every process starts with an empty environment plus `PATH`, `HOME`, `TERM`, `SHELL`, `TMUX_TMPDIR` and the locale. A `TMUX` or `GLAZE_*` variable of the host never reaches a case. Use `Opts.Env` to add a variable.
 
-The profile registry of a case is `home/.config/glaze` in the work directory of the case, which is `.config/glaze` under the `HOME` of the case. The constant `registryHome` in `cases/helpers_test.go` names that directory. `XDG_CONFIG_HOME` and `GLAZE_REGISTRY` never reach a case. A case that needs another location sets the variable through `Opts.Env` with the `xdgConfigHome` or `glazeRegistry` helper. `c.Down` and `c.Ls` take no options, so a `down` or `ls` with a variable goes through `c.GlazeWith` with an explicit `--socket-name`.
+The profile registry of a case is `home/.config/glaze` in the work directory of the case, which is `.config/glaze` under the `HOME` of the case. The constant `registryHome` in `cases/helpers_test.go` names that directory. `XDG_CONFIG_HOME` and `GLAZE_REGISTRY` never reach a case. A case that needs another location sets the variable through `Opts.Env` with the `xdgConfigHome` or `glazeRegistry` helper. `c.Down`, `c.Diff` and `c.Ls` take no options, so a `down`, `diff` or `ls` with a variable goes through `c.GlazeWith` with an explicit `--socket-name`.
 
 ### Checks
 
@@ -265,7 +266,7 @@ The module follows the style of glaze, with these rules for cases:
 GLAZE_BIN=... go test ./cases/ -run TestFormat -update
 ```
 
-Read the diff of the golden files before you commit it.
+Read the diff of the golden files before you commit it. A golden file of `glaze diff` holds no host name and no socket name, so it is the same on every target.
 
 ## The baseline
 
