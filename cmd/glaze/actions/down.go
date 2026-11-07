@@ -2,12 +2,14 @@ package actions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -40,6 +42,11 @@ func NewDown(cmd *cli.Command, logLevel string) (*ActionDown, error) {
 	if cmd.String("session") == "" {
 		base, err := NewActionBase(cmd, logLevel)
 		if err != nil {
+			// A registry profile can be gone while its session still runs, so name the way to kill it.
+			if profileName(cmd) != "" && errors.Is(err, files.ErrProfileNotFound) {
+				return nil, fmt.Errorf("%w\n - to kill a session by its tmux name, use --session", err)
+			}
+
 			return nil, err
 		}
 
@@ -65,6 +72,12 @@ func (a *ActionDown) Run(ctx context.Context) error {
 	}
 
 	if !exists {
+		// A name built from path.* changes with the directory, so say how to reach the session from elsewhere.
+		if a.base != nil && a.base.Parser.SessionNameUsesPath() {
+			a.Logger.Info("nothing to do; session is not running; the name depends on the current directory, so from another directory use --session", "session", name)
+			return nil
+		}
+
 		a.Logger.Info("nothing to do; session is not running", "session", name)
 		return nil
 	}
@@ -89,6 +102,12 @@ func (a *ActionDown) sessionName() (string, error) {
 	ctx, ctxDiags := a.base.Parser.VariableContext(a.Command.StringSlice("var"), a.Command.String("var-file"), false)
 	if ctxDiags.HasErrors() {
 		return "", a.base.DiagnosticsManager.Report(ctxDiags)
+	}
+
+	// A nameless registry profile stops here, before any session is looked up.
+	a.base.evalContext = ctx
+	if err := a.base.checkRegistryName(); err != nil {
+		return "", err
 	}
 
 	name, diags := a.base.Parser.DecodeSessionName(spec.SessionName, ctx)

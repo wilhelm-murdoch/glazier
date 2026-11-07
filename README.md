@@ -34,6 +34,13 @@ Type this command in a directory that contains a `.glaze` file.
 $ glaze up
 ```
 
+Put a profile in the profile registry to apply it from any directory. The profile name is the file name without `.glaze`.
+```console
+$ mkdir -p ~/.config/glaze                 # create the profile registry
+$ cp .glaze ~/.config/glaze/work.glaze     # or write work.glaze there
+$ glaze up work                            # apply it from any directory
+```
+
 ### Why should I use this?
 
 Honestly, only you can answer that. I originally built this for myself because I was interested in learning how Terraform parses and validates their HCL specs. I'm also a heavy tmux user, so these two things lined up perfectly. This has been a slow-burning labour of love for the past couple years and it's finally in a state where I feel comfortable sharing it with others.
@@ -44,7 +51,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 
 ## Features
 - The syntax is HCL with Terraform-style diagnostics.
-- Glazier supports multiple `*.glaze` files. It resolves them from a flag, the current directory or `$GLAZE_PATH`.
+- Glazier supports multiple `*.glaze` files. It resolves them from a name in the profile registry, a flag, the current directory or `$GLAZE_PATH`.
 - Profiles declare typed `variable` blocks in the Terraform style. You read them through `var.`. Built-in `GLAZE_ENV_*` variables are also available.
 - Template functions give string manipulation.
 - Profiles set environment variables, hooks and tmux options.
@@ -171,10 +178,10 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success. `ls` with no tmux server and `down` for a session that does not run also succeed. |
+| `0` | Success. `ls` with no tmux server, `ls --profiles` with no profile registry and `down` for a session that does not run also succeed. |
 | `1` | A run failed, for example because tmux rejected an option value or Glazier could not write a profile. |
-| `2` | The command line is not correct, for example an unknown flag or a `--var` without `=`. |
-| `3` | The profile has errors, or Glazier cannot find the profile. |
+| `2` | The command line is not correct, for example an unknown flag, a `--var` without `=` or a profile name that is not valid. |
+| `3` | The profile has errors, Glazier cannot find the profile, the profile registry has no profile with that name or the profile registry cannot be used. |
 | `4` | Glazier cannot use tmux, for example because tmux is not on `PATH`, is older than 3.2a or the socket does not give access. Glazier does not treat this as "no server". |
 | `130` | SIGINT, for example Ctrl-C, stopped Glazier. |
 | `143` | SIGTERM stopped Glazier. |
@@ -189,14 +196,18 @@ $ source <(glaze completion zsh)                             # zsh: add this lin
 $ glaze completion fish > ~/.config/fish/completions/glaze.fish
 ```
 
+After `up`, `down` and `format`, Tab lists the names of the profile registry. See [Profile registry](#profile-registry). The fish script drops each candidate that starts with `glaze`, so fish does not complete a profile name such as `glaze-api`. The name still works when you type it.
+
 ### `glaze up`
 Apply a profile. The command creates the session, the windows and the panes.
 ```console
 $ glaze up                          # apply ./.glaze and attach
+$ glaze up work                     # apply ~/.config/glaze/work.glaze from any directory
 $ glaze up --detached               # create the session and do not attach
 $ glaze up --clear                  # first kill an existing session with the same name
 $ glaze up --profile-path ./gig.glaze
 $ glaze up --var district=watson --var fixer=wakako
+$ glaze up work --var district=watson
 ```
 
 > [!CAUTION]
@@ -211,9 +222,11 @@ $ glaze up --var district=watson --var fixer=wakako
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
 | `--socket-path` | The path to a custom tmux socket. |
 | `--socket-name` | The name of a custom tmux socket. |
-| `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
+| `--profile-path` | The path to a `.glaze` file. Not together with a profile name. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
+
+With a profile name, `up` reads `<name>.glaze` from the profile registry and nothing else. The session name comes from the `name` attribute in the profile, not from the profile name. A registry profile must set `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. The flags go before or after the name. A profile name and `--profile-path` together is a usage error. Glazier reads `--var-file` from the current directory. See [Profile registry](#profile-registry).
 
 A command or a hook can contain a secret from a variable. At the default log level, `up` shows only how many commands it runs in each pane. With `--debug`, it also shows the text of each command and hook, so check `--debug` output before you share it. Glazier never shows an env value: the log and the error messages show `<redacted>`. tmux gets each env value as a command argument, so another user on the same host can see it with `ps` for a moment.
 
@@ -227,14 +240,17 @@ Tear down the session that a profile describes. Glazier evaluates only the sessi
 
 ```console
 $ glaze down                        # kill the session that ./.glaze describes
+$ glaze down work                   # kill the session that ~/.config/glaze/work.glaze describes
 $ glaze down --var district=watson  # resolve an interpolated session name
 $ glaze down --session daemon-run   # kill by name; no profile is required
 ```
 
+A profile name selects the same profile in the profile registry as `up`, so `glaze down work` kills the session that `glaze up work` created. Do not combine a profile name with `--session`: the command is a usage error. When the profile is gone from the profile registry, use `--session` with the tmux session name.
+
 | Flag | Description |
 |------|-------------|
-| `--session` | The session to kill. The flag skips profile resolution. |
-| `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
+| `--session` | The session to kill. The flag skips profile resolution. Not together with a profile name. |
+| `--profile-path` | The path to a `.glaze` file. Not together with a profile name. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
@@ -250,8 +266,18 @@ daemon-run*  3        /home/v/runs/arasaka
 scratch      1        /tmp
 ```
 
+With `--profiles`, `ls` lists the profile registry instead of the sessions: the name and the path of each profile, sorted by name. The table shows no session name and no running marker, because `ls --profiles` reads no profile and starts no tmux.
+
+```console
+$ glaze ls --profiles
+NAME  PATH
+gig   /home/v/.config/glaze/gig.glaze
+work  /home/v/.config/glaze/work.glaze
+```
+
 | Flag | Description |
 |------|-------------|
+| `--profiles` | List the profiles in the profile registry instead of the sessions. The command reads no profile and needs no tmux. When there is no profile registry, it writes nothing to stdout, logs `no profile registry` and exits with code `0`. It warns about a file that `up` cannot use. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
 
 ### `glaze format`
@@ -260,8 +286,10 @@ Rewrite a profile into canonical HCL. The `--validate` flag validates the profil
 
 ```console
 $ glaze format                                   # format ./.glaze in place
+$ glaze format work                              # format ~/.config/glaze/work.glaze in place
 $ glaze format --stdout                          # print the formatted output; do not write
 $ glaze format --validate                        # decode and report diagnostics, then format
+$ glaze format --validate work                   # check a registry profile before the first up
 $ glaze format --validate --var region=us-east-1 # supply declared variables
 ```
 
@@ -269,9 +297,11 @@ $ glaze format --validate --var region=us-east-1 # supply declared variables
 |------|-------------|
 | `--stdout` | Print the formatted output. Do not write the file. |
 | `--validate` | Decode the profile and report diagnostics before the format step. |
-| `--profile-path` | The path to a `.glaze` file. See [Profile resolution](#profile-resolution). |
+| `--profile-path` | The path to a `.glaze` file. Not together with a profile name. See [Profile resolution](#profile-resolution). |
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
+
+A profile name formats the profile in the profile registry in place, and `--stdout` prints it instead. Run `glaze format --validate work` to check a new registry profile before the first `glaze up work`.
 
 The `--validate` flag enforces the full variable contract. A required variable must get a value from `--var` or from a default. A profile fails validation without one.
 
@@ -310,18 +340,73 @@ $ glaze save --force                # replace an existing ./.glaze
 >
 > Treat a saved profile as a scaffold. It recreates your layout. You add the commands, the environment variables and the options by hand. A saved raw layout string is exact but not easy to read. You can replace it with a named preset, for example `tiled` or `main-vertical`, in a profile that you edit by hand.
 
+## Profile registry
+
+The profile registry is one directory that holds profiles, one session per file. A profile name selects one file in it: `<name>.glaze`. `glaze up work` applies `~/.config/glaze/work.glaze` from any directory, `glaze down work` kills its session and `glaze format work` formats it. `glaze ls --profiles` lists the profile registry.
+
+Glazier finds the profile registry in this order:
+
+- `$GLAZE_REGISTRY`, when it is set. Glazier expands `~`. A relative value is an error.
+- `$XDG_CONFIG_HOME/glaze`, when `XDG_CONFIG_HOME` is set and absolute. Glazier ignores a relative value, as the XDG base directory specification says.
+- `~/.config/glaze`
+
+The rule is the same on macOS and Linux. An empty variable is the same as an unset variable. `GLAZE_PATH` is not the profile registry: it names the directory that holds one `.glaze` file for a command without a name. Glazier does not create the profile registry. Create it with `mkdir -p ~/.config/glaze`. The directory and a profile in it can be symlinks.
+
+There is no `new`, `edit` or `delete` command. Write a profile with your editor, for example `$EDITOR ~/.config/glaze/work.glaze`, and remove it with `rm`. Glazier never deletes a profile. Run `glaze format --validate work` to check a new profile.
+
+### Profile names
+
+A profile name contains only ASCII letters, digits, `.`, `_` and `-`. It starts with a letter, a digit or `_` and has at most 128 characters. Glazier rejects any other word with exit code `2`, and the message names the fix:
+
+| Word | Problem | Fix |
+|------|---------|-----|
+| `work.glaze` | A profile name has no `.glaze` suffix. | `glaze up work` or `--profile-path work.glaze` for a file. |
+| `a/b`, `../x`, `./work.glaze` | A profile name has no `/`. There are no nested names. | `--profile-path` for a file. |
+| `my work` | A profile name has no space. | `my-work` or `my_work`. |
+| `-1`, `.x`, `~x` | A profile name does not start with `-`, `.` or `~`. | Another name or `--profile-path` for a file. |
+
+Glazier reads a word such as `-x` as a flag, so `-x` is an unknown flag with exit code `2`.
+
+Glazier never reads a word as a path, and a profile name never reads the current directory or `$GLAZE_PATH`. When `work.glaze` exists in one of those places but not in the profile registry, the error says so.
+
+Use lower case. Glazier does not fold case: on a case-insensitive macOS volume, `glaze up Work` opens `work.glaze`, and on Linux it does not. `help` is an ordinary profile name, so `glaze up help` applies the profile `help`. Use `glaze up --help` or `glaze help up` for the help of a command.
+
+### The profile name and the session name
+
+The profile name is the file name without `.glaze`. The session name comes from the `name` attribute in the profile, and `glaze ls` shows it. A registry profile must set `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. Set `name` in each registry profile.
+
+### Directories in a registry profile
+
+A relative `starting_directory` is relative to the directory of the profile. For a registry profile, that directory is the profile registry, so `starting_directory = "src"` means `~/.config/glaze/src`. When that path does not exist, the diagnostic names the base directory. In a registry profile, write `~/...`, an absolute path, `path.pwd` or no `starting_directory`. A value of `.` is the profile registry itself. A session without `starting_directory` starts in the current directory, so `cd ~/src/api && glaze up dev` starts the session in `~/src/api`. Glazier reads `--var-file` from the current directory too.
+
+`path.pwd` is the current directory and `path.base` is its basename, so one registry profile can serve many projects:
+
+```hcl
+session {
+  name = "reg-${path.base}"
+}
+```
+
+`glaze up dev` from `~/src/api` creates the session `reg-api`, and `glaze down dev` from the same directory kills it. From another directory, `down` computes a different name, so use `glaze down --session reg-api`.
+
+### From tmuxinator, tmuxp or smug
+
+The profile name is the file name without the suffix, as in those tools. The session name is the `name` attribute inside the file. A path goes through `--profile-path`. `glaze work` is not a command: run `glaze up work`. When the profile registry holds `work.glaze`, the usage error for `glaze work` says so. An alias such as `alias g='glaze up'` gives you the short form. `GLAZE_REGISTRY` does what `TMUXINATOR_CONFIG` and `TMUXP_CONFIGDIR` do.
+
 ## Profile resolution
 
-`glaze` locates a profile in this order:
+With a profile name, `glaze` reads `<registry>/<name>.glaze` and nothing else. It does not search the current directory or `$GLAZE_PATH`. A profile name and `--profile-path` together is a usage error. See [Profile registry](#profile-registry).
+
+Without a name, `glaze` locates a profile in this order:
 
 - the `--profile-path <path>` value, if you supply it
 - `.glaze` in the current working directory
 - `$GLAZE_PATH/.glaze`
 
-`GLAZE_PATH` names the directory that holds `.glaze`, not the file. When a path names a directory where glaze expects a file, or the other way round, the error says so.
+A command without a name never reads the profile registry. `GLAZE_PATH` names the directory that holds `.glaze`, not the file. When a path names a directory where glaze expects a file, or the other way round, the error says so. When Glazier finds no profile, the error lists the places it searched and says that `glaze up <name>` reads the profile registry.
 
 > [!NOTE]
-> Glazier expands `~` and `~/` to your home directory in `--profile-path`, `$GLAZE_PATH` and `starting_directory`. It does not expand `~user`.
+> Glazier expands `~` and `~/` to your home directory in `--profile-path`, `$GLAZE_PATH`, `$GLAZE_REGISTRY` and `starting_directory`. It does not expand `~user`. It does not expand `~` in `XDG_CONFIG_HOME`, because your shell does that. A value that starts with a literal `~` is not absolute, so Glazier ignores it.
 
 ## Specification
 

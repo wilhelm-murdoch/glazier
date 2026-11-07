@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hcldec"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
@@ -43,6 +45,64 @@ func (p *Parser) DecodeSessionName(nameSpec hcldec.Spec, ctx *hcl.EvalContext) (
 	}
 
 	return decoders.DefaultGlazeElementName, diags
+}
+
+// CheckRegistryName rejects a registry profile whose session has no name, because the session would be named default and `glaze down <name>` could kill an unrelated session.
+// A profile without a session block passes, because the decode reports that error itself.
+func (p *Parser) CheckRegistryName(profileName string, ctx *hcl.EvalContext) hcl.Diagnostics {
+	if profileName == "" {
+		return nil
+	}
+
+	block, diags := p.sessionBlock()
+	if diags.HasErrors() {
+		return nil
+	}
+
+	name, _ := p.sessionNameExpressions(block)
+	if name != nil && !evaluatesNull(name.Expr, ctx) {
+		return nil
+	}
+
+	subject := block.DefRange
+	if name != nil {
+		subject = name.Range
+	}
+
+	return hcl.Diagnostics{{
+		Severity: hcl.DiagError,
+		Summary:  "Missing session name",
+		Detail: fmt.Sprintf("The profile `%s` is in the profile registry, so its session must have a name. Set name in the session block. "+
+			"Without it the session is named default, and `glaze down %s` could kill an unrelated session.", profileName, profileName),
+		Subject: subject.Ptr(),
+	}}
+}
+
+// SessionNameUsesPath reports whether the session name depends on path.pwd or path.base, so `down` can say that the name changes with the directory.
+func (p *Parser) SessionNameUsesPath() bool {
+	block, diags := p.sessionBlock()
+	if diags.HasErrors() {
+		return false
+	}
+
+	_, exprs := p.sessionNameExpressions(block)
+	for _, expr := range exprs {
+		for _, traversal := range expr.Variables() {
+			if traversal.RootName() == "path" {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// evaluatesNull reports whether expr gives null with ctx, which the decoder turns into the default session name.
+// An expression that ctx cannot evaluate is not null; the decode reports that error itself.
+func evaluatesNull(expr hcl.Expression, ctx *hcl.EvalContext) bool {
+	value, diags := expr.Value(ctx)
+
+	return !diags.HasErrors() && value.IsKnown() && value.IsNull()
 }
 
 // checkSessionName rejects a session name that calls random(), directly or through a local.

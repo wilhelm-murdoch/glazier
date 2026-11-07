@@ -1,5 +1,6 @@
-.\" The man page of glaze. cmd/glaze/man_test.go checks that it names every command and every flag.
-.TH GLAZE 1 "2026-11-06" "Glazier" "User Commands"
+.\" The man page of glaze. cmd/glaze/man_test.go checks that it names every
+.\" command, every flag, the profile name and every environment variable.
+.TH GLAZE 1 "2026-11-07" "Glazier" "User Commands"
 .SH NAME
 glaze \- manage tmux sessions, windows and panes from a profile
 .SH SYNOPSIS
@@ -15,20 +16,24 @@ glaze \- manage tmux sessions, windows and panes from a profile
 .IR path ]
 .RB [ \-\-var
 .IR key=value ]
+.RI [ name ]
 .br
 .B glaze down
 .RB [ \-\-session
-.IR name ]
+.IR session ]
+.RI [ name ]
 .br
 .B glaze ls
+.RB [ \-\-profiles ]
 .br
 .B glaze format
 .RB [ \-\-validate ]
 .RB [ \-\-stdout ]
+.RI [ name ]
 .br
 .B glaze save
 .RB [ \-\-session
-.IR name ]
+.IR session ]
 .RB [ \-\-stdout ]
 .br
 .B glaze completion
@@ -42,6 +47,14 @@ commands that run in a pane and the tmux options and hooks.
 .B glaze
 validates the profile before it starts tmux, so an error in the profile stops
 the command before a session exists.
+.PP
+A profile name after
+.BR up ,
+.B down
+or
+.B format
+selects a profile in the profile registry, from any directory. See
+.BR PROFILES .
 .PP
 A profile runs its commands and hooks in your shell, with your permissions.
 Read a profile from another person before you apply it.
@@ -61,6 +74,14 @@ Apply a profile. The command creates the session, the windows and the panes,
 runs the commands of each pane and attaches your terminal to the session. When
 a session with the same name runs, the command attaches to it and changes
 nothing.
+.PP
+A profile name selects the profile
+.IB name .glaze
+in the profile registry. The session name comes from the profile, not from the
+profile name. A profile in the profile registry must set the session name, or
+the command stops with exit status 3. Put the flags before or after the name.
+Do not give a profile name together with
+.BR \-\-profile\-path .
 .TP
 .B \-\-detached
 Create the session and do not attach to it.
@@ -97,6 +118,7 @@ The path to a
 .B .glaze
 file. See
 .BR PROFILES .
+Not together with a profile name.
 .TP
 .BI \-\-socket\-path " path"
 The path to a custom tmux socket.
@@ -108,12 +130,21 @@ The name of a custom tmux socket.
 Set a variable. The flag is repeatable.
 .TP
 .BI \-\-var\-file " path"
-An HCL file of variable values.
+An HCL file of variable values. The path is relative to the current directory,
+also with a profile name.
 .SS down
 Kill the session that a profile describes. The command evaluates only the
 session name of the profile. A session that does not run causes no error.
+.PP
+A profile name selects the same profile as for
+.BR up ,
+and the command reads the session name from that profile. Do not give a
+profile name together with
+.BR \-\-session .
+When the profile is gone from the profile registry, kill the session with
+.BR \-\-session .
 .TP
-.BI \-\-session " name"
+.BI \-\-session " session"
 Kill the session with this name. No profile is required.
 .TP
 .BI \-\-profile\-path " path"
@@ -132,6 +163,16 @@ List the sessions that run on the tmux server: the name, the number of
 windows, the path and a marker for an attached session. The command succeeds
 with an empty table when no server runs.
 .TP
+.B \-\-profiles
+List the profiles in the profile registry instead of the sessions: the name
+and the path of each one. The command reads only the profile registry and
+needs no tmux. With no profile registry, the command writes nothing to
+standard output, logs
+.B "no profile registry"
+and exits with status 0. It warns about an entry that
+.B up
+cannot use.
+.TP
 .BI \-\-socket\-path " path"
 .TQ
 .BI \-\-socket\-name " name"
@@ -141,6 +182,16 @@ As for
 Rewrite a profile in the canonical format. The command writes the file through
 a temporary file and one rename, and leaves a file that is already formatted
 as it is.
+.PP
+A profile name selects the profile in the profile registry and formats it in
+place. With
+.B \-\-stdout
+and
+.BR \-\-validate ,
+a profile name works as a path does.
+.B glaze format \-\-validate
+with a profile name checks a new profile in the profile registry without
+tmux.
 .TP
 .B \-\-stdout
 Print the formatted profile and do not write the file.
@@ -165,13 +216,14 @@ pane, and the layout of each window. The command does not save commands,
 environment variables, hooks or options, because tmux reports the whole state
 and not what a profile set, and a saved command would run again on each
 .BR up .
+The command takes no profile name.
 .TP
 .BI \-\-profile\-path " path"
 The path of the profile to write. The default is
 .B .glaze
 in the current directory. The command refuses an existing file.
 .TP
-.BI \-\-session " name"
+.BI \-\-session " session"
 Save the session with this name. The default is the session that
 .B glaze
 runs in.
@@ -198,8 +250,13 @@ or
 .BR pwsh .
 The script asks
 .B glaze
-for the commands and the flags on each Tab. The packages install the scripts.
-With a release zip or
+for the commands and the flags on each Tab. After
+.BR up ,
+.B down
+and
+.BR format ,
+Tab also lists the names of the profile registry. The packages install the
+scripts. With a release zip or
 .BR "go install" ,
 load the script yourself:
 .PP
@@ -213,7 +270,13 @@ glaze completion fish > ~/.config/fish/completions/glaze.fish
 .SS help
 Show the help of
 .B glaze
-or of one command.
+or of one command. Write
+.B glaze help up
+or
+.BR "glaze up \-\-help" .
+The word
+.B help
+after a command is a profile name.
 .SH GLOBAL OPTIONS
 Put a global option before the command.
 .TP
@@ -237,6 +300,16 @@ is a usage error.
 .BR \-\-help ", " \-h
 Show the help.
 .SH PROFILES
+A profile name after
+.BR up ,
+.B down
+or
+.B format
+selects the profile
+.IB name .glaze
+in the profile registry and nothing else: not the current directory and not
+.BR GLAZE_PATH .
+Without a profile name,
 .B glaze
 looks for a profile in this order: the
 .B \-\-profile\-path
@@ -252,6 +325,60 @@ or
 .B ~/
 at the start of a path expands to your home directory.
 .PP
+The profile registry is one directory:
+.B GLAZE_REGISTRY
+when it is set, else
+.B glaze
+in the directory that an absolute
+.B XDG_CONFIG_HOME
+names, else
+.BR ~/.config/glaze .
+The rule is the same on Linux and on macOS.
+.B glaze
+never creates the directory. Create it with
+.B mkdir \-p
+and put a profile in it.
+.B glaze ls \-\-profiles
+lists the profile registry.
+.PP
+A profile name has only ASCII letters, digits, full stops, underscores and
+hyphens. It does not start with a full stop, a hyphen or a tilde. It has no
+slash and no
+.B .glaze
+suffix, and it has at most 128 characters. Any other word is a usage error,
+and the message gives the fix. For a file outside the profile registry, use
+.BR \-\-profile\-path .
+.PP
+The profile name selects the file. The session name comes from the
+.B name
+attribute of the profile. A profile in the profile registry must set it:
+.BR up ,
+.B down
+and
+.B format \-\-validate
+stop with exit status 3 when it is missing. One profile can serve many
+projects, because
+.B path.base
+is the name of the current directory:
+.PP
+.RS
+.nf
+session {
+  name = "reg\-${path.base}"
+}
+.fi
+.RE
+.PP
+A relative
+.B starting_directory
+is relative to the directory of the profile. For a profile in the profile
+registry, that directory is the profile registry itself. Write an absolute
+path, a path that starts with
+.B ~
+or no
+.B starting_directory
+at all. Without one, the session starts in the current directory.
+.PP
 A minimal profile:
 .PP
 .RS
@@ -262,7 +389,7 @@ session {
 
   window {
     name   = "editor"
-    layout = "main-vertical"
+    layout = "main\-vertical"
 
     pane {
       name     = "edit"
@@ -281,12 +408,25 @@ The README of Glazier describes the full format: variables, locals, string
 functions, sizes, adjustments, options, hooks and the session environment.
 .SH ENVIRONMENT
 .TP
+.B GLAZE_REGISTRY
+The profile registry. It replaces the XDG rule. The value must be an absolute
+path, or a path that starts with
+.BR ~ .
+A relative value is an error.
+.TP
+.B XDG_CONFIG_HOME
+The directory that holds the profile registry
+.BR glaze .
+The default is
+.BR ~/.config .
+A relative value is ignored, with a warning.
+.TP
 .B GLAZE_PATH
 The directory that holds the
 .B .glaze
 file that
 .B glaze
-uses when the current directory has none.
+uses when the current directory has none. It is not the profile registry.
 .TP
 .BI GLAZE_ENV_ NAME
 The value of
@@ -312,7 +452,9 @@ and for the attach of
 .B 0
 Success.
 .B ls
-with no server and
+with no server,
+.B ls \-\-profiles
+with no profile registry and
 .B down
 for a session that does not run also succeed.
 .TP
@@ -322,15 +464,17 @@ A run failed, for example because tmux rejected an option value or
 could not write a profile.
 .TP
 .B 2
-The command line is not correct, for example an unknown flag or a
+The command line is not correct, for example an unknown flag, a
 .B \-\-var
 without
-.BR = .
+.B =
+or a profile name that is not valid.
 .TP
 .B 3
-The profile has errors, or
+The profile has errors,
 .B glaze
-cannot find the profile.
+cannot find the profile, the profile registry has no profile with that name or
+the profile registry cannot be used.
 .TP
 .B 4
 .B glaze
@@ -360,6 +504,19 @@ The profile in the current directory.
 The profile that
 .B glaze
 uses when the current directory has none.
+.TP
+.BI $GLAZE_REGISTRY/ NAME .glaze
+.TQ
+.BI $XDG_CONFIG_HOME/glaze/ NAME .glaze
+.TQ
+.BI ~/.config/glaze/ NAME .glaze
+The profile
+.I NAME
+in the profile registry.
+.B GLAZE_REGISTRY
+decides the directory when it is set, else an absolute
+.BR XDG_CONFIG_HOME ,
+else the home directory.
 .SH EXAMPLES
 Apply the profile in the current directory and attach:
 .PP
@@ -377,6 +534,24 @@ glaze up \-\-detached \-\-var district=watson
 .fi
 .RE
 .PP
+Apply the profile
+.B work.glaze
+from the profile registry, from any directory:
+.PP
+.RS
+.nf
+glaze up work
+.fi
+.RE
+.PP
+List the profiles in the profile registry:
+.PP
+.RS
+.nf
+glaze ls \-\-profiles
+.fi
+.RE
+.PP
 Check a profile without tmux:
 .PP
 .RS
@@ -385,11 +560,27 @@ glaze format \-\-validate \-\-profile\-path gig.glaze
 .fi
 .RE
 .PP
+Check a profile in the profile registry without tmux:
+.PP
+.RS
+.nf
+glaze format \-\-validate work
+.fi
+.RE
+.PP
 Save the session that you are in and print it:
 .PP
 .RS
 .nf
 glaze save \-\-stdout > saved.glaze
+.fi
+.RE
+.PP
+Kill the session of a profile in the profile registry:
+.PP
+.RS
+.nf
+glaze down work
 .fi
 .RE
 .PP
@@ -403,6 +594,6 @@ glaze down \-\-session api
 .SH SEE ALSO
 .BR tmux (1)
 .PP
-The README and the specification: https://github.com/wilhelm-murdoch/glazier
+The README and the specification: https://github.com/wilhelm\-murdoch/glazier
 .SH AUTHOR
 Wilhelm Murdoch <wilhelm@devilmayco.de>

@@ -61,8 +61,13 @@ func ResolveDirectory(path, baseDirectory string) (string, error) {
 	return filepath.Clean(path), nil
 }
 
-// ResolveProfilePath returns the profile from --profile-path, the current directory or GLAZE_PATH, in that order.
-func ResolveProfilePath(profilePath string) (string, error) {
+// ResolveProfilePath returns the registry profile of name, or else the profile from --profile-path, the current directory or GLAZE_PATH, in that order.
+// A name and a --profile-path together are rejected before this call, so the name wins here.
+func ResolveProfilePath(profilePath, name string) (string, error) {
+	if name != "" {
+		return resolveRegistryProfile(name)
+	}
+
 	if profilePath != "" {
 		expanded, err := ExpandPath(profilePath)
 		if err != nil {
@@ -117,7 +122,7 @@ func ResolveProfilePath(profilePath string) (string, error) {
 	}
 
 	return local, fmt.Errorf(
-		"%w:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable",
+		"%w:\n - tried using --profile-path\n - searching the current directory\n - looking up GLAZE_PATH environment variable\n - no profile name was given; `glaze up <name>` reads the profile registry and `glaze ls --profiles` lists it",
 		ErrProfileNotFound,
 	)
 }

@@ -1,0 +1,3 @@
+NAME   PATH
+alpha  $HOME/.config/glaze/alpha.glaze
+beta   $HOME/.config/glaze/beta.glaze

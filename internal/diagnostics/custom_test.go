@@ -158,6 +158,24 @@ func TestDirectoryDiagnostic(t *testing.T) {
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags[0].Detail, "could not expand `~`")
 	})
+
+	t.Run("names the base of a relative path that does not exist", func(t *testing.T) {
+		for _, relative := range []string{"nope", "./nope", "f.txt", "sub/nope"} {
+			diags := DirectoryDiagnostic("starting directory", cty.StringVal(relative), dir)
+			if assert.True(t, diags.HasErrors(), relative) {
+				assert.Equal(t, `The starting directory of "`+relative+`" does not exist or is not a directory. A relative path is relative to the directory of the profile, which is `+dir+`.`, diags[0].Detail, relative)
+			}
+		}
+	})
+
+	t.Run("keeps the one-sentence message for an absolute path, a ~ path and an empty value", func(t *testing.T) {
+		for _, value := range []string{filepath.Join(dir, "nope"), file, "~/nope", ""} {
+			diags := DirectoryDiagnostic("starting directory", cty.StringVal(value), dir)
+			if assert.True(t, diags.HasErrors(), value) {
+				assert.Equal(t, `The starting directory of "`+value+`" does not exist or is not a directory.`, diags[0].Detail, value)
+			}
+		}
+	})
 }
 
 func TestSizeDiagnostic(t *testing.T) {

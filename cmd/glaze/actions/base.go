@@ -22,11 +22,23 @@ type ActionBase struct {
 	Parser             *parser.Parser
 	ProfilePath        string
 	Logger             *logger.Logger
+
+	// ProfileName is the registry name that selected the profile, or "" for a path.
+	ProfileName string
+
+	// evalContext is the context of the last variable resolution, which the registry name check evaluates the name with.
+	evalContext *hcl.EvalContext
 }
 
 // NewActionBase finds and parses the profile, and returns the diagnostics as an error when the profile has syntax errors.
 func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
-	profilePath, err := files.ResolveProfilePath(cmd.String("profile-path"))
+	// The warning comes before the resolve, so a miss caused by the ignored variable shows it too.
+	log := newLogger(cmd, logLevel)
+	if profileName(cmd) != "" {
+		warnIgnoredConfigHome(log)
+	}
+
+	profilePath, err := resolveProfile(cmd)
 	if err != nil {
 		return nil, err
 	}
@@ -47,8 +59,40 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 		DiagnosticsManager: diagnostics.New(profilePath, parser.File),
 		Parser:             parser,
 		ProfilePath:        profilePath,
-		Logger:             newLogger(cmd, logLevel),
+		Logger:             log,
+		ProfileName:        profileName(cmd),
 	}, nil
+}
+
+// checkRegistryName reports the diagnostic for a registry profile without a session name, and nil for a path or a named profile.
+func (ba *ActionBase) checkRegistryName() error {
+	if diags := ba.Parser.CheckRegistryName(ba.ProfileName, ba.evalContext); diags.HasErrors() {
+		return ba.DiagnosticsManager.Report(diags)
+	}
+
+	return nil
+}
+
+// warnIgnoredConfigHome says when a relative XDG_CONFIG_HOME was ignored, so a user who set it does not look in the wrong place.
+func warnIgnoredConfigHome(log *logger.Logger) {
+	if value, ok := files.IgnoredConfigHome(); ok {
+		log.Warn("XDG_CONFIG_HOME is not absolute, so the profile registry is ~/.config/glaze", "XDG_CONFIG_HOME", value)
+	}
+}
+
+// profileName returns the positional profile name, or "" without one or for a command that the library has not run, such as one built by a test.
+func profileName(cmd *cli.Command) string {
+	if args := cmd.Args(); args != nil {
+		return args.First()
+	}
+
+	return ""
+}
+
+// resolveProfile finds the profile of cmd: the registry profile of a positional name, or else --profile-path, ./.glaze or GLAZE_PATH.
+// NewActionBase and the in-place check of format both use it, so they open the same file.
+func resolveProfile(cmd *cli.Command) (string, error) {
+	return files.ResolveProfilePath(cmd.String("profile-path"), profileName(cmd))
 }
 
 // newLogger returns the logger at logLevel, or at debug level when --debug is set.
@@ -74,6 +118,7 @@ func (ba *ActionBase) decodeProfile() (*decoders.Session, hcl.Diagnostics) {
 		return nil, diags
 	}
 
+	ba.evalContext = ctx
 	profile, decodeDiags := ba.Parser.Decode(spec.Session(ba.profileDir()), ctx)
 
 	return profile, diags.Extend(decodeDiags)

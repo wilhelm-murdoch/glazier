@@ -3,6 +3,7 @@ package actions
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
@@ -32,17 +34,74 @@ const validProfile = `session {
 }
 `
 
+// noNameProfile is a profile without a session name, so its session is named default.
+const noNameProfile = `session {
+  window {
+    name = "main"
+
+    pane {
+      name = "shell"
+    }
+  }
+}
+`
+
+// registryProfile starts its session in the directory of the profile, which is the profile registry for a name.
+const registryProfile = `session {
+  name               = "demo"
+  starting_directory = "."
+
+  window {
+    name = "main"
+
+    pane {
+      name = "shell"
+    }
+  }
+}
+`
+
+// templateProfile names its session after the current directory, so one registry profile serves every project.
+const templateProfile = `session {
+  name = "reg-${path.base}"
+
+  window {
+    name = "main"
+
+    pane {
+      name = "shell"
+    }
+  }
+}
+`
+
 // buildUp builds ActionUp from a profile and up flags as main does, with a recorder for tmux.
 // The real parser, diagnostics manager and tmux client run, but no tmux server.
 func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, *tmuxtest.Recorder) {
 	t.Helper()
 
-	rec := tmuxtest.New().Default(tmuxtest.Result{})
-	rec.Install(t)
-
 	dir := t.TempDir()
 	path := filepath.Join(dir, ".glaze")
 	assert.NoError(t, os.WriteFile(path, []byte(profile), 0o600))
+
+	return buildUpWith(t, append([]string{"--profile-path", path}, flagArgs(flags)...)...)
+}
+
+// buildUpByName writes the profile into a new profile registry and builds ActionUp for its name, as `glaze up <name>` does.
+func buildUpByName(t *testing.T, name, profile string, flags map[string]string) (*ActionUp, *tmuxtest.Recorder) {
+	t.Helper()
+
+	writeRegistryProfile(t, newRegistry(t), name, profile)
+
+	return buildUpWith(t, append([]string{name}, flagArgs(flags)...)...)
+}
+
+// buildUpWith builds ActionUp from the arguments of up, with a recorder for tmux. It skips the test when tmux is not installed.
+func buildUpWith(t *testing.T, args ...string) (*ActionUp, *tmuxtest.Recorder) {
+	t.Helper()
+
+	rec := tmuxtest.New().Default(tmuxtest.Result{})
+	rec.Install(t)
 
 	var (
 		action *ActionUp
@@ -67,17 +126,49 @@ func buildUp(t *testing.T, profile string, flags map[string]string) (*ActionUp, 
 		},
 	}
 
-	args := []string{"up", "--profile-path", path}
-	for k, v := range flags {
-		args = append(args, "--"+k, v)
-	}
-
-	assert.NoError(t, cmd.Run(context.Background(), args))
-	if actErr != nil {
+	assert.NoError(t, cmd.Run(context.Background(), append([]string{"up"}, args...)))
+	if errors.Is(actErr, tmux.ErrUnreachable) {
 		t.Skipf("could not construct ActionUp (tmux likely unavailable): %v", actErr)
 	}
 
+	require.NoError(t, actErr)
+
 	return action, rec
+}
+
+// inDeletedDirectory changes into a directory and deletes it, so that os.Getwd fails.
+// macOS still reports the path of a deleted directory, so the test is skipped there.
+func inDeletedDirectory(t *testing.T) {
+	t.Helper()
+
+	dir := filepath.Join(t.TempDir(), "gone")
+	require.NoError(t, os.Mkdir(dir, 0o700))
+	t.Chdir(dir)
+	require.NoError(t, os.Remove(dir))
+
+	if _, err := os.Getwd(); err == nil {
+		t.Skip("this system still reports the current directory after it is deleted")
+	}
+}
+
+// argAfter returns the argument that follows flag in a recorded tmux call, or "" when the flag is absent.
+func argAfter(args []string, flag string) string {
+	for i, arg := range args {
+		if arg == flag && i+1 < len(args) {
+			return args[i+1]
+		}
+	}
+
+	return ""
+}
+
+// newSession queues the replies for a new detached session with this name, as the end-to-end run test does.
+func newSession(rec *tmuxtest.Recorder, name string) {
+	rec.On("has-session", tmuxtest.Failure("can't find session: "+name))
+	rec.On("new", tmuxtest.Result{Output: "$1;" + name + ";/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
 }
 
 func TestActionUpDebugFlag(t *testing.T) {
@@ -525,5 +616,102 @@ func TestActionUpRun(t *testing.T) {
 `
 		up, _ := buildUp(t, bad, map[string]string{"detached": "true"})
 		assert.ErrorIs(t, up.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+	})
+}
+
+func TestActionUpByName(t *testing.T) {
+	t.Run("names the session after the profile, not after the profile name", func(t *testing.T) {
+		up, rec := buildUpByName(t, "work", validProfile, map[string]string{"detached": "true"})
+		newSession(rec, "demo")
+
+		assert.NoError(t, up.Run(context.Background()))
+
+		assert.Equal(t, "work", up.ProfileName)
+		assert.Contains(t, rec.ArgsFor("has-session"), "=demo")
+		assert.Equal(t, "demo", argAfter(rec.ArgsFor("new"), "-s"))
+		for _, call := range rec.Calls {
+			assert.NotContains(t, call, "work")
+			assert.NotContains(t, call, "=work")
+		}
+	})
+
+	t.Run("resolves a relative starting directory against the profile registry", func(t *testing.T) {
+		up, _ := buildUpByName(t, "work", registryProfile, nil)
+		registry := up.profileDir()
+		assert.Equal(t, filepath.Join(os.Getenv("HOME"), ".config", "glaze"), registry)
+
+		// The profile registry, not the current directory, is the base of a relative path.
+		t.Chdir(t.TempDir())
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+		assert.Equal(t, registry, profile.StartingDirectory)
+		assert.Equal(t, registry, profile.Windows[0].Panes[0].StartingDirectory)
+	})
+
+	t.Run("names a template session after the current directory", func(t *testing.T) {
+		project := filepath.Join(t.TempDir(), "proj")
+		assert.NoError(t, os.Mkdir(project, 0o700))
+		t.Chdir(project)
+
+		up, rec := buildUpByName(t, "reg", templateProfile, map[string]string{"detached": "true"})
+		newSession(rec, "reg-proj")
+
+		assert.NoError(t, up.Run(context.Background()))
+
+		// A session without starting_directory starts where glaze runs, so each project gets its own session.
+		assert.Equal(t, "reg-proj", argAfter(rec.ArgsFor("new"), "-s"))
+		assert.Equal(t, "proj", filepath.Base(argAfter(rec.ArgsFor("new"), "-c")))
+	})
+
+	t.Run("rejects a registry profile without a session name before any tmux call", func(t *testing.T) {
+		up, rec := buildUpByName(t, "work", noNameProfile, map[string]string{"detached": "true"})
+		newSession(rec, "default")
+		diags := captureDiagnostics(&up.ActionBase)
+
+		assert.ErrorIs(t, up.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+
+		// The session would be named default, so `down work` could kill an unrelated session.
+		assert.Contains(t, diags.String(), "Error: Missing session name")
+		assert.Contains(t, diags.String(), "on "+up.ProfilePath+" line 1")
+		assert.Contains(t, diags.String(), "The profile `work` is in the profile registry, so its session must have a")
+		assert.Contains(t, diags.String(), "`glaze down work` could kill an unrelated session")
+		assert.Empty(t, rec.Calls, "the check must come before tmux")
+	})
+
+	t.Run("rejects a registry profile with a null session name", func(t *testing.T) {
+		nullName := strings.Replace(validProfile, `name = "demo"`, "name = null", 1)
+		up, rec := buildUpByName(t, "work", nullName, map[string]string{"detached": "true"})
+		diags := captureDiagnostics(&up.ActionBase)
+
+		assert.ErrorIs(t, up.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+
+		assert.Contains(t, diags.String(), "Error: Missing session name")
+		assert.Contains(t, diags.String(), "on "+up.ProfilePath+" line 2")
+		assert.Empty(t, rec.Calls)
+	})
+
+	t.Run("runs a path profile without a session name as default", func(t *testing.T) {
+		up, rec := buildUp(t, noNameProfile, map[string]string{"detached": "true"})
+		newSession(rec, "default")
+		diags := captureDiagnostics(&up.ActionBase)
+
+		assert.NoError(t, up.Run(context.Background()))
+
+		assert.Equal(t, "default", argAfter(rec.ArgsFor("new"), "-s"))
+		assert.Empty(t, diags.String())
+	})
+
+	t.Run("runs from a deleted directory when the profile has a starting directory", func(t *testing.T) {
+		registry := newRegistry(t)
+		writeRegistryProfile(t, registry, "work", registryProfile)
+
+		inDeletedDirectory(t)
+
+		up, rec := buildUpWith(t, "work", "--detached=true")
+		newSession(rec, "demo")
+
+		assert.NoError(t, up.Run(context.Background()))
+		assert.Equal(t, registry, argAfter(rec.ArgsFor("new"), "-c"))
 	})
 }
