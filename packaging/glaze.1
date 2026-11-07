@@ -54,7 +54,12 @@ A profile name after
 .B down
 or
 .B format
-selects a profile in the profile registry, from any directory. See
+selects a profile in the profile registry, from any directory. A profile name
+after
+.B save
+writes the profile
+.IB name .glaze
+into the profile registry. See
 .BR PROFILES .
 .PP
 A profile runs its commands and hooks in your shell, with your permissions.
@@ -217,13 +222,23 @@ pane, and the layout of each window. The command does not save commands,
 environment variables, hooks or options, because tmux reports the whole state
 and not what a profile set, and a saved command would run again on each
 .BR up .
-A name writes the profile into the profile registry and creates the registry
-when it is missing.
+A profile name writes the profile
+.IB name .glaze
+into the profile registry. When the registry is missing, the command creates
+it with mode 0700, only after a successful capture and right before the
+write, so a failed capture creates nothing. With
+.BR \-\-stdout ,
+the command prints the profile and writes nothing. A profile name combines
+with
+.BR \-\-session ,
+which selects the session to save. Do not give a profile name together with
+.BR \-\-profile\-path .
 .TP
 .BI \-\-profile\-path " path"
 The path of the profile to write. The default is
 .B .glaze
-in the current directory. The command refuses an existing file.
+in the current directory. The command refuses an existing file. Not together
+with a profile name.
 .TP
 .BI \-\-session " session"
 Save the session with this name. The default is the session that
@@ -234,9 +249,7 @@ runs in.
 Print the profile and do not write a file.
 .TP
 .B \-\-force
-Replace the file at
-.B \-\-profile\-path
-when it exists.
+Replace the target profile when it exists.
 .TP
 .BI \-\-socket\-path " path"
 .TQ
@@ -311,7 +324,9 @@ selects the profile
 .IB name .glaze
 in the profile registry and nothing else: not the current directory and not
 .BR GLAZE_PATH .
-Without a profile name,
+A profile name after
+.B save
+writes that file. Without a profile name,
 .B glaze
 looks for a profile in this order: the
 .B \-\-profile\-path
@@ -336,10 +351,10 @@ in the directory that an absolute
 names, else
 .BR ~/.config/glaze .
 The rule is the same on Linux and on macOS.
-.B glaze
-never creates the directory. Create it with
-.B mkdir \-p
-and put a profile in it.
+Only
+.B save
+with a profile name creates the directory, with mode 0700. The other commands
+never create it.
 .B glaze ls \-\-profiles
 lists the profile registry.
 .PP
@@ -350,6 +365,12 @@ slash and no
 suffix, and it has at most 128 characters. Any other word is a usage error,
 and the message gives the fix. For a file outside the profile registry, use
 .BR \-\-profile\-path .
+Glazier does not fold case. On a case-insensitive macOS volume,
+.B glaze up Work
+opens work.glaze, and
+.B glaze save Work \-\-force
+replaces work.glaze and stores the file as Work.glaze. On Linux the two names
+are two files.
 .PP
 The profile name selects the file. The session name comes from the
 .B name
@@ -575,6 +596,15 @@ Save the session that you are in and print it:
 .RS
 .nf
 glaze save \-\-stdout > saved.glaze
+.fi
+.RE
+.PP
+Save the session that you are in into the profile registry as
+.BR work :
+.PP
+.RS
+.nf
+glaze save work
 .fi
 .RE
 .PP

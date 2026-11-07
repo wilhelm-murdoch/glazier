@@ -237,15 +237,17 @@ glaze format [name]     rewrite the profile to a canonical form
     --validate          validate first; diagnostics stop the rewrite
     --profile-path      as above
     --var / --var-file  as above
-glaze save              capture a live session into a profile
-    --session           session to save (the default is the current session)
-    --profile-path      output path (the default is .glaze)
+glaze save [name]       capture a live session into a profile
+    name                a profile to write in the profile registry (as above); creates the profile registry when it is missing
+    --session           session to save (the default is the current session; combines with a name)
+    --profile-path      output path (the default is .glaze; not together with a name)
     --stdout            print instead of writing
+    --force             replace the target profile when it exists
 ```
 
 The `up`, `down`, `ls` and `save` commands also accept `--socket-path` and `--socket-name`. These flags select a tmux server on a non-default socket. Each command accepts the global `--log-level` flag. The default log level is `info`.
 
-With a profile name, Glazier uses `<name>.glaze` in the profile registry and nothing else. A profile in the profile registry must set the session `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. Without a profile name, Glazier resolves the profile in this order: the `--profile-path` value, then `.glaze` in the current directory, then `$GLAZE_PATH/.glaze`.
+With a profile name, Glazier uses `<name>.glaze` in the profile registry and nothing else. `save` with a profile name writes that file and creates the profile registry when it is missing. A profile in the profile registry must set the session `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. Without a profile name, Glazier resolves the profile in this order: the `--profile-path` value, then `.glaze` in the current directory, then `$GLAZE_PATH/.glaze`.
 
 ---
 
