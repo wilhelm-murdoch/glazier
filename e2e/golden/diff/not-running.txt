@@ -1,0 +1,15 @@
++ session "every-kind"  $WORK/d
+  + window "edit" [1]
+    + pane "shell" [1]  $WORK/d
+    + pane "tests" [2]  $WORK/d
+  + window "run" [2]
+    + pane "server" [1]  $WORK/d
+    + pane "logs" [2]  $WORK/d/logs
+  + window "solo" [3]
+    + pane "f" [1]  $WORK/d
+  + window "misc" [4]
+    + pane "m" [1]  $WORK/d
+Plan: 11 to add, 0 to change, 0 to remove.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
+Run glaze up with the same profile and flags to create the session.

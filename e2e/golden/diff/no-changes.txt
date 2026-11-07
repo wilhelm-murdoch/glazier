@@ -1,0 +1,3 @@
+No changes. Session "save-rich" matches the profile in everything glaze can compare.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.

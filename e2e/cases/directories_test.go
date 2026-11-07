@@ -76,10 +76,14 @@ func TestDirectories(t *testing.T) {
 		c.SessionExists("session from a deleted directory", "deleted-with-directory")
 		c.OK(fromDeleted(c, "down", "--socket-name", c.Socket, "--profile-path", sessionDir), "down from a deleted directory")
 		c.SessionGone("down from a deleted directory kills the session", "deleted-with-directory")
+		c.ExitCode(fromDeleted(c, "diff", "--socket-name", c.Socket, "--profile-path", sessionDir), "diff from a deleted directory plans the session (exit 5)", exitDifferences)
 
 		r := fromDeleted(c, append(up, "--profile-path", noSessionDir)...)
 		c.Fails(r, "up without a session directory from a deleted directory")
 		c.Match("the error says the session needs a directory", "no starting_directory", r.Stderr)
+		r = fromDeleted(c, "diff", "--socket-name", c.Socket, "--profile-path", noSessionDir)
+		c.ExitCode(r, "diff without a session directory from a deleted directory exits 1", exitFailure)
+		c.Match("the diff error says the session needs a directory", "no starting_directory", r.Stderr)
 
 		r = fromDeleted(c, "format", "--validate", "--profile-path", usesPwd)
 		c.Fails(r, "path.pwd from a deleted directory")

@@ -345,7 +345,7 @@ func TestRegistry(t *testing.T) {
 		r = c.GlazeWith(xdgConfigHome(c.Path("parentfile")), "save", "--socket-name", c.Socket, "--session", "sv-reg", "work")
 		c.ExitCode(r, "save by name under a file exits 3", exitInvalidProfile)
 		c.Match("save by name under a file names the cause", "a part of its path is a file", r.Stderr)
-		c.Match("save by name under a file fails after the capture", "capturing", r.Stderr)
+		c.Match("save by name under a file fails after the capture", "saving session", r.Stderr)
 	})
 
 	harness.Run(t, "reg_registry_symlink", func(c *harness.Case) {
@@ -564,10 +564,14 @@ func TestRegistry(t *testing.T) {
 		c.SessionExists("session by name from a deleted directory", "reg-home-dir")
 		c.OK(fromDeleted(c, "down", "--socket-name", c.Socket, "with"), "down by name from a deleted directory")
 		c.SessionGone("down by name from a deleted directory kills the session", "reg-home-dir")
+		c.ExitCode(fromDeleted(c, "diff", "--socket-name", c.Socket, "with"), "diff by name from a deleted directory plans the session (exit 5)", exitDifferences)
 
 		r := fromDeleted(c, append(up, "without")...)
 		c.Fails(r, "up by name without a session directory from a deleted directory")
 		c.Match("the error says the session needs a directory", "no starting_directory", r.Stderr)
+		r = fromDeleted(c, "diff", "--socket-name", c.Socket, "without")
+		c.ExitCode(r, "diff by name without a session directory from a deleted directory exits 1", exitFailure)
+		c.Match("the diff error by name says the session needs a directory", "no starting_directory", r.Stderr)
 
 		r = fromDeleted(c, append(up, "pwd")...)
 		c.Fails(r, "path.base by name from a deleted directory")

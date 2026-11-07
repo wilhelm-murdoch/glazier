@@ -1,0 +1,22 @@
+# Three windows without focus, so a swap shows only the window order.
+session {
+  name = "order"
+  window {
+    name = "a"
+    pane {
+      name = "p"
+    }
+  }
+  window {
+    name = "b"
+    pane {
+      name = "q"
+    }
+  }
+  window {
+    name = "c"
+    pane {
+      name = "r"
+    }
+  }
+}

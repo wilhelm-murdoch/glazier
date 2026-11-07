@@ -430,6 +430,28 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not find session")
 	})
+
+	t.Run("names diff when it attaches to an existing session", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return true }))
+		up, rec := buildUp(t, validProfile, nil)
+		rec.On("has-session", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("attach", tmuxtest.Result{})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		existed, err := up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.True(t, existed)
+
+		// The line points at diff, because up leaves an existing session as it is.
+		assert.Contains(t, logs.String(), "level=INFO msg=\"attaching to existing session; run `glaze diff` to see what `up --clear` would change\" session=demo")
+	})
 }
 
 func TestActionUpRun(t *testing.T) {

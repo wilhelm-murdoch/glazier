@@ -1,0 +1,7 @@
+session "second-window"
+  ? focus: window "w2" [2], profile window "w1" [1]; a user can select another window
+  window "w1" [1]
+    ? focus: pane "c" [3], profile pane "b" [2]; a user can select another pane
+Plan: 0 to add, 0 to change, 0 to remove, 2 to check.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
