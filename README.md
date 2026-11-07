@@ -60,7 +60,7 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 
 ## Installation
 
-Each package installs the `glaze` binary, the shell completion for bash, zsh and fish, and `tmux` as a dependency.
+Each package installs the `glaze` binary, the man page, the shell completion for bash, zsh and fish, and `tmux` as a dependency.
 
 ### With Homebrew (macOS and Linux)
 ```console
@@ -87,7 +87,7 @@ $ apk add --allow-untrusted ./glazier-linux-amd64.apk
 
 ### From a GitHub release
 
-Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips, with the licence and the completion scripts for bash (`glaze.bash`), zsh (`_glaze`) and fish (`glaze.fish`). Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The checksums and the attestation also cover the `.deb`, `.rpm` and `.apk` packages.
+Each [GitHub release](https://github.com/wilhelm-murdoch/glazier/releases) includes prebuilt binaries for Linux and macOS on amd64 and arm64. The binaries are version-stamped and packaged as zips, with the licence, the man page (`glaze.1`) and the completion scripts for bash (`glaze.bash`), zsh (`_glaze`) and fish (`glaze.fish`). Each release also includes a `SHA256SUMS` file and a signed [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations). The checksums and the attestation also cover the `.deb`, `.rpm` and `.apk` packages.
 
 ```console
 $ unzip glaze-darwin-arm64.zip
@@ -126,7 +126,7 @@ $ make build
 > Glazier supports only Linux and macOS.
 
 ## Usage
-All subcommands have their own `--help` output.
+All subcommands have their own `--help` output. The packages also install a man page: `man glaze`.
 ```console
 $ glaze --help
 NAME:

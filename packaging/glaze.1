@@ -1,0 +1,408 @@
+.\" The man page of glaze. cmd/glaze/man_test.go checks that it names every command and every flag.
+.TH GLAZE 1 "2026-11-06" "Glazier" "User Commands"
+.SH NAME
+glaze \- manage tmux sessions, windows and panes from a profile
+.SH SYNOPSIS
+.B glaze
+.RI [ global\ options ]
+.I command
+.RI [ options ]
+.br
+.B glaze up
+.RB [ \-\-detached ]
+.RB [ \-\-clear ]
+.RB [ \-\-profile\-path
+.IR path ]
+.RB [ \-\-var
+.IR key=value ]
+.br
+.B glaze down
+.RB [ \-\-session
+.IR name ]
+.br
+.B glaze ls
+.br
+.B glaze format
+.RB [ \-\-validate ]
+.RB [ \-\-stdout ]
+.br
+.B glaze save
+.RB [ \-\-session
+.IR name ]
+.RB [ \-\-stdout ]
+.br
+.B glaze completion
+.IR shell
+.SH DESCRIPTION
+.B glaze
+creates a tmux session with its windows and panes from a profile. A profile is a
+.B .glaze
+file in the HCL language. It declares the session, each window, each pane, the
+commands that run in a pane and the tmux options and hooks.
+.B glaze
+validates the profile before it starts tmux, so an error in the profile stops
+the command before a session exists.
+.PP
+A profile runs its commands and hooks in your shell, with your permissions.
+Read a profile from another person before you apply it.
+.B glaze format \-\-validate
+checks the syntax, not what the commands do.
+.PP
+.B glaze
+needs tmux 3.2a or later on
+.BR PATH .
+.B up
+and
+.B save
+check the version first and stop with exit status 4 on an older tmux.
+.SH COMMANDS
+.SS up
+Apply a profile. The command creates the session, the windows and the panes,
+runs the commands of each pane and attaches your terminal to the session. When
+a session with the same name runs, the command attaches to it and changes
+nothing.
+.TP
+.B \-\-detached
+Create the session and do not attach to it.
+.TP
+.B \-\-clear
+First kill an existing session that has the same name.
+.B glaze
+refuses when it runs inside that session, because the kill would also end
+.BR glaze .
+.TP
+.B \-\-keep\-on\-failure
+Keep the partly built session when
+.B up
+fails, so that you can examine it. Without the flag,
+.B glaze
+removes the session that this run created.
+.TP
+.B \-\-debug
+Print each command that
+.B glaze
+sends to the tmux socket, and the text of each pane and session command. Env
+values show as
+.BR <redacted> .
+.TP
+.BI \-\-command\-timeout " duration"
+Stop the wait for the commands of a pane after this duration, for example
+.BR 5m .
+The default value
+.B 0
+waits with no limit.
+.TP
+.BI \-\-profile\-path " path"
+The path to a
+.B .glaze
+file. See
+.BR PROFILES .
+.TP
+.BI \-\-socket\-path " path"
+The path to a custom tmux socket.
+.TP
+.BI \-\-socket\-name " name"
+The name of a custom tmux socket.
+.TP
+.BI \-\-var " key=value"
+Set a variable. The flag is repeatable.
+.TP
+.BI \-\-var\-file " path"
+An HCL file of variable values.
+.SS down
+Kill the session that a profile describes. The command evaluates only the
+session name of the profile. A session that does not run causes no error.
+.TP
+.BI \-\-session " name"
+Kill the session with this name. No profile is required.
+.TP
+.BI \-\-profile\-path " path"
+.TQ
+.BI \-\-socket\-path " path"
+.TQ
+.BI \-\-socket\-name " name"
+.TQ
+.BI \-\-var " key=value"
+.TQ
+.BI \-\-var\-file " path"
+As for
+.BR up .
+.SS ls
+List the sessions that run on the tmux server: the name, the number of
+windows, the path and a marker for an attached session. The command succeeds
+with an empty table when no server runs.
+.TP
+.BI \-\-socket\-path " path"
+.TQ
+.BI \-\-socket\-name " name"
+As for
+.BR up .
+.SS format
+Rewrite a profile in the canonical format. The command writes the file through
+a temporary file and one rename, and leaves a file that is already formatted
+as it is.
+.TP
+.B \-\-stdout
+Print the formatted profile and do not write the file.
+.TP
+.B \-\-validate
+Check the profile and print each diagnostic. Every declared variable must get
+a value from
+.B \-\-var
+or from a default.
+.TP
+.BI \-\-profile\-path " path"
+.TQ
+.BI \-\-var " key=value"
+.TQ
+.BI \-\-var\-file " path"
+As for
+.BR up .
+.SS save
+Write the structure of a running session as a profile: the names of the
+session, the windows and the panes, their directories, the active window and
+pane, and the layout of each window. The command does not save commands,
+environment variables, hooks or options, because tmux reports the whole state
+and not what a profile set, and a saved command would run again on each
+.BR up .
+.TP
+.BI \-\-profile\-path " path"
+The path of the profile to write. The default is
+.B .glaze
+in the current directory. The command refuses an existing file.
+.TP
+.BI \-\-session " name"
+Save the session with this name. The default is the session that
+.B glaze
+runs in.
+.TP
+.B \-\-stdout
+Print the profile and do not write a file.
+.TP
+.B \-\-force
+Replace the file at
+.B \-\-profile\-path
+when it exists.
+.TP
+.BI \-\-socket\-path " path"
+.TQ
+.BI \-\-socket\-name " name"
+As for
+.BR up .
+.SS completion
+Print a completion script for
+.BR bash ,
+.BR zsh ,
+.B fish
+or
+.BR pwsh .
+The script asks
+.B glaze
+for the commands and the flags on each Tab. The packages install the scripts.
+With a release zip or
+.BR "go install" ,
+load the script yourself:
+.PP
+.RS
+.nf
+source <(glaze completion bash)        # add to ~/.bashrc
+source <(glaze completion zsh)         # add to ~/.zshrc
+glaze completion fish > ~/.config/fish/completions/glaze.fish
+.fi
+.RE
+.SS help
+Show the help of
+.B glaze
+or of one command.
+.SH GLOBAL OPTIONS
+Put a global option before the command.
+.TP
+.BI \-\-log\-level " level"
+One of
+.BR trace ,
+.BR debug ,
+.BR info ,
+.BR warning ,
+.B error
+or
+.BR critical .
+The default is
+.BR info .
+.TP
+.BR \-\-version ", " \-v
+Print the version, the stage, the commit and the build date.
+.B glaze up \-v
+is a usage error.
+.TP
+.BR \-\-help ", " \-h
+Show the help.
+.SH PROFILES
+.B glaze
+looks for a profile in this order: the
+.B \-\-profile\-path
+value,
+.B .glaze
+in the current directory, then
+.B .glaze
+in the directory that
+.B GLAZE_PATH
+names. A
+.B ~
+or
+.B ~/
+at the start of a path expands to your home directory.
+.PP
+A minimal profile:
+.PP
+.RS
+.nf
+session {
+  name              = "api"
+  starting_directory = "~/src/api"
+
+  window {
+    name   = "editor"
+    layout = "main-vertical"
+
+    pane {
+      name     = "edit"
+      commands = ["nvim ."]
+    }
+
+    pane {
+      name     = "shell"
+    }
+  }
+}
+.fi
+.RE
+.PP
+The README of Glazier describes the full format: variables, locals, string
+functions, sizes, adjustments, options, hooks and the session environment.
+.SH ENVIRONMENT
+.TP
+.B GLAZE_PATH
+The directory that holds the
+.B .glaze
+file that
+.B glaze
+uses when the current directory has none.
+.TP
+.BI GLAZE_ENV_ NAME
+The value of
+.BI env. NAME
+in a profile.
+.TP
+.B NO_COLOR
+When set,
+.B glaze
+writes no colour.
+.B glaze
+writes colour only when standard error is a terminal.
+.TP
+.B TMUX
+Set by tmux in a pane.
+.B glaze
+uses it to find the server and the session that it runs in, for
+.B save
+and for the attach of
+.BR up .
+.SH EXIT STATUS
+.TP
+.B 0
+Success.
+.B ls
+with no server and
+.B down
+for a session that does not run also succeed.
+.TP
+.B 1
+A run failed, for example because tmux rejected an option value or
+.B glaze
+could not write a profile.
+.TP
+.B 2
+The command line is not correct, for example an unknown flag or a
+.B \-\-var
+without
+.BR = .
+.TP
+.B 3
+The profile has errors, or
+.B glaze
+cannot find the profile.
+.TP
+.B 4
+.B glaze
+cannot use tmux, for example because tmux is not on
+.BR PATH ,
+is older than 3.2a or the socket does not give access.
+.TP
+.B 130
+SIGINT stopped
+.BR glaze .
+.TP
+.B 143
+SIGTERM stopped
+.BR glaze .
+.PP
+When
+.B up
+fails or a signal stops it,
+.B glaze
+removes the session that this run created.
+.SH FILES
+.TP
+.B .glaze
+The profile in the current directory.
+.TP
+.BI $GLAZE_PATH /.glaze
+The profile that
+.B glaze
+uses when the current directory has none.
+.SH EXAMPLES
+Apply the profile in the current directory and attach:
+.PP
+.RS
+.nf
+glaze up
+.fi
+.RE
+.PP
+Build a session in the background with a variable:
+.PP
+.RS
+.nf
+glaze up \-\-detached \-\-var district=watson
+.fi
+.RE
+.PP
+Check a profile without tmux:
+.PP
+.RS
+.nf
+glaze format \-\-validate \-\-profile\-path gig.glaze
+.fi
+.RE
+.PP
+Save the session that you are in and print it:
+.PP
+.RS
+.nf
+glaze save \-\-stdout > saved.glaze
+.fi
+.RE
+.PP
+Kill a session by name:
+.PP
+.RS
+.nf
+glaze down \-\-session api
+.fi
+.RE
+.SH SEE ALSO
+.BR tmux (1)
+.PP
+The README and the specification: https://github.com/wilhelm-murdoch/glazier
+.SH AUTHOR
+Wilhelm Murdoch <wilhelm@devilmayco.de>
