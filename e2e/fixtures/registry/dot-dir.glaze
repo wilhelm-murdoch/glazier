@@ -1,0 +1,8 @@
+# The session starts in ".", the directory of the profile, which is the profile registry.
+session {
+  name               = "reg-dot-dir"
+  starting_directory = "."
+  window {
+    pane {}
+  }
+}

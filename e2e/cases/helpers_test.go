@@ -22,6 +22,10 @@ const (
 // than the harness default, so that a hang fails the case quickly.
 const hangTimeout = 10 * time.Second
 
+// registryHome is the profile registry of a case, relative to the work
+// directory: `.config/glaze` under the HOME of the case.
+const registryHome = "home/.config/glaze"
+
 // fileLines returns a function that reads the lines of a file in the work
 // directory, joined with commas. Give it to EventuallyEqual.
 func fileLines(c *harness.Case, rel string) func() string {
@@ -91,4 +95,22 @@ func rawLayout(c *harness.Case, n int) string {
 func isSymlink(c *harness.Case, rel string) bool {
 	info, err := os.Lstat(c.Path(rel))
 	return err == nil && info.Mode()&os.ModeSymlink != 0
+}
+
+// xdgConfigHome returns the options of a command with XDG_CONFIG_HOME set to dir.
+func xdgConfigHome(dir string) harness.Opts {
+	return harness.Opts{Env: []string{"XDG_CONFIG_HOME=" + dir}}
+}
+
+// glazeRegistry returns the options of a command with GLAZE_REGISTRY set to dir.
+func glazeRegistry(dir string) harness.Opts {
+	return harness.Opts{Env: []string{"GLAZE_REGISTRY=" + dir}}
+}
+
+// fromDeleted runs glaze with args in a directory that the shell removes just
+// before the exec, so glaze starts without a current directory.
+func fromDeleted(c *harness.Case, args ...string) *harness.Result {
+	c.T().Helper()
+	c.Mkdir("gone")
+	return c.Exec(harness.Opts{Dir: "gone"}, "sh", append([]string{"-c", `rmdir "$PWD" && exec "$0" "$@"`, c.Env().Glaze}, args...)...)
 }

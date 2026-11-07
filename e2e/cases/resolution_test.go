@@ -65,6 +65,7 @@ func TestResolution(t *testing.T) {
 		c.Fails(r, "no profile anywhere")
 		c.Match("missing profile message mentions profile", `profile not found`, r.Stderr)
 		c.Match("missing profile message lists each place it searched", `--profile-path(.|\n)*current directory(.|\n)*GLAZE_PATH`, r.Stderr)
+		c.Match("missing profile message says how to use the registry", `ls --profiles`, r.Stderr)
 		c.NoServer("missing profile")
 	})
 

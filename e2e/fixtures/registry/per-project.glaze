@@ -1,0 +1,7 @@
+# One registry profile for many projects: the session is named after the current directory.
+session {
+  name = "reg-${path.base}"
+  window {
+    pane {}
+  }
+}

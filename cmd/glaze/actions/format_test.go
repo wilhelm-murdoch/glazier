@@ -18,6 +18,13 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 )
 
+// formatResult is what one run of the format command gives: the error of the run itself and the result of NewFormat.
+type formatResult struct {
+	action *ActionFormat
+	runErr error
+	err    error
+}
+
 // buildFormat constructs an ActionFormat from the given profile contents and
 // format-command flags, exercising the real parser and diagnostics manager.
 func buildFormat(t *testing.T, profile string, flags map[string]string) *ActionFormat {
@@ -37,10 +44,42 @@ func buildFormat(t *testing.T, profile string, flags map[string]string) *ActionF
 func newFormatAt(t *testing.T, path string, flags map[string]string) (*ActionFormat, error) {
 	t.Helper()
 
-	var (
-		action *ActionFormat
-		actErr error
-	)
+	return newFormatWith(t, append([]string{"--profile-path", path}, flagArgs(flags)...)...)
+}
+
+// newFormatWith runs NewFormat with the arguments of format, as main does, and returns its result.
+func newFormatWith(t *testing.T, args ...string) (*ActionFormat, error) {
+	t.Helper()
+
+	result := runNewFormat(args...)
+	assert.NoError(t, result.runErr)
+
+	return result.action, result.err
+}
+
+// newFormatWithTimeout is newFormatWith for a profile that can block the read, such as a FIFO: it fails the test when NewFormat does not return in five seconds.
+// The goroutine never touches t, because a call on t after the test fails on the timeout makes the test binary panic.
+func newFormatWithTimeout(t *testing.T, args ...string) (*ActionFormat, error) {
+	t.Helper()
+
+	done := make(chan formatResult, 1)
+	go func() { done <- runNewFormat(args...) }()
+
+	var result formatResult
+	select {
+	case result = <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewFormat blocked on the profile")
+	}
+
+	assert.NoError(t, result.runErr)
+
+	return result.action, result.err
+}
+
+// runNewFormat runs NewFormat with the arguments of format through a real cli.Command. It uses no t, so a goroutine can call it.
+func runNewFormat(args ...string) formatResult {
+	var result formatResult
 
 	cmd := &cli.Command{
 		Name: "format",
@@ -51,19 +90,14 @@ func newFormatAt(t *testing.T, path string, flags map[string]string) (*ActionFor
 			&cli.StringSliceFlag{Name: "var"},
 		},
 		Action: func(_ context.Context, c *cli.Command) error {
-			action, actErr = NewFormat(c, "critical")
+			result.action, result.err = NewFormat(c, "critical")
 			return nil
 		},
 	}
 
-	args := []string{"format", "--profile-path", path}
-	for k, v := range flags {
-		args = append(args, "--"+k+"="+v)
-	}
+	result.runErr = cmd.Run(context.Background(), append([]string{"format"}, args...))
 
-	assert.NoError(t, cmd.Run(context.Background(), args))
-
-	return action, actErr
+	return result
 }
 
 func TestNewActionBaseShowsTheSourceOfASyntaxError(t *testing.T) {
@@ -99,20 +133,11 @@ func TestActionFormatRun(t *testing.T) {
 		fifo := filepath.Join(t.TempDir(), "p.glaze")
 		assert.NoError(t, syscall.Mkfifo(fifo, 0o600))
 
-		// A read of a FIFO with no writer blocks, so the test fails after a timeout when the refusal comes after the read.
-		done := make(chan error, 1)
-		go func() {
-			_, err := newFormatAt(t, fifo, nil)
-			done <- err
-		}()
+		// A read of a FIFO with no writer blocks, so the test fails on the timeout when the refusal comes after the read.
+		_, err := newFormatWithTimeout(t, "--profile-path", fifo)
 
-		select {
-		case err := <-done:
-			assert.ErrorIs(t, err, files.ErrNotRegular)
-			assert.ErrorContains(t, err, "use --stdout")
-		case <-time.After(5 * time.Second):
-			t.Fatal("NewFormat blocked on the FIFO")
-		}
+		assert.ErrorIs(t, err, files.ErrNotRegular)
+		assert.ErrorContains(t, err, "use --stdout")
 	})
 
 	t.Run("rewrites the profile in place", func(t *testing.T) {
@@ -236,6 +261,139 @@ session {
 		})
 
 		assert.NoError(t, action.Run(context.Background()))
+	})
+}
+
+func TestActionFormatByName(t *testing.T) {
+	const messy = "session   {\n  name=\"demo\"\n}\n"
+	const formatted = "session {\n  name = \"demo\"\n}\n"
+
+	t.Run("rewrites the registry profile in place through a symlink and keeps its mode", func(t *testing.T) {
+		registry := newRegistry(t)
+		assert.NoError(t, os.MkdirAll(registry, 0o700))
+
+		target := filepath.Join(t.TempDir(), "work.glaze")
+		assert.NoError(t, os.WriteFile(target, []byte(messy), 0o600))
+		link := filepath.Join(registry, "work.glaze")
+		assert.NoError(t, os.Symlink(target, link))
+
+		action, err := newFormatWith(t, "work")
+		assert.NoError(t, err)
+		assert.Equal(t, link, action.ProfilePath)
+		assert.Equal(t, "work", action.ProfileName)
+
+		assert.NoError(t, action.Run(context.Background()))
+
+		info, err := os.Lstat(link)
+		assert.NoError(t, err)
+		assert.NotZero(t, info.Mode()&os.ModeSymlink, "the link must stay")
+
+		contents, err := os.ReadFile(target) //nolint:gosec // G304: a test file.
+		assert.NoError(t, err)
+		assert.Equal(t, formatted, string(contents))
+
+		info, err = os.Stat(target)
+		assert.NoError(t, err)
+		assert.Equal(t, os.FileMode(0o600), info.Mode().Perm())
+	})
+
+	t.Run("prints the registry profile with --stdout and leaves the file", func(t *testing.T) {
+		path := writeRegistryProfile(t, newRegistry(t), "work", messy)
+
+		action, err := newFormatWith(t, "--stdout", "work")
+		assert.NoError(t, err)
+
+		stdout := captureStdout(t, func() {
+			assert.NoError(t, action.Run(context.Background()))
+		})
+
+		assert.Equal(t, formatted, stdout)
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304: a test file.
+		assert.NoError(t, err)
+		assert.Equal(t, messy, string(contents))
+	})
+
+	t.Run("reports a diagnostic of a registry profile with the registry path", func(t *testing.T) {
+		bad := `session {
+  name = "demo"
+  window {
+    name   = "main"
+    layout = "noop"
+    pane { name = "shell" }
+  }
+}
+`
+		path := writeRegistryProfile(t, newRegistry(t), "work", bad)
+
+		action, err := newFormatWith(t, "--validate", "work")
+		assert.NoError(t, err)
+
+		var diags bytes.Buffer
+		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
+			&diags,
+			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
+			0,
+			false,
+		)
+
+		assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+		assert.Contains(t, diags.String(), "on "+path+" line 5")
+		assert.Contains(t, diags.String(), `layout = "noop"`)
+	})
+
+	t.Run("rejects a registry profile without a session name with --validate", func(t *testing.T) {
+		writeRegistryProfile(t, newRegistry(t), "work", noNameProfile)
+
+		action, err := newFormatWith(t, "--validate", "--stdout", "work")
+		assert.NoError(t, err)
+		diags := captureDiagnostics(&action.ActionBase)
+
+		stdout := captureStdout(t, func() {
+			assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
+		})
+
+		assert.Empty(t, stdout)
+		assert.Contains(t, diags.String(), "Error: Missing session name")
+		assert.Contains(t, diags.String(), "`glaze down work` could kill an unrelated session")
+	})
+
+	t.Run("formats a registry profile without a session name when it does not validate", func(t *testing.T) {
+		path := writeRegistryProfile(t, newRegistry(t), "work", "session   {\n  window {\n    pane {}\n  }\n}\n")
+
+		action, err := newFormatWith(t, "work")
+		assert.NoError(t, err)
+		assert.NoError(t, action.Run(context.Background()))
+
+		contents, err := os.ReadFile(path) //nolint:gosec // G304: a test file.
+		assert.NoError(t, err)
+		assert.Equal(t, "session {\n  window {\n    pane {}\n  }\n}\n", string(contents))
+	})
+
+	t.Run("validates a path profile without a session name", func(t *testing.T) {
+		action := buildFormat(t, noNameProfile, map[string]string{"validate": "true", "stdout": "true"})
+		diags := captureDiagnostics(&action.ActionBase)
+
+		stdout := captureStdout(t, func() {
+			assert.NoError(t, action.Run(context.Background()))
+		})
+
+		assert.Equal(t, noNameProfile, stdout)
+		assert.Empty(t, diags.String())
+	})
+
+	t.Run("refuses to format a pipe in the registry in place, before it reads it", func(t *testing.T) {
+		registry := newRegistry(t)
+		assert.NoError(t, os.MkdirAll(registry, 0o700))
+		fifo := filepath.Join(registry, "f.glaze")
+		assert.NoError(t, syscall.Mkfifo(fifo, 0o600))
+
+		// A read of a FIFO with no writer blocks, so the test fails on the timeout when the refusal comes after the read.
+		_, err := newFormatWithTimeout(t, "f")
+
+		assert.ErrorIs(t, err, files.ErrNotRegular)
+		assert.ErrorContains(t, err, "could not format `"+fifo+"` in place")
+		assert.ErrorContains(t, err, "use --stdout")
 	})
 }
 

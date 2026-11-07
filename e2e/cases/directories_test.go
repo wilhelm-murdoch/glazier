@@ -69,25 +69,19 @@ func TestDirectories(t *testing.T) {
 		c.Fixture("directories/deleted-path-pwd.glaze", "prof/pwd.glaze")
 		sessionDir, noSessionDir, usesPwd := c.Path("prof/with.glaze"), c.Path("prof/without.glaze"), c.Path("prof/pwd.glaze")
 
-		// fromDeleted runs glaze in a directory that the shell removes just before the exec.
-		fromDeleted := func(args ...string) *harness.Result {
-			c.Mkdir("gone")
-			return c.Exec(harness.Opts{Dir: "gone"}, "sh", append([]string{"-c", `rmdir "$PWD" && exec "$0" "$@"`, c.Env().Glaze}, args...)...)
-		}
-
 		up := []string{"up", "--detached", "--socket-name", c.Socket}
 
-		c.OK(fromDeleted("format", "--validate", "--profile-path", sessionDir), "format --validate from a deleted directory")
-		c.OK(fromDeleted(append(up, "--profile-path", sessionDir)...), "up from a deleted directory")
+		c.OK(fromDeleted(c, "format", "--validate", "--profile-path", sessionDir), "format --validate from a deleted directory")
+		c.OK(fromDeleted(c, append(up, "--profile-path", sessionDir)...), "up from a deleted directory")
 		c.SessionExists("session from a deleted directory", "deleted-with-directory")
-		c.OK(fromDeleted("down", "--socket-name", c.Socket, "--profile-path", sessionDir), "down from a deleted directory")
+		c.OK(fromDeleted(c, "down", "--socket-name", c.Socket, "--profile-path", sessionDir), "down from a deleted directory")
 		c.SessionGone("down from a deleted directory kills the session", "deleted-with-directory")
 
-		r := fromDeleted(append(up, "--profile-path", noSessionDir)...)
+		r := fromDeleted(c, append(up, "--profile-path", noSessionDir)...)
 		c.Fails(r, "up without a session directory from a deleted directory")
 		c.Match("the error says the session needs a directory", "no starting_directory", r.Stderr)
 
-		r = fromDeleted("format", "--validate", "--profile-path", usesPwd)
+		r = fromDeleted(c, "format", "--validate", "--profile-path", usesPwd)
 		c.Fails(r, "path.pwd from a deleted directory")
 		c.Match("the error names the current directory", "Current directory not available", r.Stderr)
 	})
