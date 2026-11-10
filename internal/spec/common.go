@@ -18,8 +18,10 @@ var (
 		Func: diagnostics.HooksDiagnostic,
 	}
 
+	// Options maps a tmux option name to a value; no value can be null.
 	Options = noNulls("options", cty.Map(cty.String))
 
+	// Name is the plain name attribute that nameSpec and SessionName wrap with a check.
 	Name = &hcldec.AttrSpec{
 		Name: "name",
 		Type: cty.String,
@@ -80,8 +82,8 @@ func noNulls(name string, ty cty.Type) hcldec.Spec {
 	}
 }
 
-// sizeSpec returns a string attribute for a size or an amount, which validate checks. A required one must not be null.
-func sizeSpec(name string, required bool, validate func(field string, value cty.Value) hcl.Diagnostics) hcldec.Spec {
+// stringAttr returns a string attribute, which validate checks. A required one must not be null.
+func stringAttr(name string, required bool, validate func(field string, value cty.Value) hcl.Diagnostics) hcldec.Spec {
 	return &hcldec.ValidateSpec{
 		Wrapped: &hcldec.AttrSpec{
 			Name:     name,

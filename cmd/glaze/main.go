@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -16,6 +17,15 @@ import (
 
 	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/logger"
+	"github.com/wilhelm-murdoch/glazier/pkg/files"
+)
+
+// The help template has no section for arguments, so the descriptions explain the positional name.
+const (
+	registryDescription = "A name selects <name>.glaze in the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze.\n" +
+		"Without a name, glaze uses --profile-path, ./.glaze or $GLAZE_PATH/.glaze."
+	saveDescription = "A name writes <name>.glaze into the profile registry: $GLAZE_REGISTRY, else $XDG_CONFIG_HOME/glaze, else ~/.config/glaze. It creates the profile registry when it is missing.\n" +
+		"Without a name, save writes --profile-path or ./.glaze."
 )
 
 var (
@@ -28,7 +38,7 @@ var (
 	// Date describes the date of the current build.
 	Date = unstampedDate
 
-	// Release describes the stage of the current build, eg; development, production, etc...
+	// Stage describes the stage of the current build, for example development or production.
 	Stage = "unknown"
 )
 
@@ -36,19 +46,18 @@ var (
 // format; it is shared by every command that accepts variables.
 func validateVarFlags(value []string) error {
 	for _, variable := range value {
-		if !strings.Contains(variable, "=") {
+		key, _, ok := strings.Cut(variable, "=")
+		if !ok {
 			return fmt.Errorf(
 				"the --var `%s` does not match the required format of `key=value`",
 				variable,
 			)
 		}
 
-		parts := strings.SplitN(variable, "=", 2)
-
-		if strings.HasSuffix(parts[0], " ") {
+		if strings.HasSuffix(key, " ") {
 			return fmt.Errorf(
 				"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
-				parts[0],
+				key,
 			)
 		}
 	}
@@ -62,7 +71,7 @@ func variableFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:      "var",
-			Usage:     "set multiple variables in the form of \"key=value\"",
+			Usage:     "set a variable as key=value; repeat the flag for each variable",
 			Validator: validateVarFlags,
 		},
 		&cli.StringFlag{
@@ -91,7 +100,7 @@ func socketFlags() []cli.Flag {
 func profilePathFlag() cli.Flag {
 	return &cli.StringFlag{
 		Name:  "profile-path",
-		Usage: "specify a path to a target glaze definition file",
+		Usage: "specify the path to a profile",
 	}
 }
 
@@ -119,7 +128,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s\n", err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return exitCode(err)
 	}
 
@@ -150,10 +159,14 @@ type action interface {
 	Run(ctx context.Context) error
 }
 
-// actionFor returns the CLI action that builds a subcommand with build and runs it.
+// actionFor returns the CLI action that checks the positional words, builds a subcommand with build and runs it.
 // logLevel is a pointer, because the global flag is parsed after newApp returns.
-func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string) cli.ActionFunc {
+func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *string, takesName bool) cli.ActionFunc {
 	return func(ctx context.Context, cmd *cli.Command) error {
+		if err := checkArgs(cmd, takesName); err != nil {
+			return err
+		}
+
 		a, err := build(cmd, *logLevel)
 		if err != nil {
 			return err
@@ -163,44 +176,81 @@ func actionFor[A action](build func(*cli.Command, string) (A, error), logLevel *
 	}
 }
 
+// checkArgs rejects a word that the command does not take, a word that is not a profile name, a second word and a name next to --profile-path or --session.
+// It runs inside the Action, which the library never calls in completion mode, so a bad word cannot break a Tab.
+func checkArgs(cmd *cli.Command, takesName bool) error {
+	// A command built outside the library, for example by a test, has no Args at all.
+	args := cmd.Args()
+	if args == nil || !args.Present() {
+		return nil
+	}
+
+	help := fmt.Sprintf("(see `glaze %s --help`)", cmd.Name)
+	if !takesName {
+		return fmt.Errorf("%w: `glaze %s` takes no argument; got `%s` %s", errUsage, cmd.Name, args.First(), help)
+	}
+
+	// The shape comes first: a word such as `-1` ends the flag parsing, so a flag after it is not the cause.
+	if err := files.ValidateProfileName(args.First()); err != nil {
+		return fmt.Errorf("%w: %w %s", errUsage, err, help)
+	}
+
+	if args.Len() > 1 {
+		return fmt.Errorf("%w: `glaze %s` takes one name; got `%s` and `%s` %s", errUsage, cmd.Name, args.Get(0), args.Get(1), help)
+	}
+
+	// The value and not IsSet, so `--profile-path=` with nothing after it does not count as a path.
+	if cmd.String("profile-path") != "" {
+		return fmt.Errorf("%w: give a name or --profile-path, not both %s", errUsage, help)
+	}
+
+	// On down the flag and the name select the same thing; on save the flag names the session and the name names the file.
+	if cmd.Name == "down" && cmd.String("session") != "" {
+		return fmt.Errorf("%w: give a name or --session, not both %s", errUsage, help)
+	}
+
+	return nil
+}
+
 // newApp returns the glaze command with all of its subcommands.
 func newApp() *cli.Command {
 	var logLevel string
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
-		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
+		_, _ = fmt.Fprintf(ctx.Root().Writer, "Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
 	}
 
 	// The flag belongs to glaze itself, so `glaze up -v` is a usage error and does not start a session.
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
-		Usage:   "print only the version",
+		Usage:   "print the version, the stage, the commit and the build date",
 		Aliases: []string{"v"},
 		Local:   true,
 	}
 
-	currentYear, _, _ := time.Now().Date()
-
 	app := &cli.Command{
 		Name:    "glaze",
-		Usage:   "easily manage tmux sessions, windows and panes",
+		Usage:   "manage tmux sessions, windows and panes from a profile",
 		Version: Version,
 		// A plain string, because the help template prints an author with %v, which shows a struct field by field.
 		Authors:   []any{"Wilhelm Murdoch <wilhelm@devilmayco.de>"},
-		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
+		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, time.Now().Year()),
 		// glaze picks the exit code itself, so the CLI library must not exit the process.
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		OnUsageError:   usageError,
 		Action:         rootAction,
+		// The library hides its `completion` command; glaze shows it, so `--help` tells a user that it exists.
+		EnableShellCompletion:           true,
+		ConfigureShellCompletionCommand: configureCompletion,
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:        "log-level",
 				Value:       "info",
-				Usage:       "specify a log level",
+				Usage:       "set the log level: trace, debug, info, warning, error or critical",
 				Destination: &logLevel,
 				Validator: func(value string) error {
 					if _, ok := logger.FriendlyToInternal[value]; !ok {
-						return fmt.Errorf("specified an invalid log level value: %s", value)
+						return fmt.Errorf("`%s` is not a log level; use one of %s", value, strings.Join(slices.Sorted(maps.Keys(logger.FriendlyToInternal)), ", "))
 					}
 
 					return nil
@@ -209,8 +259,11 @@ func newApp() *cli.Command {
 		},
 		Commands: []*cli.Command{
 			{
-				Name:  "up",
-				Usage: "apply the specified glaze profile",
+				Name:          "up",
+				Usage:         "apply the specified glaze profile",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.BoolFlag{
 						Name:  "detached",
@@ -222,7 +275,7 @@ func newApp() *cli.Command {
 					},
 					&cli.BoolFlag{
 						Name:  "debug",
-						Usage: "prints a list of all commands sent to the specified tmux socket",
+						Usage: "print each command sent to the tmux socket and the text of each pane and session command",
 					},
 					&cli.BoolFlag{
 						Name:  "keep-on-failure",
@@ -234,11 +287,14 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: actionFor(actions.NewUp, &logLevel),
+				Action: actionFor(actions.NewUp, &logLevel, true),
 			},
 			{
-				Name:  "down",
-				Usage: "kill the session described by the specified glaze profile",
+				Name:          "down",
+				Usage:         "kill the session described by the specified glaze profile",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "session",
@@ -246,37 +302,47 @@ func newApp() *cli.Command {
 					},
 					profilePathFlag(),
 				}, socketFlags(), variableFlags()),
-				Action: actionFor(actions.NewDown, &logLevel),
+				Action: actionFor(actions.NewDown, &logLevel, true),
 			},
 			{
-				Name:   "ls",
-				Usage:  "list the sessions running on the target tmux server",
-				Flags:  socketFlags(),
-				Action: actionFor(actions.NewLs, &logLevel),
+				Name:  "ls",
+				Usage: "list the sessions running on the target tmux server",
+				Flags: slices.Concat([]cli.Flag{
+					&cli.BoolFlag{
+						Name:  "profiles",
+						Usage: "list the profiles in the profile registry instead of the sessions",
+					},
+				}, socketFlags()),
+				Action: actionFor(actions.NewLs, &logLevel, false),
 			},
 			{
-				Name:  "format",
-				Usage: "rewrites the target glaze profile file to a canonical format",
+				Name:          "format",
+				Usage:         "rewrite a profile in the canonical format",
+				ArgsUsage:     "[name]",
+				Description:   registryDescription,
+				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.BoolFlag{
 						Name:  "stdout",
-						Usage: "writes the formatted glaze output to your terminal",
+						Usage: "writes the formatted profile to your terminal",
 					},
 					&cli.BoolFlag{
 						Name:  "validate",
-						Usage: "validates the given glaze definition file and returns any diagnostics",
+						Usage: "validates the given profile and returns any diagnostics",
 					},
 					profilePathFlag(),
 				}, variableFlags()),
-				Action: actionFor(actions.NewFormat, &logLevel),
+				Action: actionFor(actions.NewFormat, &logLevel, true),
 			},
 			{
-				Name:  "save",
-				Usage: "running this within a tmux session will save its current state to the specified glaze profile",
+				Name:        "save",
+				Usage:       "write the structure of a running session as a profile",
+				ArgsUsage:   "[name]",
+				Description: saveDescription,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "profile-path",
-						Usage: "path the saved glaze definition file should be written to (defaults to .glaze)",
+						Usage: "path the saved profile should be written to (defaults to .glaze)",
 					},
 					&cli.StringFlag{
 						Name:  "session",
@@ -284,22 +350,24 @@ func newApp() *cli.Command {
 					},
 					&cli.BoolFlag{
 						Name:  "stdout",
-						Usage: "writes the saved glaze output to your terminal instead of a file",
+						Usage: "writes the saved profile to your terminal instead of a file",
 					},
 					&cli.BoolFlag{
 						Name:  "force",
-						Usage: "replaces the file at --profile-path when it exists",
+						Usage: "replaces the target profile when it exists",
 					},
 				}, socketFlags()),
-				Action: actionFor(actions.NewSave, &logLevel),
+				Action: actionFor(actions.NewSave, &logLevel, true),
 			},
 		},
 	}
 
 	// A --var value such as `tags=one,two` can contain commas, so turn off the comma split on every command.
+	// A profile can be named help, so no leaf gets a help subcommand; --help and `glaze help <command>` still work.
 	for _, sub := range app.Commands {
 		sub.DisableSliceFlagSeparator = true
 		sub.OnUsageError = usageError
+		sub.HideHelpCommand = true
 	}
 
 	return app

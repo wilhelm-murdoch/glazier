@@ -3,7 +3,7 @@ package diagnostics
 import (
 	"fmt"
 	"maps"
-	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strconv"
@@ -94,16 +94,22 @@ func DirectoryDiagnostic(field string, value cty.Value, baseDirectory string) hc
 		return nil
 	}
 
-	path, err := files.ResolveDirectory(value.AsString(), baseDirectory)
+	dir := value.AsString()
+	path, err := files.ResolveDirectory(dir, baseDirectory)
 	if err != nil {
-		return Invalid(field, `The %s of "%s" is not valid: %s.`, field, value.AsString(), err)
+		return Invalid(field, `The %s of "%s" is not valid: %s.`, field, dir, err)
 	}
 
-	if info, err := os.Stat(path); value.AsString() != "" && err == nil && info.IsDir() {
+	if dir != "" && files.IsDir(path) {
 		return nil
 	}
 
-	return Invalid(field, `The %s of "%s" does not exist or is not a directory.`, field, value.AsString())
+	// A registry profile lives far from the project, so a relative path needs its base in the message.
+	if dir != "" && !filepath.IsAbs(dir) && !strings.HasPrefix(dir, "~") {
+		return Invalid(field, `The %s of "%s" does not exist or is not a directory. A relative path is relative to the directory of the profile, which is %s.`, field, dir, baseDirectory)
+	}
+
+	return Invalid(field, `The %s of "%s" does not exist or is not a directory.`, field, dir)
 }
 
 // parseSize returns the number in a size and whether it is a percentage. ok is false when the value is not a size.

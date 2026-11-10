@@ -19,7 +19,7 @@ type ActionFormat struct {
 // It refuses an in-place format of a pipe or a device before it reads it, because a read can block and a write cannot replace it.
 func NewFormat(cmd *cli.Command, logLevel string) (*ActionFormat, error) {
 	if !cmd.Bool("stdout") {
-		if path, err := files.ResolveProfilePath(cmd.String("profile-path")); err == nil && !files.IsRegular(path) {
+		if path, err := resolveProfile(cmd); err == nil && !files.IsRegular(path) {
 			return nil, fmt.Errorf("could not format `%s` in place: %w; use --stdout", path, files.ErrNotRegular)
 		}
 	}

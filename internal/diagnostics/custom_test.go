@@ -1,7 +1,6 @@
 package diagnostics
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -141,10 +140,6 @@ func TestDirectoryDiagnostic(t *testing.T) {
 
 	assert.Empty(t, DirectoryDiagnostic("starting directory", cty.NullVal(cty.String), dir))
 
-	for _, invalid := range []string{"", file, "f.txt", filepath.Join(dir, "nope"), "nope", "~/nope"} {
-		assert.True(t, DirectoryDiagnostic("starting directory", cty.StringVal(invalid), dir).HasErrors(), invalid)
-	}
-
 	t.Run("says that glaze does not expand ~user", func(t *testing.T) {
 		diags := DirectoryDiagnostic("starting directory", cty.StringVal("~root/x"), dir)
 		assert.True(t, diags.HasErrors())
@@ -157,6 +152,24 @@ func TestDirectoryDiagnostic(t *testing.T) {
 		diags := DirectoryDiagnostic("starting directory", cty.StringVal("~/proj"), dir)
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags[0].Detail, "could not expand `~`")
+	})
+
+	t.Run("names the base of a relative path that does not exist", func(t *testing.T) {
+		for _, relative := range []string{"nope", "./nope", "f.txt", "sub/nope"} {
+			diags := DirectoryDiagnostic("starting directory", cty.StringVal(relative), dir)
+			if assert.True(t, diags.HasErrors(), relative) {
+				assert.Equal(t, `The starting directory of "`+relative+`" does not exist or is not a directory. A relative path is relative to the directory of the profile, which is `+dir+`.`, diags[0].Detail, relative)
+			}
+		}
+	})
+
+	t.Run("keeps the one-sentence message for an absolute path, a ~ path and an empty value", func(t *testing.T) {
+		for _, value := range []string{filepath.Join(dir, "nope"), file, "~/nope", ""} {
+			diags := DirectoryDiagnostic("starting directory", cty.StringVal(value), dir)
+			if assert.True(t, diags.HasErrors(), value) {
+				assert.Equal(t, `The starting directory of "`+value+`" does not exist or is not a directory.`, diags[0].Detail, value)
+			}
+		}
 	})
 }
 
@@ -185,10 +198,6 @@ func TestAmountDiagnostic(t *testing.T) {
 	}
 
 	assert.Contains(t, AmountDiagnostic("amount", cty.StringVal("10%"))[0].Detail, "A percentage is not supported")
-}
-
-func TestErrHasDiagnosticsIsError(t *testing.T) {
-	assert.True(t, errors.Is(ErrHasDiagnostics, ErrHasDiagnostics))
 }
 
 func TestRequiredDiagnostic(t *testing.T) {

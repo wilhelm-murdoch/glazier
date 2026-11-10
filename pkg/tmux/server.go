@@ -17,7 +17,7 @@ var stdinIsTerminal = func() bool {
 // IsRunning reports whether a tmux server runs on the socket; `server-info` would need an attached client, so it uses `list-sessions`.
 // An error means that glaze cannot reach the server, which is not the same as no server.
 func (c Client) IsRunning() (bool, error) {
-	if _, err := c.output("list-sessions"); err != nil {
+	if err := c.run("list-sessions"); err != nil {
 		return false, lookupFailure(err)
 	}
 
@@ -27,7 +27,7 @@ func (c Client) IsRunning() (bool, error) {
 // HasSession returns true if a session with exactly the given name exists; "=" stops tmux matching a prefix.
 // An error means that glaze cannot reach the server, so it cannot know whether the session exists.
 func (c Client) HasSession(sessionName string) (bool, error) {
-	if _, err := c.output("has-session", "-t", "="+SanitizeSessionName(sessionName)); err != nil {
+	if err := c.run("has-session", "-t", "="+SanitizeSessionName(sessionName)); err != nil {
 		return false, lookupFailure(err)
 	}
 
@@ -72,7 +72,18 @@ func (c Client) CurrentPane() (string, error) {
 }
 
 // CurrentSession returns the session of the pane that glaze runs in, or nil when glaze does not run in a pane of this server.
+// Every failure carries the same message, so a caller returns the error as it is.
 func (c Client) CurrentSession() (*Session, error) {
+	session, err := c.currentSession()
+	if err != nil {
+		return nil, fmt.Errorf("could not determine current session: %w", err)
+	}
+
+	return session, nil
+}
+
+// currentSession reads the session of the current pane, or nil when there is none.
+func (c Client) currentSession() (*Session, error) {
 	pane, err := c.CurrentPane()
 	if err != nil || pane == "" {
 		return nil, err
@@ -80,7 +91,7 @@ func (c Client) CurrentSession() (*Session, error) {
 
 	output, err := c.output("display-message", "-p", "-t", pane, formatActiveSessions)
 	if err != nil {
-		return nil, fmt.Errorf("could not determine current session: %w", err)
+		return nil, err
 	}
 
 	return c.NewSessionFromLine(output)

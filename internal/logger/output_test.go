@@ -14,10 +14,13 @@ import (
 )
 
 func TestNewWritesToStderr(t *testing.T) {
+	var l *Logger
 	stdout, stderr := captureStreams(t, func() {
-		New(LevelInfo).Info("provisioning")
+		l = New(LevelInfo)
+		l.Info("provisioning")
 	})
 
+	assert.Equal(t, LevelInfo, l.Level)
 	assert.Contains(t, stderr, "provisioning")
 	assert.Empty(t, stdout)
 
@@ -36,6 +39,7 @@ func TestHandlerColor(t *testing.T) {
 
 		assert.Equal(t, enabled, strings.Contains(buf.String(), "\x1b["), "colour enabled = %v", enabled)
 		assert.Contains(t, buf.String(), LevelWarningLabel)
+		assert.Contains(t, buf.String(), "careful")
 	}
 }
 

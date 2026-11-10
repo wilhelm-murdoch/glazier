@@ -8,8 +8,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 var defaultTmuxExecutablePath = "tmux"
@@ -121,8 +119,8 @@ func (c Client) NewSessionFromLine(line string) (*Session, error) {
 	return &Session{
 		Client:            c,
 		Id:                SessionId(id),
-		Name:              strings.TrimSpace(parts[1]),
-		StartingDirectory: strings.TrimSpace(parts[2]),
+		Name:              parts[1],
+		StartingDirectory: parts[2],
 	}, nil
 }
 
@@ -154,7 +152,6 @@ func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error
 		Id:        WindowId(id),
 		Index:     index,
 		Name:      parts[2],
-		Layout:    enums.LayoutFromString(parts[3]),
 		RawLayout: parts[3],
 		IsActive:  parts[4] == "1",
 		Session:   session,
@@ -218,7 +215,7 @@ func (c Client) NewSession(sessionName, startingDirectory string) (*Session, err
 func (c Client) KillSessionByName(sessionName string) error {
 	sessionName = SanitizeSessionName(sessionName)
 
-	if _, err := c.output("kill-session", "-t", "="+sessionName); err != nil {
+	if err := c.run("kill-session", "-t", "="+sessionName); err != nil {
 		return fmt.Errorf("session `%s` could not be killed: %w", sessionName, err)
 	}
 

@@ -13,6 +13,7 @@ const (
 	tmuxLinePartDelimiter byte = ';'
 )
 
+// splitTmuxLine splits line on delimiter and honours the backslash escapes of #{q:...}, so a field can contain the delimiter.
 func splitTmuxLine(line string, delimiter byte) ([]string, error) {
 	var (
 		parts     []string
@@ -50,9 +51,9 @@ func undoDollarEscape(line string) string {
 	return strings.ReplaceAll(line, `\$`, "$")
 }
 
+// getPartsFromTmuxLine splits a formatted line, checks the field count and reads the numeric id after prefix.
 func getPartsFromTmuxLine(line, prefix string, expectedLength int) ([]string, int, error) {
 	parts, err := splitTmuxLine(undoDollarEscape(line), tmuxLinePartDelimiter)
-
 	if err != nil {
 		return parts, 0, err
 	}

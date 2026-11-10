@@ -108,7 +108,7 @@ func (r *Recorder) Install(t *testing.T) *Recorder {
 }
 
 func (r *Recorder) resultFor(args []string) Result {
-	sub := subcommandOf(args)
+	sub := tmux.Subcommand(args)
 	if q := r.queues[sub]; len(q) > 0 {
 		res := q[0]
 		r.queues[sub] = q[1:]
@@ -123,7 +123,7 @@ func (r *Recorder) Called(subcommand string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if tmux.Subcommand(c) == subcommand {
 			return true
 		}
 	}
@@ -137,7 +137,7 @@ func (r *Recorder) CountOf(subcommand string) int {
 	defer r.mu.Unlock()
 	count := 0
 	for _, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if tmux.Subcommand(c) == subcommand {
 			count++
 		}
 	}
@@ -150,7 +150,7 @@ func (r *Recorder) ArgsFor(subcommand string) []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if tmux.Subcommand(c) == subcommand {
 			return c
 		}
 	}
@@ -164,26 +164,10 @@ func (r *Recorder) InputsFor(subcommand string) []string {
 	defer r.mu.Unlock()
 	var inputs []string
 	for i, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if tmux.Subcommand(c) == subcommand {
 			inputs = append(inputs, r.inputs[i])
 		}
 	}
 
 	return inputs
-}
-
-// subcommandOf returns the tmux subcommand, skipping any leading socket flags
-// (-L name / -S path) so routing works regardless of how args were assembled.
-func subcommandOf(args []string) string {
-	for i := 0; i < len(args); i++ {
-		switch args[i] {
-		case "-L", "-S":
-			i++
-			continue
-		}
-
-		return args[i]
-	}
-
-	return ""
 }

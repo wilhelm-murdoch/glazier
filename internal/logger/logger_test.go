@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fatih/color"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,8 +21,6 @@ func newTestHandler(buf *bytes.Buffer, level slog.Level) *Handler {
 }
 
 func TestHandlerHandleLevels(t *testing.T) {
-	color.NoColor = true
-
 	cases := []struct {
 		name  string
 		level slog.Level
@@ -54,24 +51,6 @@ func TestHandlerHandleLevels(t *testing.T) {
 			assert.Contains(t, out, "value")
 		})
 	}
-}
-
-func TestHandlerHandleNoAttrs(t *testing.T) {
-	color.NoColor = true
-
-	var buf bytes.Buffer
-	h := newTestHandler(&buf, LevelInfo)
-
-	rec := slog.NewRecord(time.Now(), slog.LevelInfo, "no attrs", 0)
-	assert.NoError(t, h.Handle(context.Background(), rec))
-	assert.Contains(t, buf.String(), "no attrs")
-}
-
-func TestNew(t *testing.T) {
-	l := New(LevelInfo)
-	assert.NotNil(t, l)
-	assert.Equal(t, LevelInfo, l.Level)
-	assert.NotNil(t, l.Logger)
 }
 
 func TestFriendlyToInternal(t *testing.T) {

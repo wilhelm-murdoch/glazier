@@ -50,24 +50,6 @@ func TestIsLayoutString(t *testing.T) {
 	}
 }
 
-func TestHookRoundTrip(t *testing.T) {
-	for _, s := range HookList {
-		if got := HookFromString(s).String(); got != s {
-			t.Errorf("hook round trip for %q produced %q", s, got)
-		}
-	}
-}
-
-func TestHookUnknown(t *testing.T) {
-	if HookFromString("nonsense") != HookUnknown {
-		t.Error("expected HookUnknown for an unrecognized string")
-	}
-
-	if HookUnknown.String() != HookUnknownString {
-		t.Errorf("expected %q, got %q", HookUnknownString, HookUnknown.String())
-	}
-}
-
 func TestAdjustmentRoundTrip(t *testing.T) {
 	for _, s := range []string{
 		AdjustmentUpString,

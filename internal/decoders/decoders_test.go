@@ -18,6 +18,9 @@ var nullStr = cty.NullVal(cty.String)
 // nullMap is a null cty string map used for omitted map attributes.
 var nullMap = cty.NullVal(cty.Map(cty.String))
 
+// nullSize is a null size object used for an omitted size block.
+var nullSize = cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String}))
+
 // adjustType describes the object shape of a single decoded adjust block.
 var adjustType = cty.Object(map[string]cty.Type{
 	"direction": cty.String,
@@ -118,17 +121,14 @@ func TestPaneDecode(t *testing.T) {
 	})
 
 	t.Run("handles omitted optional attributes", func(t *testing.T) {
-		spec := paneSpec(
-			cty.NullVal(cty.Bool),
-			cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})),
-			cty.NullVal(cty.List(cty.String)),
-		)
+		spec := paneSpec(cty.NullVal(cty.Bool), nullSize, cty.NullVal(cty.List(cty.String)))
 
 		pane := NewPane(spec)
 
 		assert.False(t, pane.Focus)
 		assert.False(t, pane.Size.IsSet())
 		assert.Empty(t, pane.Commands)
+		assert.Empty(t, pane.Adjustments)
 	})
 
 	t.Run("handles a size block with only one dimension", func(t *testing.T) {
@@ -147,13 +147,11 @@ func TestPaneDecode(t *testing.T) {
 		assert.Equal(t, "", pane.Size.Y)
 		assert.True(t, pane.Size.IsSet())
 	})
-}
 
-func TestPaneDecodeAdjust(t *testing.T) {
 	t.Run("decodes adjustments in order", func(t *testing.T) {
 		spec := paneSpecWithAdjust(
 			cty.NullVal(cty.Bool),
-			cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})),
+			nullSize,
 			cty.ListValEmpty(cty.String),
 			cty.ListVal([]cty.Value{
 				adjustVal("up", "5"),
@@ -168,19 +166,6 @@ func TestPaneDecodeAdjust(t *testing.T) {
 		assert.Equal(t, "5", pane.Adjustments[0].Amount)
 		assert.Equal(t, enums.AdjustmentLeft, pane.Adjustments[1].Direction)
 		assert.Equal(t, "10", pane.Adjustments[1].Amount)
-	})
-
-	t.Run("handles an absent adjust block", func(t *testing.T) {
-		spec := paneSpecWithAdjust(
-			cty.NullVal(cty.Bool),
-			cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})),
-			cty.ListValEmpty(cty.String),
-			cty.NullVal(cty.List(adjustType)),
-		)
-
-		pane := NewPane(spec)
-
-		assert.Empty(t, pane.Adjustments)
 	})
 }
 
@@ -207,7 +192,7 @@ func windowSpec(layout cty.Value, focus cty.Value, panes cty.Value) cty.Value {
 
 func TestWindowDecode(t *testing.T) {
 	onePane := cty.ListVal([]cty.Value{
-		paneSpec(cty.True, cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})), cty.ListVal([]cty.Value{cty.StringVal("htop")})),
+		paneSpec(cty.True, nullSize, cty.ListVal([]cty.Value{cty.StringVal("htop")})),
 	})
 
 	t.Run("decodes layout, focus and panes", func(t *testing.T) {
@@ -244,7 +229,7 @@ func TestWindowDecode(t *testing.T) {
 
 func TestSessionDecode(t *testing.T) {
 	panes := cty.ListVal([]cty.Value{
-		paneSpec(cty.NullVal(cty.Bool), cty.NullVal(cty.Object(map[string]cty.Type{"x": cty.String, "y": cty.String})), cty.ListVal([]cty.Value{cty.StringVal("echo")})),
+		paneSpec(cty.NullVal(cty.Bool), nullSize, cty.ListVal([]cty.Value{cty.StringVal("echo")})),
 	})
 
 	windows := cty.ListVal([]cty.Value{

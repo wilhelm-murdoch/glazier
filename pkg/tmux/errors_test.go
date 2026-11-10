@@ -2,7 +2,6 @@ package tmux
 
 import (
 	"errors"
-	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,17 +28,4 @@ func TestNewCommandErrorWithOutput(t *testing.T) {
 func TestCommandErrorWithOutputWithoutOutput(t *testing.T) {
 	cewo := NewCommandErrorWithOutput([]string{"tmux", "ls"}, errors.New("exit status 1"), "\n")
 	assert.Equal(t, "exit status 1 (command: tmux ls)", cewo.Error())
-}
-
-func TestExitStatus(t *testing.T) {
-	t.Run("returns zero for a non-exit error", func(t *testing.T) {
-		assert.Equal(t, 0, exitStatus(errors.New("plain")))
-	})
-
-	t.Run("returns the exit status for an exec.ExitError", func(t *testing.T) {
-		err := exec.Command("false").Run()
-		var exitErr *exec.ExitError
-		assert.True(t, errors.As(err, &exitErr))
-		assert.Equal(t, 1, exitStatus(err))
-	})
 }

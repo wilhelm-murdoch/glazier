@@ -1,5 +1,6 @@
 package enums
 
+// Adjustment is a direction in which a pane can grow or shrink.
 type Adjustment int
 
 const (

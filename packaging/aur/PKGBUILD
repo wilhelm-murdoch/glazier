@@ -18,5 +18,9 @@ sha256sums_aarch64=('@SHA256_glaze-linux-arm64.zip@')
 
 package() {
   install -Dm755 glaze "${pkgdir}/usr/bin/glaze"
+  install -Dm644 glaze.bash "${pkgdir}/usr/share/bash-completion/completions/glaze"
+  install -Dm644 _glaze "${pkgdir}/usr/share/zsh/site-functions/_glaze"
+  install -Dm644 glaze.fish "${pkgdir}/usr/share/fish/vendor_completions.d/glaze.fish"
+  install -Dm644 glaze.1 "${pkgdir}/usr/share/man/man1/glaze.1"
   install -Dm644 LICENSE.md "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
 }

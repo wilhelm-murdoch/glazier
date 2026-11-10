@@ -159,6 +159,8 @@ Each command runs in a process group of its own. After its deadline (20 s, or `O
 
 Every process starts with an empty environment plus `PATH`, `HOME`, `TERM`, `SHELL`, `TMUX_TMPDIR` and the locale. A `TMUX` or `GLAZE_*` variable of the host never reaches a case. Use `Opts.Env` to add a variable.
 
+The profile registry of a case is `home/.config/glaze` in the work directory of the case, which is `.config/glaze` under the `HOME` of the case. The constant `registryHome` in `cases/helpers_test.go` names that directory. `XDG_CONFIG_HOME` and `GLAZE_REGISTRY` never reach a case. A case that needs another location sets the variable through `Opts.Env` with the `xdgConfigHome` or `glazeRegistry` helper. `c.Down` and `c.Ls` take no options, so a `down` or `ls` with a variable goes through `c.GlazeWith` with an explicit `--socket-name`.
+
 ### Checks
 
 Each check takes a label first and records one line in the report.

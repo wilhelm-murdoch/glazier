@@ -13,7 +13,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-// The exit codes of glaze. The README lists them, so a change here needs a change there.
+// The exit codes of glaze. The README and packaging/glaze.1 (EXIT STATUS) list them, so a change here needs a change in both.
 const (
 	exitOK             = 0
 	exitFailure        = 1
@@ -51,14 +51,31 @@ func exitCode(err error) int {
 		return exitOK
 	case errors.As(err, &stopped):
 		return exitSignalBase + int(stopped.signal)
-	case errors.Is(err, errUsage):
+	case errors.Is(err, errUsage), errors.Is(err, files.ErrInvalidProfileName):
 		return exitUsage
-	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound):
+	case errors.Is(err, diagnostics.ErrHasDiagnostics), errors.Is(err, files.ErrProfileNotFound), errors.Is(err, files.ErrRegistryUnusable):
 		return exitInvalidProfile
-	case errors.Is(err, tmux.ErrUnreachable):
+	case errors.Is(err, tmux.ErrUnreachable), errors.Is(err, tmux.ErrOldTmux):
 		return exitUnreachable
 	default:
 		return exitFailure
+	}
+}
+
+// configureCompletion shows the completion command in the help with the wording of the man page.
+// It makes an unknown shell a usage error, like an unknown command.
+func configureCompletion(cmd *cli.Command) {
+	cmd.Hidden = false
+	cmd.Usage = "print a completion script for bash, zsh, fish or pwsh"
+	cmd.Description = "source <(glaze completion bash)        # add to ~/.bashrc\n" +
+		"source <(glaze completion zsh)         # add to ~/.zshrc\n" +
+		"glaze completion fish > ~/.config/fish/completions/glaze.fish"
+	cmd.Action = func(_ context.Context, cmd *cli.Command) error {
+		if cmd.Args().Present() {
+			return fmt.Errorf("%w: unknown shell `%s` (see `glaze completion --help`)", errUsage, cmd.Args().First())
+		}
+
+		return cli.ShowSubcommandHelp(cmd)
 	}
 }
 
@@ -66,10 +83,21 @@ func exitCode(err error) int {
 // The CLI library reports an unknown command with an ExitCoder, which a failed tmux command also unwraps to.
 func rootAction(_ context.Context, cmd *cli.Command) error {
 	if cmd.Args().Present() {
-		return fmt.Errorf("%w: unknown command `%s` (see `glaze --help`)", errUsage, cmd.Args().First())
+		word := cmd.Args().First()
+		return fmt.Errorf("%w: unknown command `%s`%s (see `glaze --help`)", errUsage, word, profileHint(word))
 	}
 
 	return cli.ShowRootCommandHelp(cmd)
+}
+
+// profileHint says how to apply a profile when an unknown command names one; any problem on the way gives no hint.
+func profileHint(word string) string {
+	path, err := files.RegistryProfilePath(word)
+	if err != nil || !files.FileExists(path) {
+		return ""
+	}
+
+	return fmt.Sprintf("; to apply the profile `%s`, run `glaze up %s`", word, word)
 }
 
 // usageError marks err as a usage error. The CLI library calls it for a flag or an argument that it cannot parse.

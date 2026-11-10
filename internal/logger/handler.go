@@ -10,6 +10,7 @@ import (
 	"github.com/fatih/color"
 )
 
+// Handler writes one line per record, with colour when the output is a terminal.
 type Handler struct {
 	slog.Handler
 	l *log.Logger
@@ -20,27 +21,28 @@ type Handler struct {
 
 // paint colours s with attrs only when the handler may write colour.
 func (h *Handler) paint(s string, attrs ...color.Attribute) string {
-	c := color.New(attrs...)
-	if h.color {
-		c.EnableColor()
-	} else {
-		c.DisableColor()
+	if !h.color {
+		return s
 	}
+
+	c := color.New(attrs...)
+	c.EnableColor()
 
 	return c.Sprint(s)
 }
 
+// Handle formats r as a time, a level label, the message and key=value pairs.
 func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 	level := r.Level.String()
 
 	switch r.Level {
-	case slog.LevelDebug:
+	case LevelDebug:
 		level = h.paint(LevelDebugLabel, color.FgMagenta)
-	case slog.LevelInfo:
+	case LevelInfo:
 		level = h.paint(LevelInfoLabel, color.FgBlue)
-	case slog.LevelWarn:
+	case LevelWarning:
 		level = h.paint(LevelWarningLabel, color.FgYellow)
-	case slog.LevelError:
+	case LevelError:
 		level = h.paint(LevelErrorLabel, color.FgRed)
 	case LevelTrace:
 		level = h.paint(LevelTraceLabel, color.FgBlack)
@@ -50,7 +52,7 @@ func (h *Handler) Handle(ctx context.Context, r slog.Record) error {
 
 	var fields []string
 	r.Attrs(func(a slog.Attr) bool {
-		// For the purpose of this project, we assume all values are strings
+		// Resolve expands a LogValuer before String formats the value.
 		fields = append(fields, h.paint(a.Key+"=", color.FgBlack)+a.Value.Resolve().String())
 
 		return true

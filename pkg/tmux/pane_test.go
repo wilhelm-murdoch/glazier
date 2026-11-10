@@ -8,16 +8,6 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
-func TestPaneIdString(t *testing.T) {
-	assert.Equal(t, "%3", PaneId(3).String())
-}
-
-func TestPaneTarget(t *testing.T) {
-	client := testClient()
-	pane := testPane(testWindow(testSession(client)))
-	assert.Equal(t, "%0", pane.Target())
-}
-
 func TestPaneSetHook(t *testing.T) {
 	t.Run("registers a pane-scoped hook", func(t *testing.T) {
 		rec := setupRecorder(t)

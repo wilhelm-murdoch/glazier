@@ -1,0 +1,8 @@
+# The session starts in ~/code, so glaze needs no current directory.
+session {
+  name               = "reg-home-dir"
+  starting_directory = "~/code"
+  window {
+    pane {}
+  }
+}

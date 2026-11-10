@@ -31,9 +31,10 @@ What glaze touches that matters for security:
   argument injection through variable expansion, template functions, escaping
   bugs in the tmux command serialization) is very much in scope.
 - **Untrusted input parsing.** The HCL parser, the variable/template expansion
-  (`--var`, `GLAZE_ENV_*`), and the raw tmux layout-string validation all
-  consume attacker-controllable text. Panics, hangs, or memory exhaustion on
-  malformed profiles are in scope (these surfaces are fuzzed in CI).
+  (`--var`, `GLAZE_ENV_*`), the profile name that becomes a path in the
+  profile registry, and the raw tmux layout-string validation all consume
+  attacker-controllable text. Panics, hangs, or memory exhaustion on malformed
+  profiles are in scope (these surfaces are fuzzed in CI).
 - **Secret leakage.** `glaze save` deliberately refuses to export commands,
   hooks, environment variables, and options precisely so secrets in a live
   session can't end up in a file you might commit. Anything that defeats that
