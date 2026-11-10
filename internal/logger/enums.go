@@ -2,6 +2,7 @@ package logger
 
 import "log/slog"
 
+// The log levels of glaze and their three-letter labels.
 const (
 	LevelTraceLabel    = "TRC"
 	LevelDebugLabel    = "DBG"
@@ -18,6 +19,7 @@ const (
 	LevelCritical = slog.Level(12)
 )
 
+// FriendlyToInternal maps the words of --log-level to slog levels.
 var FriendlyToInternal = map[string]slog.Level{
 	"trace":    LevelTrace,
 	"debug":    LevelDebug,
