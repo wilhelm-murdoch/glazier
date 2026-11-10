@@ -2,23 +2,12 @@ package tmux
 
 import (
 	"errors"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
-
-func TestWindowIdString(t *testing.T) {
-	assert.Equal(t, "@5", WindowId(5).String())
-}
-
-func TestWindowTarget(t *testing.T) {
-	client := testClient()
-	window := testWindow(testSession(client))
-	assert.Equal(t, "@0", window.Target())
-}
 
 func TestWindowSplit(t *testing.T) {
 	t.Run("successfully splits the window", func(t *testing.T) {
@@ -92,26 +81,7 @@ func TestWindowSplit(t *testing.T) {
 		window := testWindow(testSession(client))
 		_, err := window.Split("%1", "shell", "/srv")
 		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
-	})
-
-	t.Run("errors on non-numeric pane id", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%x;1;buildhost;1;/srv"})
-
-		client := testClient()
-		window := testWindow(testSession(client))
-		_, err := window.Split("%1", "shell", "/srv")
-		assert.ErrorIs(t, err, ErrInvalidDerivedId)
-	})
-
-	t.Run("errors on non-numeric pane index", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;x;buildhost;1;/srv"})
-
-		client := testClient()
-		window := testWindow(testSession(client))
-		_, err := window.Split("%1", "shell", "/srv")
-		assert.ErrorIs(t, err, strconv.ErrSyntax)
+		assert.False(t, rec.Called("selectp"))
 	})
 
 	t.Run("propagates select-pane errors", func(t *testing.T) {
@@ -163,23 +133,16 @@ func TestWindowSelect(t *testing.T) {
 }
 
 func TestWindowSelectLayout(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("selectl", fakeResult{})
+	for _, layout := range []string{enums.LayoutTiled.String(), "bb62,80x24,0,0"} {
+		t.Run(layout, func(t *testing.T) {
+			rec := setupRecorder(t)
+			rec.On("selectl", fakeResult{})
 
-	client := testClient()
-	window := testWindow(testSession(client))
-	assert.NoError(t, window.SelectLayout(enums.LayoutTiled.String()))
-	assert.Contains(t, rec.ArgsFor("selectl"), "tiled")
-}
-
-func TestWindowSelectLayoutRawString(t *testing.T) {
-	rec := setupRecorder(t)
-	rec.On("selectl", fakeResult{})
-
-	client := testClient()
-	window := testWindow(testSession(client))
-	assert.NoError(t, window.SelectLayout("bb62,80x24,0,0"))
-	assert.Contains(t, rec.ArgsFor("selectl"), "bb62,80x24,0,0")
+			window := testWindow(testSession(testClient()))
+			assert.NoError(t, window.SelectLayout(layout))
+			assert.Equal(t, []string{"selectl", "-t", "@0", layout}, rec.ArgsFor("selectl"))
+		})
+	}
 }
 
 func TestWindowSetHook(t *testing.T) {

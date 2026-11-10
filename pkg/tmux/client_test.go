@@ -3,6 +3,7 @@ package tmux
 import (
 	"errors"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -513,9 +514,12 @@ func TestClientPanes(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(panes))
-		assert.True(t, slices.ContainsFunc(panes, func(p *Pane) bool {
-			return p.Name == "pane-a" && p.IsActive
-		}))
+		assert.Equal(t, PaneId(1), panes[0].Id)
+		assert.Equal(t, 1, panes[0].Index)
+		assert.Equal(t, "pane-a", panes[0].Name)
+		assert.Equal(t, "/tmp", panes[0].StartingDirectory)
+		assert.True(t, panes[0].IsActive)
+		assert.False(t, panes[1].IsActive)
 	})
 
 	t.Run("propagates list errors", func(t *testing.T) {
@@ -538,6 +542,14 @@ func TestClientPanes(t *testing.T) {
 		assert.Error(t, err)
 	})
 
+	t.Run("errors on a non-numeric index", func(t *testing.T) {
+		rec := setupRecorder(t)
+		rec.On("lsp", fakeResult{Output: "%4;x;shell;1;/srv"})
+
+		client := testClient()
+		_, err := client.Panes(testWindow(testSession(client)))
+		assert.ErrorIs(t, err, strconv.ErrSyntax)
+	})
 }
 
 func TestClientNewWindowFromLine(t *testing.T) {
@@ -563,37 +575,6 @@ func TestClientNewWindowFromLine(t *testing.T) {
 
 	t.Run("errors on too few parts", func(t *testing.T) {
 		_, err := client.NewWindowFromLine("@3;1;editor", session)
-		assert.Error(t, err)
-	})
-}
-
-func TestClientNewPaneFromLine(t *testing.T) {
-	t.Run("parses a valid pane line", func(t *testing.T) {
-		client := testClient()
-		window := testWindow(testSession(client))
-
-		pane, err := client.NewPaneFromLine("%4;1;shell;1;/srv", window)
-		assert.NoError(t, err)
-		assert.Equal(t, PaneId(4), pane.Id)
-		assert.Equal(t, 1, pane.Index)
-		assert.Equal(t, "shell", pane.Name)
-		assert.Equal(t, "/srv", pane.StartingDirectory)
-		assert.True(t, pane.IsActive)
-	})
-
-	t.Run("errors on a non-numeric index", func(t *testing.T) {
-		client := testClient()
-		window := testWindow(testSession(client))
-
-		_, err := client.NewPaneFromLine("%4;x;shell;1;/srv", window)
-		assert.Error(t, err)
-	})
-
-	t.Run("errors on too few parts", func(t *testing.T) {
-		client := testClient()
-		window := testWindow(testSession(client))
-
-		_, err := client.NewPaneFromLine("%4;1;shell", window)
 		assert.Error(t, err)
 	})
 }

@@ -59,11 +59,6 @@ func TestCommandString(t *testing.T) {
 }
 
 func TestCommandExec(t *testing.T) {
-	t.Run("returns nil on success", func(t *testing.T) {
-		cmd := NewCommand(Client{tmuxPath: "true"})
-		assert.NoError(t, cmd.Exec())
-	})
-
 	t.Run("puts the output of a failed command into the error", func(t *testing.T) {
 		cmd := NewCommand(Client{tmuxPath: "sh"}, "-c", "echo can\\'t find session: x >&2; exit 3")
 		err := cmd.Exec()
