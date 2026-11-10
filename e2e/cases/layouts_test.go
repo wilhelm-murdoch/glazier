@@ -50,7 +50,8 @@ func TestLayouts(t *testing.T) {
 		c.TmuxSetup("split-window", "-v", "-l", "5", "-t", "=ref:")
 		raw := c.Tmux("display-message", "-p", "-t", "=ref:", "#{window_layout}")
 		want := c.Geometry("=ref:")
-		c.TmuxSetup("kill-session", "-t", "=ref")
+		// The session is the last one, so the server exits; KillServer waits until it is gone.
+		c.KillServer()
 		c.Fixture("layouts/three-panes.glaze")
 		c.OK(c.Up("--var", "layout="+raw), "up with a raw layout")
 		c.Equal("raw layout geometry replayed", want, c.Geometry("=three-panes:w"))
