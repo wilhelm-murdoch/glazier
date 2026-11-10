@@ -325,7 +325,8 @@ func TestRegistry(t *testing.T) {
 		c.Equal("save refusal leaves the registry profile as it was", saved, c.Read(registryHome+"/work.glaze"))
 		c.OK(c.Save("work", "--session", "sv-reg", "--force"), "save --force replaces the registry profile")
 		c.OK(c.Glaze("format", "--validate", "work"), "saved registry profile validates")
-		c.TmuxSetup("kill-session", "-t", "=sv-reg")
+		// The session is the last one, so the server exits; KillServer waits until it is gone.
+		c.KillServer()
 		c.OK(c.Up("work"), "up from the saved registry profile")
 		roundTrip := func() string { return c.State("sv-reg", unnamedWindow, unnamedPane) }
 		if !c.EventuallyEqual("saved registry profile round-trips", before, roundTrip) {
