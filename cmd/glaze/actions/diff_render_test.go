@@ -15,7 +15,7 @@ func rendered(t *testing.T, p plan, inside bool) string {
 	t.Helper()
 
 	var b bytes.Buffer
-	require.NoError(t, render(&b, p, inside))
+	require.NoError(t, render(&b, p, inside, false))
 
 	return b.String()
 }

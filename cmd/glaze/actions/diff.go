@@ -10,6 +10,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/internal/term"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
@@ -24,6 +25,9 @@ type ActionDiff struct {
 	// out receives the report; it defaults to stdout and exists so tests can capture the output.
 	out   io.Writer
 	quiet bool
+
+	// colour is true when stdout is a terminal that accepts colour.
+	colour bool
 }
 
 // NewDiff returns the diff action for the profile and the tmux server of the command.
@@ -43,6 +47,7 @@ func NewDiff(cmd *cli.Command, logLevel string) (*ActionDiff, error) {
 		tmux:       tmuxClient,
 		out:        os.Stdout,
 		quiet:      cmd.Bool("quiet"),
+		colour:     term.ColorEnabled(os.Stdout),
 	}, nil
 }
 
@@ -99,7 +104,7 @@ func (a *ActionDiff) Run(ctx context.Context) error {
 
 	if !a.quiet {
 		var b bytes.Buffer
-		if err := render(&b, p, inside); err != nil {
+		if err := render(&b, p, inside, a.colour); err != nil {
 			return err
 		}
 

@@ -5,6 +5,10 @@ import (
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/fatih/color"
+
+	"github.com/wilhelm-murdoch/glazier/internal/term"
 )
 
 // The fixed sentences of the report; the tests and the docs quote them from here.
@@ -14,29 +18,64 @@ const (
 	hintApply             = "Run glaze up --clear with the same profile and flags to apply the profile. The kill ends every process in the session."
 	hintApplyInside       = "Run glaze up --clear with the same profile and flags from another session or outside tmux. The kill ends every process in the session, including this shell."
 	hintCreate            = "Run glaze up with the same profile and flags to create the session."
-	noChangesFormat       = "No changes. Session %s matches the profile in everything glaze can compare."
+	noChangesLead         = "No changes."
+	noChangesFormat       = noChangesLead + " Session %s matches the profile in everything glaze can compare."
 )
 
+// markColours are the colours of the marks on a terminal, as Terraform shows a plan.
+var markColours = map[byte]color.Attribute{
+	markAdd:    color.FgGreen,
+	markRemove: color.FgRed,
+	markChange: color.FgYellow,
+	markCheck:  color.FgCyan,
+}
+
+// painter colours the parts of the report when it writes to a terminal.
+type painter bool
+
+// line colours a line of the tree by its mark; a line without a mark stays plain.
+func (p painter) line(mark byte, s string) string {
+	if attr, ok := markColours[mark]; ok {
+		return term.Paint(bool(p), s, attr)
+	}
+
+	return s
+}
+
+// count colours one part of the Plan line by its mark when it counts something.
+func (p painter) count(n int, what string, mark byte) string {
+	s := fmt.Sprintf("%d %s", n, what)
+	if n == 0 {
+		return s
+	}
+
+	return p.line(mark, s)
+}
+
 // render writes the report: the tree, the Plan line, the two fixed lines and the hint, or the no-change sentence.
-func render(w io.Writer, p plan, inside bool) error {
+// With colour, it writes the same text with colour codes, so the text without them is the same report.
+func render(w io.Writer, p plan, inside, colour bool) error {
 	var b strings.Builder
+	paint := painter(colour)
+	notCompared := term.Paint(colour, notComparedProvenance, color.Faint) + "\n" + term.Paint(colour, notComparedGeometry, color.Faint) + "\n"
 
 	if p.adds+p.changes+p.removes+p.toCheck == 0 {
-		fmt.Fprintf(&b, noChangesFormat+"\n", strconv.Quote(p.root.name))
-		b.WriteString(notComparedProvenance + "\n" + notComparedGeometry + "\n")
+		sentence := fmt.Sprintf(noChangesFormat, strconv.Quote(p.root.name))
+		b.WriteString(term.Paint(colour, noChangesLead, color.Bold, color.FgGreen) + strings.TrimPrefix(sentence, noChangesLead) + "\n")
+		b.WriteString(notCompared)
 		_, err := io.WriteString(w, b.String())
 
 		return err
 	}
 
-	renderItem(&b, p.root, 0)
+	renderItem(&b, p.root, 0, paint)
 
-	fmt.Fprintf(&b, "Plan: %d to add, %d to change, %d to remove", p.adds, p.changes, p.removes)
+	b.WriteString(term.Paint(colour, "Plan:", color.Bold) + " " + paint.count(p.adds, "to add", markAdd) + ", " + paint.count(p.changes, "to change", markChange) + ", " + paint.count(p.removes, "to remove", markRemove))
 	if p.toCheck > 0 {
-		fmt.Fprintf(&b, ", %d to check", p.toCheck)
+		b.WriteString(", " + paint.count(p.toCheck, "to check", markCheck))
 	}
 
-	b.WriteString(".\n" + notComparedProvenance + "\n" + notComparedGeometry + "\n")
+	b.WriteString(".\n" + notCompared)
 
 	switch {
 	case p.creation:
@@ -69,46 +108,44 @@ func visible(it item) bool {
 }
 
 // renderItem writes one item and its lines and children; a matched item with nothing to show under it is left out.
-func renderItem(b *strings.Builder, it item, depth int) {
+func renderItem(b *strings.Builder, it item, depth int, paint painter) {
 	if !visible(it) {
 		return
 	}
 
-	indent := strings.Repeat("  ", depth)
-	b.WriteString(indent)
+	var line strings.Builder
 	if it.mark != markSame {
-		b.WriteByte(it.mark)
-		b.WriteByte(' ')
+		line.WriteByte(it.mark)
+		line.WriteByte(' ')
 	}
 
-	b.WriteString(it.kind + " ")
+	line.WriteString(it.kind + " ")
 	if it.name == "" && it.kind == "pane" {
-		b.WriteString(labelUnnamed)
+		line.WriteString(labelUnnamed)
 	} else {
-		b.WriteString(strconv.Quote(it.name))
+		line.WriteString(strconv.Quote(it.name))
 	}
 
 	if it.pos > 0 {
-		fmt.Fprintf(b, " [%d]", it.pos)
+		fmt.Fprintf(&line, " [%d]", it.pos)
 	}
 
 	if it.note != "" {
-		b.WriteString(" " + it.note)
+		line.WriteString(" " + it.note)
 	}
 
 	if it.column != "" {
-		b.WriteString("  " + it.column)
+		line.WriteString("  " + it.column)
 	}
 
-	b.WriteByte('\n')
+	indent := strings.Repeat("  ", depth)
+	b.WriteString(indent + paint.line(it.mark, line.String()) + "\n")
 
 	for _, l := range it.lines {
-		b.WriteString(indent + "  ")
-		b.WriteByte(l.mark)
-		b.WriteString(" " + l.text + "\n")
+		b.WriteString(indent + "  " + paint.line(l.mark, string(l.mark)+" "+l.text) + "\n")
 	}
 
 	for _, child := range it.children {
-		renderItem(b, child, depth+1)
+		renderItem(b, child, depth+1, paint)
 	}
 }

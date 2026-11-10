@@ -174,7 +174,7 @@ Global flags:
 | `--log-level` | `info` | One of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical`. |
 | `--version`, `-v` | | Print the version, the stage, the commit and the build date. Put the flag before a command: `glaze up -v` is a usage error. |
 
-Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table, the `diff` report and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour only when stderr is a terminal. Set `NO_COLOR` to turn colour off.
+Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table, the `diff` report and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour to a stream only when that stream is a terminal: the log on stderr and the `diff` report on stdout. Set `NO_COLOR` or `TERM=dumb` to turn colour off.
 
 Each exit code has one meaning. A script can use the code to find the cause of a failure:
 
@@ -289,6 +289,8 @@ Each difference has one of four marks. A `~` line and a `?` line show the live v
 | `-` | The session has this window or pane and the profile does not. `up --clear` removes it. `(named by tmux)` marks a window that tmux names after its program. `(unnamed)` marks a pane with the default title of tmux. |
 | `~` | A value differs and `up --clear` sets it: the session `starting_directory`, the window order or a pane that Glazier did not create. |
 | `?` | A value differs, but tmux cannot tell if Glazier set it or a user changed it. Examples are the focus, the current directory of a pane and a pane title. The line ends with the reason. |
+
+On a terminal, the marks have colour: `+` is green, `-` is red, `~` is yellow and `?` is cyan. Through a pipe or with `NO_COLOR`, the report has no colour, so a script reads the same text.
 
 Glazier matches the windows by name. A window that you renamed in tmux is one `-` line and one `+` line. A profile window with `automatic-rename` on matches the next live window that tmux named, and Glazier does not compare its name. Glazier matches the panes of a window by position. A pane at a matched position with the default title of tmux is a pane that Glazier did not create. Glazier titles every pane it creates. That is a `~` line. Glazier compares the focus only when the profile declares `focus = true`. As in `up`, the last declared focus wins. The focus is a `?` line, because a user moves it with one key.
 

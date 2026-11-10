@@ -197,6 +197,11 @@ of a pane and a pane title. The line ends with the reason. A
 .B ?\&
 line does not change the exit status.
 .PP
+On a terminal, the marks have colour: + is green, \- is red, ~ is yellow
+and ? is cyan. Through a pipe or with
+.BR NO_COLOR ,
+the report has no colour.
+.PP
 Windows match by name. A renamed window is one
 .B \-
 line and one
@@ -579,7 +584,10 @@ When set,
 .B glaze
 writes no colour.
 .B glaze
-writes colour only when standard error is a terminal.
+writes colour to a stream only when that stream is a terminal: the log on
+standard error and the
+.B diff
+report on standard output.
 .TP
 .B TMUX
 Set by tmux in a pane.

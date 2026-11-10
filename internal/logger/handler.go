@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+
+	"github.com/wilhelm-murdoch/glazier/internal/term"
 )
 
 // Handler writes one line per record, with colour when the output is a terminal.
@@ -21,14 +23,7 @@ type Handler struct {
 
 // paint colours s with attrs only when the handler may write colour.
 func (h *Handler) paint(s string, attrs ...color.Attribute) string {
-	if !h.color {
-		return s
-	}
-
-	c := color.New(attrs...)
-	c.EnableColor()
-
-	return c.Sprint(s)
+	return term.Paint(h.color, s, attrs...)
 }
 
 // Handle formats r as a time, a level label, the message and key=value pairs.

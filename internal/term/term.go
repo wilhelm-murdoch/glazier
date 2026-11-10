@@ -4,6 +4,7 @@ package term
 import (
 	"os"
 
+	"github.com/fatih/color"
 	"github.com/mattn/go-isatty"
 )
 
@@ -14,4 +15,17 @@ func ColorEnabled(f *os.File) bool {
 	}
 
 	return isatty.IsTerminal(f.Fd()) || isatty.IsCygwinTerminal(f.Fd())
+}
+
+// Paint colours s with attrs when enabled is true, and returns s as it is otherwise.
+// It forces the colour on, because the caller already decided with ColorEnabled.
+func Paint(enabled bool, s string, attrs ...color.Attribute) string {
+	if !enabled {
+		return s
+	}
+
+	c := color.New(attrs...)
+	c.EnableColor()
+
+	return c.Sprint(s)
 }
