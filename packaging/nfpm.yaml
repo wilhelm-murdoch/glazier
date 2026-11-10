@@ -27,8 +27,22 @@ contents:
     file_info:
       mode: 0644
 
+  # zsh on Debian and Ubuntu does not search site-functions, so the .deb uses vendor-completions.
+  - src: ./release/completions/_glaze
+    dst: /usr/share/zsh/vendor-completions/_glaze
+    packager: deb
+    file_info:
+      mode: 0644
+
   - src: ./release/completions/_glaze
     dst: /usr/share/zsh/site-functions/_glaze
+    packager: rpm
+    file_info:
+      mode: 0644
+
+  - src: ./release/completions/_glaze
+    dst: /usr/share/zsh/site-functions/_glaze
+    packager: apk
     file_info:
       mode: 0644
 
