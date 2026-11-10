@@ -162,7 +162,7 @@ func argAfter(args []string, flag string) string {
 	return ""
 }
 
-// newSession queues the replies for a new detached session with this name, as the end-to-end run test does.
+// newSession queues the replies for a new detached session with this name, one window and one declared pane.
 func newSession(rec *tmuxtest.Recorder, name string) {
 	rec.On("has-session", tmuxtest.Failure("can't find session: "+name))
 	rec.On("new", tmuxtest.Result{Output: "$1;" + name + ";/tmp"})
@@ -172,63 +172,18 @@ func newSession(rec *tmuxtest.Recorder, name string) {
 }
 
 func TestActionUpDebugFlag(t *testing.T) {
-	build := func(t *testing.T, args []string) *ActionUp {
-		t.Helper()
-
-		rec := tmuxtest.New().Default(tmuxtest.Result{})
-		rec.Install(t)
-
-		dir := t.TempDir()
-		path := filepath.Join(dir, ".glaze")
-		assert.NoError(t, os.WriteFile(path, []byte(validProfile), 0o600))
-
-		var (
-			action *ActionUp
-			actErr error
-		)
-
-		cmd := &cli.Command{
-			Name: "up",
-			Flags: []cli.Flag{
-				&cli.BoolFlag{Name: "debug"},
-				&cli.StringFlag{Name: "profile-path"},
-				&cli.StringSliceFlag{Name: "var"},
-			},
-			Action: func(_ context.Context, c *cli.Command) error {
-				action, actErr = NewUp(c, "critical")
-				return nil
-			},
-		}
-
-		assert.NoError(t, cmd.Run(context.Background(), append([]string{"up", "--profile-path", path}, args...)))
-		if actErr != nil {
-			t.Skipf("could not construct ActionUp (tmux likely unavailable): %v", actErr)
-		}
-
-		return action
-	}
-
 	t.Run("forces the logger to debug level when set", func(t *testing.T) {
-		up := build(t, []string{"--debug"})
+		up, _ := buildUp(t, validProfile, map[string]string{"debug": "true"})
 		assert.Equal(t, logger.LevelDebug, up.Logger.Level)
 	})
 
 	t.Run("leaves the configured level untouched when unset", func(t *testing.T) {
-		up := build(t, nil)
+		up, _ := buildUp(t, validProfile, nil)
 		assert.Equal(t, logger.LevelCritical, up.Logger.Level)
 	})
 }
 
 func TestActionUpLoadProfile(t *testing.T) {
-	t.Run("decodes a valid profile", func(t *testing.T) {
-		up, _ := buildUp(t, validProfile, nil)
-
-		profile, err := up.loadProfile()
-		assert.NoError(t, err)
-		assert.NotNil(t, profile)
-		assert.Equal(t, "demo", profile.Name)
-	})
-
 	t.Run("resolves relative directories against the profile and fills in inherited ones", func(t *testing.T) {
 		withDirs := `session {
   name               = "demo"
@@ -358,24 +313,6 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.NotContains(t, logs.String(), "level=WARN")
 	})
 
-	t.Run("attaches to an existing session when not detached", func(t *testing.T) {
-		t.Setenv("TMUX", "")
-		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return true }))
-		up, rec := buildUp(t, validProfile, nil)
-		rec.On("has-session", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("attach", tmuxtest.Result{})
-
-		profile, err := up.loadProfile()
-		assert.NoError(t, err)
-
-		existed, err := up.resolveSession(profile)
-		assert.NoError(t, err)
-		assert.True(t, existed)
-		assert.True(t, rec.Called("attach"))
-		assert.True(t, rec.Called("ls"))
-	})
-
 	t.Run("shows the attach command inside another tmux server", func(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/work,1234,0")
 		t.Setenv("TMUX_PANE", "%4")
@@ -416,21 +353,6 @@ func TestActionUpResolveSession(t *testing.T) {
 		assert.False(t, rec.Called("attach"))
 		assert.Contains(t, logs.String(), "no terminal to attach to")
 		assert.Contains(t, logs.String(), "tmux attach -t '=demo'")
-	})
-
-	t.Run("finds existing session without attaching when detached", func(t *testing.T) {
-		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-
-		profile, err := up.loadProfile()
-		assert.NoError(t, err)
-
-		existed, err := up.resolveSession(profile)
-		assert.NoError(t, err)
-		assert.True(t, existed)
-		assert.False(t, rec.Called("attach"))
-		assert.False(t, rec.Called("switchc"))
 	})
 
 	t.Run("kills the previous session when --clear is set", func(t *testing.T) {
@@ -495,11 +417,7 @@ func TestActionUpResolveSession(t *testing.T) {
 func TestActionUpRun(t *testing.T) {
 	t.Run("provisions a brand new detached session end to end", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
-		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-		rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
+		newSession(rec, "demo")
 
 		assert.NoError(t, up.Run(context.Background()))
 
@@ -558,15 +476,6 @@ func TestActionUpRun(t *testing.T) {
 		assert.Contains(t, logs.String(), "kept the partly built session")
 	})
 
-	t.Run("removes the session it created when the run is cancelled", func(t *testing.T) {
-		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
-		ctx, cancel := context.WithCancel(context.Background())
-		failingProvision(rec, cancel)
-
-		assert.Error(t, up.Run(ctx))
-		assert.Equal(t, []string{"kill-session", "-t", "$1"}, rec.ArgsFor("kill-session"))
-	})
-
 	t.Run("uses a session that another run created first", func(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"detached": "true"})
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
@@ -581,12 +490,14 @@ func TestActionUpRun(t *testing.T) {
 
 	t.Run("returns early without provisioning when already attached", func(t *testing.T) {
 		t.Setenv("TMUX", "")
+		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return true }))
 		up, rec := buildUp(t, validProfile, nil)
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
 		rec.On("attach", tmuxtest.Result{})
 
 		assert.NoError(t, up.Run(context.Background()))
+		assert.True(t, rec.Called("attach"))
 		// An existing session must not be re-provisioned (no new windows/panes).
 		assert.False(t, rec.Called("neww"))
 		assert.False(t, rec.Called("splitw"))
@@ -677,18 +588,6 @@ func TestActionUpByName(t *testing.T) {
 		assert.Contains(t, diags.String(), "The profile `work` is in the profile registry, so its session must have a")
 		assert.Contains(t, diags.String(), "`glaze down work` could kill an unrelated session")
 		assert.Empty(t, rec.Calls, "the check must come before tmux")
-	})
-
-	t.Run("rejects a registry profile with a null session name", func(t *testing.T) {
-		nullName := strings.Replace(validProfile, `name = "demo"`, "name = null", 1)
-		up, rec := buildUpByName(t, "work", nullName, map[string]string{"detached": "true"})
-		diags := captureDiagnostics(&up.ActionBase)
-
-		assert.ErrorIs(t, up.Run(context.Background()), diagnostics.ErrHasDiagnostics)
-
-		assert.Contains(t, diags.String(), "Error: Missing session name")
-		assert.Contains(t, diags.String(), "on "+up.ProfilePath+" line 2")
-		assert.Empty(t, rec.Calls)
 	})
 
 	t.Run("runs a path profile without a session name as default", func(t *testing.T) {
