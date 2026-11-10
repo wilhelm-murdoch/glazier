@@ -1,0 +1,38 @@
+# Four windows for one diff with every kind of difference: misc is renamed, solo is killed, edit and run change inside.
+session {
+  name               = "every-kind"
+  starting_directory = "d"
+  window {
+    name  = "edit"
+    focus = true
+    pane {
+      name = "shell"
+    }
+    pane {
+      name  = "tests"
+      focus = true
+    }
+  }
+  window {
+    name = "run"
+    pane {
+      name = "server"
+    }
+    pane {
+      name               = "logs"
+      starting_directory = "d/logs"
+    }
+  }
+  window {
+    name = "solo"
+    pane {
+      name = "f"
+    }
+  }
+  window {
+    name = "misc"
+    pane {
+      name = "m"
+    }
+  }
+}

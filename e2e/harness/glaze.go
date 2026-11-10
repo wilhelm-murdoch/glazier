@@ -37,6 +37,12 @@ func (c *Case) Down(args ...string) *Result {
 	return c.Glaze(c.onServer("down", args)...)
 }
 
+// Diff runs "glaze diff" against the server of the case.
+func (c *Case) Diff(args ...string) *Result {
+	c.t.Helper()
+	return c.Glaze(c.onServer("diff", args)...)
+}
+
 // Save runs "glaze save" against the server of the case.
 func (c *Case) Save(args ...string) *Result {
 	c.t.Helper()

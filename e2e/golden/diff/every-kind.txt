@@ -1,0 +1,25 @@
+session "every-kind"
+  ? focus: window "run" [2], profile window "edit" [1]; a user can select another window
+  window "edit" [1]
+    ? focus: pane (unnamed) [3], profile pane "tests" [2]; a user can select another pane
+    pane "shell" [1]
+      ? directory: "$WORK/d/b", profile "$WORK/d"; tmux reports where the shell is now, not where the pane started
+    pane "tests" [2]
+      ? title: "psql", profile name "tests"; a program in the pane can set the title
+    - pane (unnamed) [3]
+  window "run" [2]
+    pane "server" [1]
+      ~ title: (unnamed) -> "server"; glaze titles every pane it creates, so this pane is not from the profile
+    + pane "logs" [2]  $WORK/d/logs
+  + window "solo" [3]
+    + pane "f" [1]  $WORK/d
+  + window "misc" [4]
+    + pane "m" [1]  $WORK/d
+  - window "notes" [3]
+    - pane "m" [1]
+  - window "extra" [4]
+    - pane (unnamed) [1]
+Plan: 5 to add, 1 to change, 5 to remove, 4 to check.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
+Run glaze up --clear with the same profile and flags to apply the profile. The kill ends every process in the session.

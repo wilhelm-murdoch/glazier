@@ -358,6 +358,7 @@ func TestActionUpResolveSession(t *testing.T) {
 	t.Run("kills the previous session when --clear is set", func(t *testing.T) {
 		t.Setenv("TMUX", "")
 		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
+		rec.On("has-session", tmuxtest.Result{}) // the session runs, so there is something to clear
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
 
@@ -367,6 +368,22 @@ func TestActionUpResolveSession(t *testing.T) {
 		_, err = up.resolveSession(profile)
 		assert.NoError(t, err)
 		assert.True(t, rec.Called("kill-session"))
+	})
+
+	t.Run("kills nothing with --clear when the session does not run", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
+		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		existed, err := up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.False(t, existed)
+		assert.False(t, rec.Called("kill-session"))
 	})
 
 	t.Run("refuses --clear inside the session that it would kill", func(t *testing.T) {
@@ -389,6 +406,7 @@ func TestActionUpResolveSession(t *testing.T) {
 		up, rec := buildUp(t, validProfile, map[string]string{"clear": "true", "detached": "true"})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
+		rec.On("has-session", tmuxtest.Result{}) // the session runs, so there is something to clear
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$3;demo;/tmp"})
 
@@ -411,6 +429,28 @@ func TestActionUpResolveSession(t *testing.T) {
 		_, err = up.resolveSession(profile)
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "could not find session")
+	})
+
+	t.Run("names diff when it attaches to an existing session", func(t *testing.T) {
+		t.Setenv("TMUX", "")
+		t.Cleanup(tmux.OverrideTerminalCheck(func() bool { return true }))
+		up, rec := buildUp(t, validProfile, nil)
+		rec.On("has-session", tmuxtest.Result{})
+		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
+		rec.On("attach", tmuxtest.Result{})
+
+		var logs bytes.Buffer
+		up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
+
+		profile, err := up.loadProfile()
+		assert.NoError(t, err)
+
+		existed, err := up.resolveSession(profile)
+		assert.NoError(t, err)
+		assert.True(t, existed)
+
+		// The line points at diff, because up leaves an existing session as it is.
+		assert.Contains(t, logs.String(), "level=INFO msg=\"attaching to existing session; run `glaze diff` to see what `up --clear` would change\" session=demo")
 	})
 }
 

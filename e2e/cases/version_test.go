@@ -41,6 +41,11 @@ func TestVersion(t *testing.T) {
 		r = c.GlazeWith(opts, "save", "--socket-name", c.Socket, "--stdout")
 		c.ExitCode(r, "save on tmux 3.0a exits 4", exitUnreachable)
 		c.Match("save names the found version", `found tmux 3\.0a`, r.Stderr)
+
+		r = c.GlazeWith(opts, "diff", "--socket-name", c.Socket)
+		c.ExitCode(r, "diff on tmux 3.0a exits 4", exitUnreachable)
+		c.Match("diff names the found version", `found tmux 3\.0a`, r.Stderr)
+		c.Equal("diff on tmux 3.0a prints no plan", "", r.Stdout)
 	})
 
 	harness.Run(t, "version_unknown_tmux", func(c *harness.Case) {

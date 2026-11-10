@@ -1,0 +1,19 @@
+# The session directory is var.dir, so a case can compare the session with another directory.
+variable "dir" {
+  type = string
+}
+
+session {
+  name               = "session-dir"
+  starting_directory = var.dir
+  window {
+    name = "w"
+    pane {
+      name = "shell"
+    }
+    pane {
+      name               = "sub"
+      starting_directory = "d/a"
+    }
+  }
+}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
@@ -20,6 +21,9 @@ const (
 	exitUsage          = 2
 	exitInvalidProfile = 3
 	exitUnreachable    = 4
+
+	// Only diff returns 5: the session differs from the profile or does not run. It is a result, not a failure.
+	exitDifferences = 5
 
 	// A run that a signal stops exits with 128 plus the signal number, like a shell: 130 for SIGINT and 143 for SIGTERM.
 	exitSignalBase = 128
@@ -57,6 +61,8 @@ func exitCode(err error) int {
 		return exitInvalidProfile
 	case errors.Is(err, tmux.ErrUnreachable), errors.Is(err, tmux.ErrOldTmux):
 		return exitUnreachable
+	case errors.Is(err, actions.ErrDifferences):
+		return exitDifferences
 	default:
 		return exitFailure
 	}

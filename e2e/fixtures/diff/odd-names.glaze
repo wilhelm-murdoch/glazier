@@ -1,0 +1,10 @@
+# tmux rewrites . and : in a session name; a window and a pane keep a ; and a space.
+session {
+  name = "a.b:c"
+  window {
+    name = "w;1"
+    pane {
+      name = "p 1"
+    }
+  }
+}

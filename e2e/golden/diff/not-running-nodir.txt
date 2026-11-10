@@ -1,0 +1,7 @@
++ session "nodir"  (current directory)
+  + window "w" [1]
+    + pane "p" [1]  (current directory)
+Plan: 3 to add, 0 to change, 0 to remove.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
+Run glaze up with the same profile and flags to create the session.

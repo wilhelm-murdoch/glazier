@@ -97,7 +97,7 @@ func TestCompletion(t *testing.T) {
 	harness.Run(t, "cli_completion_candidates", func(c *harness.Case) {
 		r := c.Glaze("--generate-shell-completion")
 		c.OK(r, "candidates for the root command")
-		for _, sub := range []string{"up", "down", "ls", "format", "save", "completion"} {
+		for _, sub := range []string{"up", "diff", "down", "ls", "format", "save", "completion"} {
 			c.True("root candidates include "+sub, strings.Contains(r.Stdout, "\n"+sub+":") || strings.HasPrefix(r.Stdout, sub+":"), "stdout: %s", labelText(r.Stdout, 200))
 		}
 

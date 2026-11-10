@@ -35,6 +35,7 @@ func TestIdempotence(t *testing.T) {
 		c.Type("=up-twice:", "echo end >> o")
 		c.EventuallyEqual("session commands not rerun", "run,end", fileLines(c, "o"))
 		c.Logf("second up output: %q", r.Output())
+		c.Match("up on an existing session names diff", "run `glaze diff` to see what `up --clear` would change", c.Glaze("up", "--socket-name", c.Socket).Stderr)
 	})
 
 	harness.Run(t, "up_clear", func(c *harness.Case) {
@@ -50,7 +51,9 @@ func TestIdempotence(t *testing.T) {
 
 	harness.Run(t, "up_clear_not_running", func(c *harness.Case) {
 		c.Simple("cn")
-		c.OK(c.Up("--clear"), "--clear with no server")
+		r := c.Up("--clear")
+		c.OK(r, "--clear with no server")
+		c.NoMatch("--clear with no server prints no kill warning", "could not kill", r.Stderr)
 		c.SessionExists("created", "cn")
 	})
 

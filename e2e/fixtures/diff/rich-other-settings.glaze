@@ -1,0 +1,53 @@
+# The structure of save/rich.glaze with other commands, envs, hooks, options and layouts, which diff does not compare.
+session {
+  name               = "save-rich"
+  starting_directory = "d"
+  envs = {
+    OTHER = "changed"
+  }
+  hooks = {
+    "session-renamed" = "display changed"
+  }
+  options = {
+    "history-limit" = "99"
+  }
+  commands = ["echo other"]
+  window {
+    name   = "edit"
+    layout = "even-horizontal"
+    pane {
+      name     = "a"
+      commands = ["echo changed"]
+    }
+    pane {
+      name               = "b"
+      focus              = true
+      starting_directory = "d/a"
+    }
+    pane {
+      name               = "c"
+      starting_directory = "d/b"
+    }
+  }
+  window {
+    name   = "run"
+    focus  = true
+    layout = "tiled"
+    pane {
+      name = "d"
+    }
+    pane {
+      name  = "e"
+      focus = true
+      size {
+        y = 5
+      }
+    }
+  }
+  window {
+    name = "solo"
+    pane {
+      name = "f"
+    }
+  }
+}

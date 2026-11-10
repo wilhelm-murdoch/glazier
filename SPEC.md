@@ -224,6 +224,11 @@ glaze up [name]         apply the profile (creates the session)
     --clear             kill an existing same-named session first
     --debug             log every command sent to the tmux socket
     --profile-path      path to a .glaze file (not together with a name)
+glaze diff [name]       show what up --clear would change in the running session; changes nothing
+    name                as above
+    --quiet, -q         print nothing; the exit code carries the result
+    --var / --var-file  as above (every declared variable needs a value)
+    --profile-path      as above
 glaze down [name]       kill the session described by the profile
     name                as above
     --session           session to kill (skips profile resolution; not together with a name)
@@ -245,9 +250,31 @@ glaze save [name]       capture a live session into a profile
     --force             replace the target profile when it exists
 ```
 
-The `up`, `down`, `ls` and `save` commands also accept `--socket-path` and `--socket-name`. These flags select a tmux server on a non-default socket. Each command accepts the global `--log-level` flag. The default log level is `info`.
+The `up`, `diff`, `down`, `ls` and `save` commands also accept `--socket-path` and `--socket-name`. These flags select a tmux server on a non-default socket. Each command accepts the global `--log-level` flag. The default log level is `info`.
 
-With a profile name, Glazier uses `<name>.glaze` in the profile registry and nothing else. `save` with a profile name writes that file and creates the profile registry when it is missing. A profile in the profile registry must set the session `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. Without a profile name, Glazier resolves the profile in this order: the `--profile-path` value, then `.glaze` in the current directory, then `$GLAZE_PATH/.glaze`.
+With a profile name, Glazier uses `<name>.glaze` in the profile registry and nothing else. `save` with a profile name writes that file and creates the profile registry when it is missing. A profile in the profile registry must set the session `name`. Without it, `up`, `diff`, `down` and `format --validate` stop with exit code `3`. Without a profile name, Glazier resolves the profile in this order: the `--profile-path` value, then `.glaze` in the current directory, then `$GLAZE_PATH/.glaze`.
+
+### 5.1 The report of `glaze diff`
+
+`glaze diff` writes one report to stdout, after it read the whole session, and changes nothing. The report has three forms. For a session that does not run, every window and pane is a `+` line, and the exit code is `5`. For a session that runs and shows no difference, the report is the sentence `No changes. Session "<name>" matches the profile in everything glaze can compare.`, and the exit code is `0`. Otherwise the report is a tree with two spaces per level. It lists the session, each window with its position in `[n]` and each pane with its position. A window or pane without a difference is left out. The marks are:
+
+- `+`: a window or pane that the profile has and the session does not have. The second column is the directory of the pane, or `(current directory)` for a pane that starts where `up` runs.
+- `-`: a window or pane that the session has and the profile does not have. A window that tmux names after its program ends with `(named by tmux)`. A pane with the default title of tmux prints `(unnamed)` in place of its name.
+- `~`: a value that differs and that `up --clear` sets. The line shows the live value, then `->`, then the profile value.
+- `?`: a value that differs, but tmux cannot tell if Glazier set it or a user changed it. The line shows the live value, then the profile value, then `;` and the reason.
+
+The matching rules are:
+
+1. Windows match by name, after the same sanitization as `up`, in order. A renamed window is one `-` line and one `+` line.
+2. A profile window with `automatic-rename` on, in its own options or in the options of the session, matches the next live window that tmux named. Its name is not compared.
+3. Panes match by position in their window.
+4. A pane at a matched position with the host name as its title is a pane that Glazier did not create. Glazier titles every pane it creates. It is a `~` line.
+5. The order of the matched windows is a `~` line when it differs.
+6. The focus is compared only where the profile declares `focus = true`. The last declaration wins, as in `up`. It is a `?` line.
+7. The session `starting_directory` is a `~` line when the profile declares it. When the profile does not declare it, a difference from the current directory is a `?` line.
+8. The current directory of a pane and a pane title that differ are `?` lines.
+
+The `Plan` line counts the items: `Plan: A to add, C to change, R to remove.`, with `, K to check` before the full stop when K is greater than 0. A `+` or `-` item counts with each of its children. An item with a `~` line counts once as a change. An item with only `?` lines counts once to check. Two fixed lines follow: `Not compared: commands, envs, hooks and options. tmux does not report what glaze set.` and `Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.` A hint ends the report when there is work for `up` or `up --clear`. Exit code `5` means a counted difference or a session that does not run. `?` lines alone give exit code `0`. With `--quiet`, the command prints nothing.
 
 ---
 

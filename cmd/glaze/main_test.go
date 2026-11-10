@@ -19,6 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli/v3"
 
+	"github.com/wilhelm-murdoch/glazier/cmd/glaze/actions"
 	"github.com/wilhelm-murdoch/glazier/internal/diagnostics"
 	"github.com/wilhelm-murdoch/glazier/pkg/files"
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
@@ -126,6 +127,8 @@ func TestExitCode(t *testing.T) {
 		{"a missing profile", fmt.Errorf("%w: `x.glaze`", files.ErrProfileNotFound), exitInvalidProfile},
 		{"tmux is unreachable", fmt.Errorf("%w: permission denied", tmux.ErrUnreachable), exitUnreachable},
 		{"tmux is too old", fmt.Errorf("%w: found tmux 3.0a", tmux.ErrOldTmux), exitUnreachable},
+		{"the session differs from the profile", actions.ErrDifferences, exitDifferences},
+		{"the session differs from the profile, wrapped", fmt.Errorf("diff: %w", actions.ErrDifferences), exitDifferences},
 		{"stopped by SIGINT", fmt.Errorf("%w: exit status 1", signalError{signal: syscall.SIGINT}), 130},
 		{"stopped by SIGTERM", fmt.Errorf("%w: %w", signalError{signal: syscall.SIGTERM}, tmux.ErrUnreachable), 143},
 	}
@@ -199,6 +202,9 @@ func TestRun(t *testing.T) {
 		{"the help word is a profile name", []string{"up", "help"}, exitInvalidProfile, "no profile named `help` in the profile registry"},
 		{"the usage pointer of a bad name", []string{"format", "a/b"}, exitUsage, "(see `glaze format --help`)"},
 		{"an unknown command that names a profile", []string{"work"}, exitUsage, "unknown command `work`; to apply the profile `work`, run `glaze up work`"},
+		{"a name with a slash on diff", []string{"diff", "a/b"}, exitUsage, "`a/b` is not a profile name: a name cannot contain `/`; for a file, use --profile-path (see `glaze diff --help`)"},
+		{"a name and --profile-path on diff", []string{"diff", "work", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both (see `glaze diff --help`)"},
+		{"a second name on diff", []string{"diff", "a", "b"}, exitUsage, "`glaze diff` takes one name; got `a` and `b`"},
 	}
 
 	for _, c := range cases {
@@ -298,6 +304,52 @@ func TestRun(t *testing.T) {
 		)
 	})
 
+	// planProfile is a complete profile, because a session needs a window to decode; the one that writeProfile writes has none.
+	planProfile := filepath.Join(registry, "plan"+files.ProfileSuffix)
+	require.NoError(t, os.WriteFile(planProfile, []byte("session {\n  name = \"plan\"\n\n  window {\n    name = \"main\"\n\n    pane {\n      name = \"shell\"\n    }\n  }\n}\n"), 0o600))
+
+	t.Run("diff for a session that does not run exits 5 with the plan on stdout and nothing on stderr", func(t *testing.T) {
+		requireTmux(t)
+
+		readStdout := capture(t, &os.Stdout)
+		readStderr := capture(t, &os.Stderr)
+		var stderr bytes.Buffer
+		code := run(context.Background(), []string{"glaze", "diff", "plan", "--socket-name", "glaze-test-no-server"}, &stderr)
+		stdout, logged := readStdout(), readStderr()
+
+		// The report is the result, so main prints no message for it.
+		assert.Equal(t, exitDifferences, code)
+		assert.True(t, strings.HasPrefix(stdout, "+ session \"plan\"  (current directory)\n  + window \"main\" [1]\n    + pane \"shell\" [1]  (current directory)\n"), stdout)
+		assert.Contains(t, stdout, "\nPlan: 3 to add, 0 to change, 0 to remove.\n")
+		assert.True(t, strings.HasSuffix(stdout, "to create the session.\n"), stdout)
+		assert.Empty(t, stderr.String())
+		assert.Empty(t, logged)
+	})
+
+	t.Run("diff -q prints nothing and exits 5 for a session that does not run", func(t *testing.T) {
+		requireTmux(t)
+
+		readStdout := capture(t, &os.Stdout)
+		readStderr := capture(t, &os.Stderr)
+		var stderr bytes.Buffer
+		code := run(context.Background(), []string{"glaze", "diff", "-q", "plan", "--socket-name", "glaze-test-no-server"}, &stderr)
+		stdout, logged := readStdout(), readStderr()
+
+		assert.Equal(t, exitDifferences, code)
+		assert.Empty(t, stdout)
+		assert.Empty(t, stderr.String())
+		assert.Empty(t, logged)
+	})
+
+	t.Run("diff without the registry profile points at save", func(t *testing.T) {
+		requireTmux(t)
+
+		var stderr bytes.Buffer
+		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "diff", "nope"}, &stderr))
+		assert.Contains(t, stderr.String(), "no profile named `nope` in the profile registry")
+		assert.Contains(t, stderr.String(), " - `glaze save nope` in a tmux session writes the profile")
+	})
+
 	t.Run("the help names the registry", func(t *testing.T) {
 		for _, c := range []struct {
 			args    []string
@@ -306,11 +358,14 @@ func TestRun(t *testing.T) {
 			{[]string{"up", "--help"}, []string{"glaze up [options] [name]", "profile registry"}},
 			{[]string{"help", "up"}, []string{"glaze up [options] [name]", "profile registry"}},
 			{[]string{"save", "--help"}, []string{"glaze save [options] [name]", "A name writes <name>.glaze into the profile registry", "replaces the target profile when it exists"}},
+			{[]string{"diff", "--help"}, append([]string{"glaze diff [options] [name]", "A name selects <name>.glaze in the profile registry", "--quiet, -q", "print nothing; the exit code carries the result"}, strings.Split(strings.TrimSuffix(diffDescription, "\n"), "\n")...)},
 		} {
-			var out bytes.Buffer
+			var out, errOut bytes.Buffer
 			app := newApp()
 			app.Writer = &out
+			app.ErrWriter = &errOut
 			assert.NoError(t, app.Run(context.Background(), append([]string{"glaze"}, c.args...)), strings.Join(c.args, " "))
+			assert.Empty(t, errOut.String(), strings.Join(c.args, " "))
 
 			for _, phrase := range c.phrases {
 				assert.Contains(t, out.String(), phrase, strings.Join(c.args, " "))

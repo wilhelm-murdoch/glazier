@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/hashicorp/hcl/v2"
@@ -65,6 +66,17 @@ func NewActionBase(cmd *cli.Command, logLevel string) (*ActionBase, error) {
 func warnIgnoredConfigHome(log *logger.Logger) {
 	if value, ok := files.IgnoredConfigHome(); ok {
 		log.Warn("XDG_CONFIG_HOME is not absolute, so the profile registry is ~/.config/glaze", "XDG_CONFIG_HOME", value)
+	}
+}
+
+// warnRename says when tmux cannot use some characters of a name, so up and diff print the same warning.
+func warnRename(log *logger.Logger, kind, name, sanitized string) {
+	if name != sanitized {
+		log.Warn(
+			fmt.Sprintf("tmux cannot use some characters in this %s name; replacing them with hyphens", kind),
+			"name", name,
+			"tmux_name", sanitized,
+		)
 	}
 }
 

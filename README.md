@@ -59,11 +59,12 @@ Personally, I like the declarative self-validating HCL spec, variable + string f
 - `tmux wait-for` sequences the commands. There are no fixed sleeps.
 - The `glaze format` command formats and validates a profile.
 - The `glaze save` command captures a live session into a profile.
+- The `glaze diff` command shows what `up --clear` would change in a running session. It changes nothing.
 - The `glaze down` command kills a profile's session. The `glaze ls` command lists the sessions.
 
 ## Requirements
 - Go **1.26+** (to build from source)
-- `tmux` 3.2a or later on your `PATH`. `glaze up` and `glaze save` read `tmux -V` first and stop with exit code 4 on an older tmux.
+- `tmux` 3.2a or later on your `PATH`. `glaze up`, `glaze save` and `glaze diff` read `tmux -V` first and stop with exit code 4 on an older tmux.
 
 ## Installation
 
@@ -150,6 +151,7 @@ AUTHOR:
 
 COMMANDS:
    up          apply the specified glaze profile
+   diff        show what up --clear would change in the running session
    down        kill the session described by the specified glaze profile
    ls          list the sessions running on the target tmux server
    format      rewrite a profile in the canonical format
@@ -172,17 +174,18 @@ Global flags:
 | `--log-level` | `info` | One of the supported log levels: `trace`, `debug`, `info`, `warning`, `error`, `critical`. |
 | `--version`, `-v` | | Print the version, the stage, the commit and the build date. Put the flag before a command: `glaze up -v` is a usage error. |
 
-Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour only when stderr is a terminal. Set `NO_COLOR` to turn colour off.
+Glazier writes log lines and diagnostics to stderr. Only command output goes to stdout: the `ls` table, the `diff` report and the profile from `format --stdout` and `save --stdout`. Thus `glaze save --stdout > saved.glaze` writes a clean profile. Glazier writes colour to a stream only when that stream is a terminal: the log on stderr and the `diff` report on stdout. Set `NO_COLOR` or `TERM=dumb` to turn colour off.
 
 Each exit code has one meaning. A script can use the code to find the cause of a failure:
 
 | Code | Meaning |
 |------|---------|
-| `0` | Success. `ls` with no tmux server, `ls --profiles` with no profile registry and `down` for a session that does not run also succeed. |
+| `0` | Success. `ls` with no tmux server, `ls --profiles` with no profile registry and `down` for a session that does not run also succeed. So does `diff` for a session that matches its profile. |
 | `1` | A run failed, for example because tmux rejected an option value or Glazier could not write a profile. |
 | `2` | The command line is not correct, for example an unknown flag, a `--var` without `=` or a profile name that is not valid. |
 | `3` | The profile has errors, Glazier cannot find the profile, the profile registry has no profile with that name or the profile registry cannot be used. |
 | `4` | Glazier cannot use tmux, for example because tmux is not on `PATH`, is older than 3.2a or the socket does not give access. Glazier does not treat this as "no server". |
+| `5` | The session differs from the profile, or does not run. Only `diff` returns it. The report is on stdout. |
 | `130` | SIGINT, for example Ctrl-C, stopped Glazier. |
 | `143` | SIGTERM stopped Glazier. |
 
@@ -198,10 +201,10 @@ $ mkdir -p ~/.config/fish/completions && glaze completion fish > ~/.config/fish/
 
 Use `eval` for bash. The `source <(...)` form does nothing in bash 3.2, which is the bash that macOS includes. The zsh script calls `compdef`, so `compinit` must run first.
 
-After `up`, `down` and `format`, Tab lists the names of the profile registry. See [Profile registry](#profile-registry). The fish script drops each candidate that starts with `glaze`, so fish does not complete a profile name such as `glaze-api`. The name still works when you type it.
+After `up`, `down`, `diff` and `format`, Tab lists the names of the profile registry. See [Profile registry](#profile-registry). The fish script drops each candidate that starts with `glaze`, so fish does not complete a profile name such as `glaze-api`. The name still works when you type it.
 
 ### `glaze up`
-Apply a profile. The command creates the session, the windows and the panes.
+Apply a profile. The command creates the session, the windows and the panes. When a session with the same name runs, `up` attaches to it and changes nothing. Run `glaze diff` to see what `up --clear` would change. See [`glaze diff`](#glaze-diff).
 ```console
 $ glaze up                          # apply ./.glaze and attach
 $ glaze up work                     # apply ~/.config/glaze/work.glaze from any directory
@@ -218,7 +221,7 @@ $ glaze up work --var district=watson
 | Flag | Description |
 |------|-------------|
 | `--detached` | Create the session and do not attach to it. |
-| `--clear` | First kill an existing session that has the same name. Glazier refuses when it runs inside that session, because the kill would also end Glazier. |
+| `--clear` | First kill an existing session that has the same name. Run `glaze diff` first to see the changes. Glazier refuses when it runs inside that session, because the kill would also end Glazier. On a session that does not run, `--clear` creates it without a warning. |
 | `--keep-on-failure` | Keep the partly built session when `up` fails, so that you can examine it. Run `glaze up --clear` to build it again. |
 | `--debug` | Print each command that Glazier sends to the tmux socket, and the text of each pane and session command. Env values show as `<redacted>`. |
 | `--command-timeout` | Stop the wait for the commands of a pane after this duration, for example `5m`. The default value `0` waits with no limit. See [Commands](#commands). |
@@ -228,13 +231,86 @@ $ glaze up work --var district=watson
 | `--var key=value` | Set a variable. The flag is repeatable. |
 | `--var-file <path>` | An HCL file of variable values. |
 
-With a profile name, `up` reads `<name>.glaze` from the profile registry and nothing else. The session name comes from the `name` attribute in the profile, not from the profile name. A registry profile must set `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. The flags go before or after the name. A profile name and `--profile-path` together is a usage error. Glazier reads `--var-file` from the current directory. See [Profile registry](#profile-registry).
+With a profile name, `up` reads `<name>.glaze` from the profile registry and nothing else. The session name comes from the `name` attribute in the profile, not from the profile name. A registry profile must set `name`. Without it, `up`, `diff`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. The flags go before or after the name. A profile name and `--profile-path` together is a usage error. Glazier reads `--var-file` from the current directory. See [Profile registry](#profile-registry).
 
 A command or a hook can contain a secret from a variable. At the default log level, `up` shows only how many commands it runs in each pane. With `--debug`, it also shows the text of each command and hook, so check `--debug` output before you share it. Glazier never shows an env value: the log and the error messages show `<redacted>`. tmux gets each env value as a command argument, so another user on the same host can see it with `ps` for a moment.
 
 A hook or an option in your `tmux.conf` can rename a window after Glazier creates it, for example `set-hook -g after-new-window 'rename-window x'`. `up` then shows a warning with the declared name and the new name. Glazier does not rename the window back, because your configuration can rename it again.
 
 Outside tmux, `up` attaches your terminal to the session. In a pane of the same tmux server, `up` switches your client to the session. In a pane of a different tmux server, for example with `--socket-name`, `up` does not attach, because that would put one tmux client inside another. It shows the command that attaches to the session instead. Without a terminal, for example in a script, `up` does the same and warns: use `--detached` to skip the warning.
+
+### `glaze diff`
+Show what `glaze up --clear` would change in the running session. The command reads the session and changes nothing. Run it before `glaze up --clear`.
+```console
+$ glaze diff                        # compare ./.glaze with its session
+$ glaze diff work                   # compare ~/.config/glaze/work.glaze with its session
+$ glaze diff --profile-path ./api.glaze --var env=prod
+$ glaze --log-level debug diff work # also show each tmux command that diff runs
+$ glaze diff -q work; [ $? -eq 5 ] && glaze up --clear work
+```
+
+| Flag | Description |
+|------|-------------|
+| `--quiet`, `-q` | Print nothing. The exit code carries the result. |
+| `--profile-path` | The path to a `.glaze` file. Not together with a profile name. See [Profile resolution](#profile-resolution). |
+| `--var key=value` | Set a variable. The flag is repeatable. Every declared variable needs a value, as for `up`. |
+| `--var-file <path>` | An HCL file of variable values. |
+| `--socket-path` / `--socket-name` | A custom tmux socket. |
+
+The profile of this example sets `focus = true` on the window `edit`. The report is a tree: the session, then each window, then each pane. `[n]` is the position of a window in the session or of a pane in its window. A window or a pane without a difference is left out. In this example, a user selected the window `run` and changed the directory of the pane `shell`. The user opened a pane in `edit`, replaced the pane `logs`, killed the window `docs` and opened a new window:
+```console
+$ glaze diff api
+session "api"
+  ? focus: window "run" [2], profile window "edit" [1]; a user can select another window
+  window "edit" [1]
+    pane "shell" [1]
+      ? directory: "/", profile "/tmp"; tmux reports where the shell is now, not where the pane started
+    - pane (unnamed) [3]
+  window "run" [2]
+    pane "logs" [2]
+      ~ title: (unnamed) -> "logs"; glaze titles every pane it creates, so this pane is not from the profile
+  + window "docs" [3]
+    + pane "notes" [1]  (current directory)
+  - window "zsh" [3] (named by tmux)
+    - pane (unnamed) [1]
+Plan: 2 to add, 1 to change, 3 to remove, 2 to check.
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
+Run glaze up --clear with the same profile and flags to apply the profile. The kill ends every process in the session.
+$ echo $?
+5
+```
+
+Each difference has one of four marks. A `~` line and a `?` line show the live value first and the profile value second.
+
+| Mark | Meaning |
+|------|---------|
+| `+` | The profile has this window or pane and the session does not. `up --clear` adds it. The second column is the directory of the pane. `(current directory)` is the directory from which `up` runs. |
+| `-` | The session has this window or pane and the profile does not. `up --clear` removes it. `(named by tmux)` marks a window that tmux names after its program. `(unnamed)` marks a pane with the default title of tmux. |
+| `~` | A value differs and `up --clear` sets it: the session `starting_directory`, the window order or a pane that Glazier did not create. |
+| `?` | A value differs, but tmux cannot tell if Glazier set it or a user changed it. Examples are the focus, the current directory of a pane and a pane title. The line ends with the reason. |
+
+On a terminal, the marks have colour: `+` is green, `-` is red, `~` is yellow and `?` is cyan. Through a pipe or with `NO_COLOR`, the report has no colour, so a script reads the same text.
+
+Glazier matches the windows by name. A window that you renamed in tmux is one `-` line and one `+` line. A profile window with `automatic-rename` on matches the next live window that tmux named, and Glazier does not compare its name. Glazier matches the panes of a window by position. A pane at a matched position with the default title of tmux is a pane that Glazier did not create. Glazier titles every pane it creates. That is a `~` line. Glazier compares the focus only when the profile declares `focus = true`. As in `up`, the last declared focus wins. The focus is a `?` line, because a user moves it with one key.
+
+The `Plan` line counts the items. A `+` or `-` item counts with each of its children. An item with a `~` line counts once as a change. An item with only `?` lines counts once as "to check". Two fixed lines end every report:
+```
+Not compared: commands, envs, hooks and options. tmux does not report what glaze set.
+Not compared: size, adjust and layout. tmux reports them in a form that changes with the terminal size.
+```
+
+tmux reports the effective options, hooks and environment, not the values that Glazier set. A comparison would show your `tmux.conf` as a difference. tmux reports a layout as a coordinate string, and that string changes with the size of the terminal. A hook in your `tmux.conf` that renames a window makes `diff` show that window as `-` and `+` on every run. A window name that uses `random()` gets a new value on each run and shows the same way. Do not use the exit code of `diff` in a script with such a profile or hook.
+
+`diff` exits with code `0` when it counts no difference. A report with only `?` lines also gives `0`. It exits with code `5` when it counts a difference or when the session does not run. For a session that does not run, the report is a creation plan: every line is a `+` line. Code `5` is a result, not a failure, so `diff` writes no error for it. The other codes are the same as for `up`. A script tests for code `5`:
+```console
+$ glaze diff -q work; [ $? -eq 5 ] && glaze up --clear work          # sh, bash, zsh
+$ glaze diff -q work; test $status -eq 5; and glaze up --clear work  # fish
+```
+
+Do not write `glaze diff -q work || glaze up --clear work`. The `||` runs `up --clear` on every non-zero code, also on `1`, `3` and `4`. Those codes mean that the run failed, that the profile has an error or that tmux is not usable.
+
+The last line of the report says how to apply the profile. `glaze up --clear` kills the session, which ends every process in it, and then builds the session again. Run it from outside the session or from another session. Glazier refuses to kill the session that it runs in. When you run `diff` in a pane of the compared session, the hint says so. `diff` has no `--debug` flag. `glaze --log-level debug diff work` shows each tmux command that `diff` runs.
 
 ### `glaze down`
 
@@ -347,7 +423,7 @@ A profile name writes `<name>.glaze` into the profile registry. Glazier creates 
 
 ## Profile registry
 
-The profile registry is one directory that holds profiles, one session per file. A profile name selects one file in it: `<name>.glaze`. `glaze up work` applies `~/.config/glaze/work.glaze` from any directory, `glaze down work` kills its session and `glaze format work` formats it. `glaze ls --profiles` lists the profile registry.
+The profile registry is one directory that holds profiles, one session per file. A profile name selects one file in it: `<name>.glaze`. `glaze up work` applies `~/.config/glaze/work.glaze` from any directory, `glaze diff work` compares it with its session, `glaze down work` kills its session and `glaze format work` formats it. `glaze ls --profiles` lists the profile registry.
 
 Glazier finds the profile registry in this order:
 
@@ -378,11 +454,11 @@ Use lower case. Glazier does not fold case. On a case-insensitive macOS volume, 
 
 ### The profile name and the session name
 
-The profile name is the file name without `.glaze`. The session name comes from the `name` attribute in the profile, and `glaze ls` shows it. A registry profile must set `name`. Without it, `up`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. Set `name` in each registry profile.
+The profile name is the file name without `.glaze`. The session name comes from the `name` attribute in the profile, and `glaze ls` shows it. A registry profile must set `name`. Without it, `up`, `diff`, `down` and `format --validate` stop with exit code `3`. The session would get the name `default`, and `glaze down <name>` could then kill an unrelated session. The same file through `--profile-path` still creates the session `default`. Set `name` in each registry profile.
 
 ### Directories in a registry profile
 
-A relative `starting_directory` is relative to the directory of the profile. For a registry profile, that directory is the profile registry, so `starting_directory = "src"` means `~/.config/glaze/src`. When that path does not exist, the diagnostic names the base directory. In a registry profile, write `~/...`, an absolute path, `path.pwd` or no `starting_directory`. A value of `.` is the profile registry itself. A session without `starting_directory` starts in the current directory, so `cd ~/src/api && glaze up dev` starts the session in `~/src/api`. Glazier reads `--var-file` from the current directory too.
+A relative `starting_directory` is relative to the directory of the profile. For a registry profile, that directory is the profile registry, so `starting_directory = "src"` means `~/.config/glaze/src`. When that path does not exist, the diagnostic names the base directory. In a registry profile, write `~/...`, an absolute path, `path.pwd` or no `starting_directory`. A value of `.` is the profile registry itself. A session without `starting_directory` starts in the current directory, so `cd ~/src/api && glaze up dev` starts the session in `~/src/api`. `glaze diff dev` from another directory then shows the session directory as a `?` line, because `up --clear` would use the new current directory. Glazier reads `--var-file` from the current directory too.
 
 `path.pwd` is the current directory and `path.base` is its basename, so one registry profile can serve many projects:
 
@@ -392,7 +468,7 @@ session {
 }
 ```
 
-`glaze up dev` from `~/src/api` creates the session `reg-api`, and `glaze down dev` from the same directory kills it. From another directory, `down` computes a different name, so use `glaze down --session reg-api`.
+`glaze up dev` from `~/src/api` creates the session `reg-api`, and `glaze down dev` from the same directory kills it. From another directory, `down` computes a different name, so use `glaze down --session reg-api`. `glaze diff dev` from another directory also computes a different name. It then shows a creation plan and says that the session name depends on the current directory.
 
 ### From tmuxinator, tmuxp or smug
 

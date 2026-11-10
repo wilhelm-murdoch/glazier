@@ -1,0 +1,19 @@
+# The profile lets tmux name the first window, so diff matches it by that option and not by its name.
+session {
+  name = "auto-rename"
+  window {
+    name = "edit"
+    options = {
+      "automatic-rename" = "on"
+    }
+    pane {
+      name = "p"
+    }
+  }
+  window {
+    name = "fixed"
+    pane {
+      name = "q"
+    }
+  }
+}

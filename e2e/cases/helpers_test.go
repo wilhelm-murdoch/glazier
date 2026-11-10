@@ -16,6 +16,7 @@ const (
 	exitUsage          = 2 // a wrong flag or argument
 	exitInvalidProfile = 3 // a profile that does not parse or validate
 	exitUnreachable    = 4 // a tmux server that glaze cannot reach
+	exitDifferences    = 5 // diff: the session differs from the profile or does not run
 )
 
 // hangTimeout is the deadline of a glaze command that can hang. It is shorter

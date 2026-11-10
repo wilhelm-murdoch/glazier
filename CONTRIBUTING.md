@@ -39,7 +39,7 @@ and the latest stable release.
 ## How the code is organized
 
 - `cmd/glaze/main.go` - CLI wiring via `urfave/cli/v3`; one entry per subcommand.
-- `cmd/glaze/actions/` - one file per subcommand (`up`, `format`, `save`);
+- `cmd/glaze/actions/` - one file per subcommand (`up`, `diff`, `format`, `save`);
   `base.go` holds the shared profile-resolution/diagnostics scaffolding.
 - `internal/spec/` - the `hcldec` specification tree for the profile schema.
 - `internal/decoders/` - decode the raw `cty.Value` into typed `Session`/
@@ -55,7 +55,8 @@ and the latest stable release.
 - `pkg/files/` - profile path resolution and `~` expansion.
 
 `AGENTS.md` is the long-form reference for conventions, data flow, and the
-reasoning behind deliberate omissions (notably what `save` refuses to export).
+reasoning behind deliberate omissions (notably what `save` refuses to export
+and what `diff` does not compare).
 
 ## Adding or changing behavior
 

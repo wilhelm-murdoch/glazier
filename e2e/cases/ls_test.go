@@ -18,6 +18,7 @@ var unreachableCommands = []struct {
 	{"ls", []string{"ls"}},
 	{"down", []string{"down", "--session", "unr", "--profile-path", ".glaze"}},
 	{"up", []string{"up", "--detached", "--profile-path", ".glaze"}},
+	{"diff", []string{"diff", "--profile-path", ".glaze"}},
 }
 
 // ls lists the sessions of a server.

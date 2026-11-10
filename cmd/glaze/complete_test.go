@@ -48,6 +48,9 @@ func TestCompleteProfileNames(t *testing.T) {
 		{"up lists the names", []string{"up"}, "api\nwork\n"},
 		{"down lists the names", []string{"down"}, "api\nwork\n"},
 		{"format lists the names", []string{"format"}, "api\nwork\n"},
+		{"diff lists the names", []string{"diff"}, "api\nwork\n"},
+		{"a given name ends the completion on diff", []string{"diff", "work"}, ""},
+		{"--profile-path ends the completion on diff", []string{"diff", "--profile-path", "x"}, ""},
 		{"a given name ends the completion", []string{"up", "work"}, ""},
 		{"--profile-path ends the completion", []string{"up", "--profile-path", "x"}, ""},
 		{"--session ends the completion", []string{"down", "--session", "x"}, ""},
@@ -66,6 +69,27 @@ func TestCompleteProfileNames(t *testing.T) {
 	t.Run("a flag prefix completes the flags", func(t *testing.T) {
 		out, stderr := complete(t, "up", "--p")
 		assert.Contains(t, out, "--profile-path:")
+		assert.NotContains(t, out, "work")
+		assert.Empty(t, stderr)
+	})
+
+	t.Run("a flag prefix on diff completes the quiet flag", func(t *testing.T) {
+		// The prefix has two letters, because the flag package reads `--q` as the alias `-q` itself.
+		out, stderr := complete(t, "diff", "--qu")
+		assert.Contains(t, out, "--quiet:")
+		assert.NotContains(t, out, "work")
+		assert.Empty(t, stderr)
+	})
+
+	t.Run("the root lists diff among the commands", func(t *testing.T) {
+		// The library reads os.Args for the root completion, so the test sets what a shell sends.
+		saved := os.Args
+		os.Args = []string{"glaze", "--generate-shell-completion"}
+		t.Cleanup(func() { os.Args = saved })
+
+		out, stderr := complete(t)
+		assert.Contains(t, out, "diff:")
+		assert.Contains(t, out, "up:")
 		assert.NotContains(t, out, "work")
 		assert.Empty(t, stderr)
 	})
