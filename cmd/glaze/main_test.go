@@ -97,6 +97,18 @@ func requireTmux(t *testing.T) {
 	}
 }
 
+// assertInOrder checks that each line is in text and comes after the line before it.
+func assertInOrder(t *testing.T, text string, lines ...string) {
+	t.Helper()
+
+	last := -1
+	for _, line := range lines {
+		at := strings.Index(text, line)
+		assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, text)
+		last = at
+	}
+}
+
 func TestExitCode(t *testing.T) {
 	cases := []struct {
 		name string
@@ -171,26 +183,20 @@ func TestRun(t *testing.T) {
 		{"unknown log level", []string{"--log-level", "loud", "format"}, exitUsage, "`loud` is not a log level; use one of critical, debug, error, info, trace, warning"},
 		{"missing profile", []string{"format", "--profile-path", filepath.Join(dir, "missing.glaze")}, exitInvalidProfile, "glaze profile not found"},
 		{"invalid profile", []string{"format", "--validate", "--profile-path", bad}, exitInvalidProfile, "contains errors"},
-		{"version", []string{"--version"}, exitOK, ""},
-		{"short version", []string{"-v"}, exitOK, ""},
 		{"version flag after a subcommand", []string{"up", "-v"}, exitUsage, "flag provided but not defined: -v"},
 		{"long version flag after a subcommand", []string{"down", "--version"}, exitUsage, "flag provided but not defined: -version"},
 		{"completion script", []string{"completion", "zsh"}, exitOK, ""},
 		{"completion without a shell shows the help", []string{"completion"}, exitOK, ""},
 		{"completion for an unknown shell", []string{"completion", "nope"}, exitUsage, "unknown shell `nope`"},
 		{"a second name", []string{"up", "a", "b"}, exitUsage, "`glaze up` takes one name; got `a` and `b`"},
-		{"a word on ls", []string{"ls", "x"}, exitUsage, "`glaze ls` takes no argument; got `x`"},
-		{"a name on save with --profile-path", []string{"save", "x", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
-		{"a name with a slash on save", []string{"save", "a/b"}, exitUsage, "`a/b` is not a profile name: a name cannot contain `/`; for a file, use --profile-path"},
-		{"a name without a profile on up points at save", []string{"up", "nope"}, exitInvalidProfile, " - `glaze save nope` in a tmux session writes the profile"},
 		{"a name and --profile-path", []string{"up", "work", "--profile-path", "p"}, exitUsage, "give a name or --profile-path, not both"},
 		{"--profile-path before a name", []string{"up", "--profile-path", "p", "work"}, exitUsage, "give a name or --profile-path, not both"},
 		{"a name and --session", []string{"down", "work", "--session", "s"}, exitUsage, "give a name or --session, not both"},
-		{"a name with a slash", []string{"up", "a/b"}, exitUsage, "for a file, use --profile-path"},
-		{"a name with the suffix", []string{"up", "work.glaze"}, exitUsage, "the name is `work`"},
 		{"a name that starts with a dash", []string{"up", "-1", "--detached"}, exitUsage, "cannot start with `-`"},
 		{"an empty name", []string{"up", ""}, exitUsage, "cannot be empty"},
 		{"a name without a profile", []string{"format", "--validate", "nope"}, exitInvalidProfile, "does not exist"},
+		// No leaf gets a help subcommand, so `help` is an ordinary profile name.
+		{"the help word is a profile name", []string{"up", "help"}, exitInvalidProfile, "no profile named `help` in the profile registry"},
 		{"the usage pointer of a bad name", []string{"format", "a/b"}, exitUsage, "(see `glaze format --help`)"},
 		{"an unknown command that names a profile", []string{"work"}, exitUsage, "unknown command `work`; to apply the profile `work`, run `glaze up work`"},
 	}
@@ -212,9 +218,12 @@ func TestRun(t *testing.T) {
 	})
 
 	t.Run("an unknown command keeps the plain message", func(t *testing.T) {
-		var stderr bytes.Buffer
-		assert.Equal(t, exitUsage, run(context.Background(), []string{"glaze", "nope"}, &stderr))
-		assert.Equal(t, "usage error: unknown command `nope` (see `glaze --help`)\n", stderr.String())
+		// No profile `nope` exists, and `a/b` is not a profile name, so the hint cannot apply.
+		for _, word := range []string{"nope", "a/b"} {
+			var stderr bytes.Buffer
+			assert.Equal(t, exitUsage, run(context.Background(), []string{"glaze", word}, &stderr), word)
+			assert.Equal(t, "usage error: unknown command `"+word+"` (see `glaze --help`)\n", stderr.String(), word)
+		}
 	})
 
 	t.Run("an unknown command keeps the plain message when the registry is a file", func(t *testing.T) {
@@ -229,30 +238,23 @@ func TestRun(t *testing.T) {
 		assert.Equal(t, "usage error: unknown command `work` (see `glaze --help`)\n", stderr.String())
 	})
 
-	t.Run("an unknown command that is not a profile name keeps the plain message", func(t *testing.T) {
-		var stderr bytes.Buffer
-		assert.Equal(t, exitUsage, run(context.Background(), []string{"glaze", "a/b"}, &stderr))
-		assert.Equal(t, "usage error: unknown command `a/b` (see `glaze --help`)\n", stderr.String())
-	})
-
-	t.Run("a word on a command without a name needs no tmux", func(t *testing.T) {
+	t.Run("a usage error comes before the tmux lookup", func(t *testing.T) {
 		t.Setenv("PATH", t.TempDir())
 
-		for _, args := range [][]string{{"ls", "x"}} {
+		// The words are checked before the action builds its tmux client, so the usage error comes first.
+		for _, c := range []struct {
+			args    []string
+			message string
+		}{
+			{[]string{"ls", "x"}, "`glaze ls` takes no argument; got `x` (see `glaze ls --help`)"},
+			{[]string{"save", "a/b"}, "`a/b` is not a profile name: a name cannot contain `/`; for a file, use --profile-path (see `glaze save --help`)"},
+			{[]string{"save", "work.glaze"}, "(see `glaze save --help`)"},
+			{[]string{"save", "-1"}, "(see `glaze save --help`)"},
+			{[]string{"save", "work", "--profile-path", "p"}, "give a name or --profile-path, not both (see `glaze save --help`)"},
+		} {
 			var stderr bytes.Buffer
-			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, args...), &stderr))
-			assert.Contains(t, stderr.String(), "takes no argument")
-		}
-	})
-
-	t.Run("a bad name on save needs no tmux", func(t *testing.T) {
-		t.Setenv("PATH", t.TempDir())
-
-		// The name is checked before the action builds its tmux client, so the usage error comes first.
-		for _, args := range [][]string{{"save", "a/b"}, {"save", "work.glaze"}, {"save", "-1"}, {"save", "work", "--profile-path", "p"}} {
-			var stderr bytes.Buffer
-			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, args...), &stderr), strings.Join(args, " "))
-			assert.Contains(t, stderr.String(), "(see `glaze save --help`)")
+			assert.Equal(t, exitUsage, run(context.Background(), append([]string{"glaze"}, c.args...), &stderr), strings.Join(c.args, " "))
+			assert.Contains(t, stderr.String(), c.message, strings.Join(c.args, " "))
 		}
 	})
 
@@ -276,18 +278,11 @@ func TestRun(t *testing.T) {
 		assert.Contains(t, stderr.String(), "no profile named `nope`; the profile registry `"+missing+"` does not exist")
 
 		// The save pointer comes before the mkdir line, because it is the way that needs no hand work.
-		lines := []string{
+		assertInOrder(t, stderr.String(),
 			" - `glaze save nope` in a tmux session creates the registry and writes the profile",
-			" - or create it with `mkdir -p " + missing + "` and put `nope.glaze` in it",
+			" - or create it with `mkdir -p "+missing+"` and put `nope.glaze` in it",
 			" - --profile-path reads a profile from any path",
-		}
-
-		last := -1
-		for _, line := range lines {
-			at := strings.Index(stderr.String(), line)
-			assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, stderr.String())
-			last = at
-		}
+		)
 	})
 
 	t.Run("a name without a profile in a registry says how save writes it", func(t *testing.T) {
@@ -295,59 +290,42 @@ func TestRun(t *testing.T) {
 		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "up", "nope"}, &stderr))
 
 		// The ls line comes first, then the save pointer, then --profile-path.
-		lines := []string{
-			"no profile named `nope` in the profile registry; `" + filepath.Join(registry, "nope.glaze") + "` does not exist",
-			" - `glaze ls --profiles` lists the profiles in `" + registry + "`",
+		assertInOrder(t, stderr.String(),
+			"no profile named `nope` in the profile registry; `"+filepath.Join(registry, "nope.glaze")+"` does not exist",
+			" - `glaze ls --profiles` lists the profiles in `"+registry+"`",
 			" - `glaze save nope` in a tmux session writes the profile",
 			" - --profile-path reads a profile from any path",
-		}
-
-		last := -1
-		for _, line := range lines {
-			at := strings.Index(stderr.String(), line)
-			assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, stderr.String())
-			last = at
-		}
+		)
 	})
 
-	t.Run("the help of save names the registry", func(t *testing.T) {
-		readStdout := capture(t, &os.Stdout)
-		var stderr bytes.Buffer
-		code := run(context.Background(), []string{"glaze", "save", "--help"}, &stderr)
-		stdout := readStdout()
-
-		assert.Equal(t, exitOK, code)
-		assert.Contains(t, stdout, "glaze save [options] [name]")
-		assert.Contains(t, stdout, "A name writes <name>.glaze into the profile registry")
-		assert.Contains(t, stdout, "replaces the target profile when it exists")
-		assert.Empty(t, stderr.String())
-	})
-
-	t.Run("the help word is a profile name", func(t *testing.T) {
-		registryHome(t)
-
-		var stderr bytes.Buffer
-		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "up", "help"}, &stderr))
-		assert.Contains(t, stderr.String(), "no profile named `help` in the profile registry")
-	})
-
-	t.Run("the help of up names the registry", func(t *testing.T) {
-		for _, args := range [][]string{{"up", "--help"}, {"help", "up"}} {
+	t.Run("the help names the registry", func(t *testing.T) {
+		for _, c := range []struct {
+			args    []string
+			phrases []string
+		}{
+			{[]string{"up", "--help"}, []string{"glaze up [options] [name]", "profile registry"}},
+			{[]string{"help", "up"}, []string{"glaze up [options] [name]", "profile registry"}},
+			{[]string{"save", "--help"}, []string{"glaze save [options] [name]", "A name writes <name>.glaze into the profile registry", "replaces the target profile when it exists"}},
+		} {
 			var out bytes.Buffer
 			app := newApp()
 			app.Writer = &out
-			assert.NoError(t, app.Run(context.Background(), append([]string{"glaze"}, args...)))
-			assert.Contains(t, out.String(), "glaze up [options] [name]")
-			assert.Contains(t, out.String(), "profile registry")
+			assert.NoError(t, app.Run(context.Background(), append([]string{"glaze"}, c.args...)), strings.Join(c.args, " "))
+
+			for _, phrase := range c.phrases {
+				assert.Contains(t, out.String(), phrase, strings.Join(c.args, " "))
+			}
 		}
 	})
 
 	t.Run("the version line goes to the writer of the app", func(t *testing.T) {
-		var out bytes.Buffer
-		app := newApp()
-		app.Writer = &out
-		assert.NoError(t, app.Run(context.Background(), []string{"glaze", "--version"}))
-		assert.Equal(t, fmt.Sprintf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date), out.String())
+		for _, flag := range []string{"--version", "-v"} {
+			var out bytes.Buffer
+			app := newApp()
+			app.Writer = &out
+			assert.NoError(t, app.Run(context.Background(), []string{"glaze", flag}), flag)
+			assert.Equal(t, fmt.Sprintf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date), out.String(), flag)
+		}
 	})
 
 	t.Run("format prints a registry profile without tmux", func(t *testing.T) {
@@ -460,19 +438,12 @@ func TestRun(t *testing.T) {
 		assert.Equal(t, exitInvalidProfile, run(context.Background(), []string{"glaze", "format"}, &stderr))
 
 		// The three lines keep their order, and the fourth names the registry.
-		lines := []string{
+		assertInOrder(t, stderr.String(),
 			"tried using --profile-path",
 			"searching the current directory",
 			"looking up GLAZE_PATH environment variable",
 			"no profile name was given; `glaze up <name>` reads the profile registry and `glaze ls --profiles` lists it",
-		}
-
-		last := -1
-		for _, line := range lines {
-			at := strings.Index(stderr.String(), line)
-			assert.Greater(t, at, last, "`%s` is missing or out of order in:\n%s", line, stderr.String())
-			last = at
-		}
+		)
 	})
 }
 
