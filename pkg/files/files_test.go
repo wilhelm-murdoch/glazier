@@ -15,17 +15,9 @@ func TestFileExists(t *testing.T) {
 	file := filepath.Join(dir, "profile.glaze")
 	require.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
 
-	t.Run("returns true for an existing file", func(t *testing.T) {
-		assert.True(t, FileExists(file))
-	})
-
-	t.Run("returns false for a missing file", func(t *testing.T) {
-		assert.False(t, FileExists(filepath.Join(dir, "nope.glaze")))
-	})
-
-	t.Run("returns false for a directory", func(t *testing.T) {
-		assert.False(t, FileExists(dir))
-	})
+	assert.True(t, FileExists(file))
+	assert.False(t, FileExists(filepath.Join(dir, "nope.glaze")))
+	assert.False(t, FileExists(dir))
 }
 
 func TestExpandPath(t *testing.T) {

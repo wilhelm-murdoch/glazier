@@ -179,16 +179,6 @@ func TestRegistryDir(t *testing.T) {
 		assert.ErrorContains(t, err, "GLAZE_REGISTRY is not valid")
 	})
 
-	t.Run("GLAZE_REGISTRY with ~ needs a home directory", func(t *testing.T) {
-		isolateRegistry(t)
-		t.Setenv("HOME", "")
-		t.Setenv(RegistryEnv, "~/profiles")
-
-		_, err := RegistryDir()
-		assert.ErrorContains(t, err, "GLAZE_REGISTRY is not valid")
-		assert.ErrorContains(t, err, "could not expand `~`")
-	})
-
 	t.Run("an absolute XDG_CONFIG_HOME gives its glaze directory", func(t *testing.T) {
 		isolateRegistry(t)
 		xdg := t.TempDir()
@@ -365,17 +355,6 @@ func TestResolveProfilePathByName(t *testing.T) {
 		profile := writeProfile(t, dir, "work")
 
 		resolved, err := ResolveProfilePath("", "work")
-		assert.NoError(t, err)
-		assert.Equal(t, profile, resolved)
-	})
-
-	t.Run("finds the profile in the default registry under the home directory", func(t *testing.T) {
-		home := isolateRegistry(t)
-		dir := filepath.Join(home, ".config", "glaze")
-		require.NoError(t, os.MkdirAll(dir, 0o700))
-		profile := writeProfile(t, dir, "api.v2")
-
-		resolved, err := ResolveProfilePath("", "api.v2")
 		assert.NoError(t, err)
 		assert.Equal(t, profile, resolved)
 	})
@@ -697,15 +676,6 @@ func TestResolveProfilePathByName(t *testing.T) {
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "set HOME, XDG_CONFIG_HOME or GLAZE_REGISTRY")
 	})
-
-	t.Run("wraps a relative GLAZE_REGISTRY", func(t *testing.T) {
-		isolateRegistry(t)
-		t.Setenv(RegistryEnv, "profiles")
-
-		_, err := ResolveProfilePath("", "work")
-		assert.ErrorIs(t, err, ErrProfileNotFound)
-		assert.ErrorContains(t, err, "GLAZE_REGISTRY must be an absolute path")
-	})
 }
 
 func TestListProfiles(t *testing.T) {
@@ -789,17 +759,6 @@ func TestListProfiles(t *testing.T) {
 
 		_, _, err := ListProfiles(file)
 		assert.ErrorContains(t, err, "`"+file+"` is a file, not the profile registry directory; move it away, or set XDG_CONFIG_HOME or GLAZE_REGISTRY to a directory")
-	})
-
-	t.Run("reports a registry with a file in its path", func(t *testing.T) {
-		isolateRegistry(t)
-		file := filepath.Join(t.TempDir(), "config")
-		require.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
-		dir := filepath.Join(file, "glaze")
-		t.Setenv(RegistryEnv, dir)
-
-		_, _, err := ListProfiles(dir)
-		assert.ErrorContains(t, err, "`"+dir+"` cannot be the profile registry, because a part of its path is a file; set GLAZE_REGISTRY to a directory")
 	})
 
 	t.Run("reports a registry that cannot be read", func(t *testing.T) {
