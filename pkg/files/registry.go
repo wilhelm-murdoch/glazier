@@ -254,7 +254,7 @@ func resolveRegistryProfile(name string) (string, error) {
 		}
 	}
 
-	if isDir(path) {
+	if IsDir(path) {
 		return path, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, path)
 	}
 

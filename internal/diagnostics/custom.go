@@ -3,7 +3,6 @@ package diagnostics
 import (
 	"fmt"
 	"maps"
-	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -100,7 +99,7 @@ func DirectoryDiagnostic(field string, value cty.Value, baseDirectory string) hc
 		return Invalid(field, `The %s of "%s" is not valid: %s.`, field, value.AsString(), err)
 	}
 
-	if info, err := os.Stat(path); value.AsString() != "" && err == nil && info.IsDir() {
+	if value.AsString() != "" && files.IsDir(path) {
 		return nil
 	}
 
