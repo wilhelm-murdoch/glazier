@@ -125,7 +125,8 @@ func TestSave(t *testing.T) {
 		before := c.State("raw", unnamedWindow, unnamedPane)
 		c.OK(c.Save("--session", "raw", "--profile-path", "raw.glaze"), "save non-glaze session")
 		c.Logf("saved profile:\n%s", c.Read("raw.glaze"))
-		c.TmuxSetup("kill-session", "-t", "=raw")
+		// The session is the last one, so the server exits; KillServer waits until it is gone.
+		c.KillServer()
 		c.OK(c.Up("--profile-path", "raw.glaze"), "up from foreign save")
 		roundTrip := func() string { return c.State("raw", unnamedWindow, unnamedPane) }
 		if !c.EventuallyEqual("foreign round-trip (ignoring titles)", before, roundTrip) {
