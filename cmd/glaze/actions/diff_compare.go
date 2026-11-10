@@ -1,8 +1,10 @@
 package actions
 
 import (
+	"cmp"
 	"fmt"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -160,16 +162,9 @@ func orderLine(want desired, live savedSession, matched map[int]int) string {
 		return ""
 	}
 
-	for len(pairs) > 0 {
-		best := 0
-		for k := range pairs {
-			if pairs[k].live < pairs[best].live {
-				best = k
-			}
-		}
-
-		liveOrder = append(liveOrder, pairs[best].name)
-		pairs = append(pairs[:best], pairs[best+1:]...)
+	slices.SortFunc(pairs, func(x, y pair) int { return cmp.Compare(x.live, y.live) })
+	for _, p := range pairs {
+		liveOrder = append(liveOrder, p.name)
 	}
 
 	return fmt.Sprintf("order: %s -> %s", strings.Join(liveOrder, ", "), strings.Join(profileOrder, ", "))
@@ -383,6 +378,7 @@ func sameDirectory(a, b string) bool {
 	return canonical(a) == canonical(b)
 }
 
+// canonical returns the path after Clean, and after EvalSymlinks when the path exists.
 func canonical(path string) string {
 	path = filepath.Clean(path)
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {

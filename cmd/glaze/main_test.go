@@ -360,10 +360,12 @@ func TestRun(t *testing.T) {
 			{[]string{"save", "--help"}, []string{"glaze save [options] [name]", "A name writes <name>.glaze into the profile registry", "replaces the target profile when it exists"}},
 			{[]string{"diff", "--help"}, append([]string{"glaze diff [options] [name]", "A name selects <name>.glaze in the profile registry", "--quiet, -q", "print nothing; the exit code carries the result"}, strings.Split(strings.TrimSuffix(diffDescription, "\n"), "\n")...)},
 		} {
-			var out bytes.Buffer
+			var out, errOut bytes.Buffer
 			app := newApp()
 			app.Writer = &out
+			app.ErrWriter = &errOut
 			assert.NoError(t, app.Run(context.Background(), append([]string{"glaze"}, c.args...)), strings.Join(c.args, " "))
+			assert.Empty(t, errOut.String(), strings.Join(c.args, " "))
 
 			for _, phrase := range c.phrases {
 				assert.Contains(t, out.String(), phrase, strings.Join(c.args, " "))

@@ -137,7 +137,7 @@ func pruneMissingDirectories(captured *savedSession, log *logger.Logger) {
 		for p := range captured.Windows[w].Panes {
 			pane := &captured.Windows[w].Panes[p]
 			if pane.DirectoryMissing {
-				log.Warn("the directory no longer exists, so the profile leaves it out", "pane", pane.Title, "directory", pane.StartingDirectory)
+				log.Warn("the directory no longer exists, so the profile leaves it out", "name", pane.Title, "directory", pane.StartingDirectory)
 				pane.StartingDirectory = ""
 			}
 		}

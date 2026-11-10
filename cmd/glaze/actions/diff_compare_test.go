@@ -13,6 +13,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// noChanges is the first line of a report without a difference, for the session api.
+var noChanges = fmt.Sprintf(noChangesFormat, `"api"`)
+
 // report renders a plan and returns its lines, without the empty string after the last newline.
 func report(t *testing.T, p plan, inside bool) []string {
 	t.Helper()
@@ -75,9 +78,6 @@ func livePane(title, dir string, active bool) savedPane {
 func hostPane(dir string, active bool) savedPane {
 	return savedPane{Title: "buildhost", HostTitle: true, StartingDirectory: dir, Focus: active}
 }
-
-// noChanges is the first line of a report without a difference, for the session api.
-var noChanges = fmt.Sprintf(noChangesFormat, `"api"`)
 
 func TestCompareWorkedExample(t *testing.T) {
 	// The profile: session api in /srv/api; edit (focus) with shell and tests (focus); run with server and logs in /var/log; solo with f; misc with m.

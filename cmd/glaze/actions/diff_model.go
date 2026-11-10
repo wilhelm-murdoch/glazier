@@ -39,6 +39,7 @@ type directoryFlags struct {
 	windows []windowDirectoryFlags
 }
 
+// windowDirectoryFlags records whether a window declares a directory, and the same for each of its panes.
 type windowDirectoryFlags struct {
 	window bool
 	panes  []bool

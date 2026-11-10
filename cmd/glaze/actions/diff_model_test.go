@@ -15,9 +15,8 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
-// decodeProfile parses a profile with these contents from a temporary directory and returns the decoded session with that directory.
-// It creates each subdirectory in subdirs first, because the spec rejects a directory that does not exist.
-// The directories are not resolved, so a test can read the declared flags first, as diff does.
+// decodeProfile decodes a profile with these contents in a temporary directory, after it creates each subdirectory in subdirs.
+// It does not resolve the directories, so a test can read the declared flags first, as diff does.
 func decodeProfile(t *testing.T, contents string, subdirs ...string) (*decoders.Session, string) {
 	t.Helper()
 

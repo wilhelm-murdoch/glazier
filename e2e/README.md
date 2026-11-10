@@ -11,7 +11,7 @@ The module is separate from glaze (`e2e/go.mod`). The compiler thus stops a case
 | `harness/`                | The library: cases, processes, checks, tmux queries, golden files.      |
 | `cases/`                  | The cases. One file for each area of glaze.                             |
 | `fixtures/<area>/*.glaze` | The profiles that the cases use. Each one is a real, formatted profile. |
-| `golden/`                 | The expected output of commands such as `save`, `format`, `diff` and errors. |
+| `golden/`                 | The expected output of `save`, `format`, `diff` and errors.             |
 | `expected-failures.txt`   | The baseline: the checks that are known to fail, with a reason.         |
 | `images/Dockerfile`       | One image for each tmux target.                                         |
 | `cmd/matrix/`             | The runner: it builds the images and runs the cases on each target.     |

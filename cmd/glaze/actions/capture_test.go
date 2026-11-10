@@ -234,7 +234,7 @@ func TestPruneMissingDirectories(t *testing.T) {
 
 	assert.Equal(t, 2, strings.Count(logs.String(), "the directory no longer exists, so the profile leaves it out"), logs.String())
 	assert.Contains(t, logs.String(), "session=demo directory=/gone\n")
-	assert.Contains(t, logs.String(), "pane=shell directory=/gone/shell\n")
+	assert.Contains(t, logs.String(), "name=shell directory=/gone/shell\n")
 	assert.NotContains(t, logs.String(), "/srv")
 
 	// The flags stay, so a caller can still tell a pruned directory from one that tmux never reported.

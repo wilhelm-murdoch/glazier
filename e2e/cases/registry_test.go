@@ -300,7 +300,7 @@ func TestRegistry(t *testing.T) {
 		r = c.GlazeWith(glazeRegistry("rel"), "save", "--socket-name", c.Socket, "--session", "sv-reg", "work")
 		c.ExitCode(r, "save by name with a relative GLAZE_REGISTRY exits 3", exitInvalidProfile)
 		c.Match("save by name with a relative GLAZE_REGISTRY names the fix", "absolute", r.Stderr)
-		c.NoMatch("save by name with a relative GLAZE_REGISTRY captures nothing", "capturing", r.Stderr)
+		c.NoMatch("save by name with a relative GLAZE_REGISTRY captures nothing", "saving session", r.Stderr)
 		c.True("save by name with a relative GLAZE_REGISTRY creates no directory", !c.Exists("rel"), "rel exists")
 		r = c.GlazeWith(glazeRegistry("rel"), "save", "--socket-name", c.Socket, "--session", "sv-reg", "--stdout", "work")
 		c.ExitCode(r, "save --stdout by name with a relative GLAZE_REGISTRY exits 3", exitInvalidProfile)
@@ -321,7 +321,7 @@ func TestRegistry(t *testing.T) {
 		r = c.Save("work", "--session", "sv-reg")
 		c.ExitCode(r, "save refuses an existing registry profile (exit 1)", exitFailure)
 		c.Match("save refusal says to use --force", "use --force", r.Stderr)
-		c.NoMatch("save refusal happens before the capture", "capturing", r.Stderr)
+		c.NoMatch("save refusal happens before the capture", "saving session", r.Stderr)
 		c.Equal("save refusal leaves the registry profile as it was", saved, c.Read(registryHome+"/work.glaze"))
 		c.OK(c.Save("work", "--session", "sv-reg", "--force"), "save --force replaces the registry profile")
 		c.OK(c.Glaze("format", "--validate", "work"), "saved registry profile validates")
@@ -342,10 +342,11 @@ func TestRegistry(t *testing.T) {
 		c.True("save with a bad name creates no directory", !c.Exists(registryHome+"/a"), "%s/a exists", registryHome)
 		c.ExitCode(c.Save("work.glaze", "--session", "sv-reg"), "save with the .glaze suffix is a usage error (exit 2)", exitUsage)
 		c.Write("parentfile", "")
-		r = c.GlazeWith(xdgConfigHome(c.Path("parentfile")), "save", "--socket-name", c.Socket, "--session", "sv-reg", "work")
+		// The capture logs at debug, so this run shows it.
+		r = c.GlazeWith(xdgConfigHome(c.Path("parentfile")), "--log-level", "debug", "save", "--socket-name", c.Socket, "--session", "sv-reg", "work")
 		c.ExitCode(r, "save by name under a file exits 3", exitInvalidProfile)
 		c.Match("save by name under a file names the cause", "a part of its path is a file", r.Stderr)
-		c.Match("save by name under a file fails after the capture", "saving session", r.Stderr)
+		c.Match("save by name under a file fails after the capture", "capturing window", r.Stderr)
 	})
 
 	harness.Run(t, "reg_registry_symlink", func(c *harness.Case) {
