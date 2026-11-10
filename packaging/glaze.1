@@ -277,11 +277,17 @@ load the script yourself:
 .PP
 .RS
 .nf
-source <(glaze completion bash)        # add to ~/.bashrc
-source <(glaze completion zsh)         # add to ~/.zshrc
-glaze completion fish > ~/.config/fish/completions/glaze.fish
+eval "$(glaze completion bash)"        # add to ~/.bashrc
+source <(glaze completion zsh)         # add to ~/.zshrc, after compinit
+mkdir -p ~/.config/fish/completions && glaze completion fish > ~/.config/fish/completions/glaze.fish
 .fi
 .RE
+.PP
+Use
+.B eval
+for bash. The form
+.B "source <(...)"
+does nothing in bash 3.2, which is the bash that macOS includes.
 .SS help
 Show the help of
 .B glaze
