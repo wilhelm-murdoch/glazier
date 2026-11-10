@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
+	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 // windowProfile returns a profile with one window whose body is window, in a session whose extra lines are session.
@@ -30,15 +31,17 @@ func TestDecodeRejectsValuesThatUpCannotApply(t *testing.T) {
 		{"the direction unknown", windowProfile("", "    pane {\n      adjust {\n        direction = \"unknown\"\n        amount    = \"5\"\n      }\n    }\n"), "not supported", 6},
 		{"a null direction", windowProfile("", "    pane {\n      adjust {\n        direction = null\n        amount    = \"5\"\n      }\n    }\n"), "must have a value", 6},
 		{"a null amount", windowProfile("", "    pane {\n      adjust {\n        direction = \"up\"\n        amount    = null\n      }\n    }\n"), "must have a value", 7},
+		{"an empty size block", windowProfile("", "    pane {\n      size {}\n    }\n"), "must set `x`, `y` or both", 5},
+		{"a size that is not cells or a percentage", windowProfile("", "    pane {\n      size {\n        x = \"not-a-size\"\n      }\n    }\n"), "should be 1 or more cells", 6},
+		{"an unknown layout", windowProfile("", "    layout = \"not-a-layout\"\n    pane {}\n"), "not a supported preset", 4},
 		{"an empty session name", "session {\n  name = \"\"\n  window {\n    pane {}\n  }\n}\n", "must not be empty", 2},
 		{"a raw layout with more panes than the window", windowProfile("", "    layout = \"e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}\"\n    pane {}\n"), "describes 2 panes, but the window declares 1", 3}, // the window block, which holds the layout and the panes
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, diags := New(writeGlaze(t, tc.profile))
-			require.False(t, diags.HasErrors(), diags.Error())
+			p := parse(t, tc.profile)
 
 			// Before, several of these profiles panicked in the decoder.
-			_, diags = p.Decode(spec.Session(""), BuildEvalContext(nil))
+			_, diags := p.Decode(spec.Session(""), BuildEvalContext(nil))
 			require.True(t, diags.HasErrors())
 			assert.Contains(t, diags.Error(), tc.detail)
 			require.NotNil(t, diags[0].Subject)
@@ -53,9 +56,8 @@ func TestDecodeAcceptsValidHooksAndLayouts(t *testing.T) {
 		"    layout = \"e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}\"\n    pane {}\n    pane {}\n",
 	)
 
-	p, diags := New(writeGlaze(t, profile))
-	require.False(t, diags.HasErrors())
-
-	_, diags = p.Decode(spec.Session(""), BuildEvalContext(nil))
-	assert.False(t, diags.HasErrors(), diags.Error())
+	session, diags := parse(t, profile).Decode(spec.Session(""), BuildEvalContext(nil))
+	require.False(t, diags.HasErrors(), diags.Error())
+	assert.Equal(t, enums.LayoutUnknown, session.Windows[0].Layout)
+	assert.Equal(t, "e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}", session.Windows[0].LayoutValue())
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/internal/decoders"
@@ -19,6 +20,14 @@ func writeGlaze(t *testing.T, content string) string {
 	path := filepath.Join(t.TempDir(), "test.glaze")
 	assert.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 	return path
+}
+
+// parse parses src in memory and stops the test when the parse fails.
+func parse(t *testing.T, src string) *Parser {
+	t.Helper()
+	p, diags := NewFromBytes([]byte(src), "test.glaze")
+	require.False(t, diags.HasErrors(), diags.Error())
+	return p
 }
 
 func TestNew(t *testing.T) {
@@ -104,16 +113,25 @@ session {
     "session-created" = "echo hi"
   }
   commands = ["echo session"]
+  options = {
+    "base-index" = "1"
+  }
 
   window {
     name   = "editor"
     layout = "main-vertical"
     focus  = true
+    options = {
+      "automatic-rename" = "off"
+    }
 
     pane {
       name     = "shell"
       focus    = true
       commands = ["vim", "ls"]
+      options = {
+        "remain-on-exit" = "on"
+      }
       size {
         x = "50%"
         y = "100"
@@ -135,12 +153,15 @@ session {
 	assert.Equal(t, dir, session.StartingDirectory)
 	assert.Equal(t, "vim", session.Envs["EDITOR"])
 	assert.Equal(t, "echo hi", session.Hooks["session-created"])
+	assert.Equal(t, []string{"echo session"}, session.Commands)
+	assert.Equal(t, "1", session.Options["base-index"])
 
 	assert.Equal(t, 1, len(session.Windows))
 	window := session.Windows[0]
 	assert.Equal(t, "editor", window.Name)
 	assert.Equal(t, enums.LayoutMainVertical, window.Layout)
 	assert.True(t, window.Focus)
+	assert.Equal(t, "off", window.Options["automatic-rename"])
 
 	assert.Equal(t, 2, len(window.Panes))
 
@@ -151,6 +172,7 @@ session {
 	assert.True(t, shell.Size.IsSet())
 	assert.Equal(t, "50%", shell.Size.X)
 	assert.Equal(t, "100", shell.Size.Y)
+	assert.Equal(t, "on", shell.Options["remain-on-exit"])
 
 	logs := window.Panes[1]
 	assert.Equal(t, "logs", logs.Name)
@@ -161,9 +183,7 @@ func TestDecodeDefaults(t *testing.T) {
 	content := `
 session {
   window {
-    pane {
-      commands = ["echo hello"]
-    }
+    pane {}
   }
 }`
 
@@ -177,6 +197,8 @@ session {
 	assert.Empty(t, session.StartingDirectory)
 	assert.Empty(t, session.Windows[0].StartingDirectory)
 	assert.Empty(t, session.Windows[0].Panes[0].StartingDirectory)
+	// A pane without a commands attribute has a null list, which must not panic.
+	assert.Empty(t, session.Windows[0].Panes[0].Commands)
 
 	window := session.Windows[0]
 	// layout defaults to tiled when omitted.
@@ -184,96 +206,23 @@ session {
 	assert.False(t, window.Focus)
 }
 
-func TestDecodeInvalidLayout(t *testing.T) {
-	content := `
-session {
-  name = "demo"
-  window {
-    name   = "w"
-    layout = "not-a-layout"
-    pane {
-      name     = "p"
-      commands = ["echo"]
-    }
-  }
-}`
-
-	_, hasErr := decode(t, content)
-	assert.True(t, hasErr)
-}
-
-func TestDecodeRawLayoutString(t *testing.T) {
-	content := `
-session {
-  name = "demo"
-  window {
-    name   = "w"
-    layout = "bb62,80x24,0,0"
-    pane {
-      name     = "p"
-      commands = ["echo"]
-    }
-  }
-}`
-
-	session, hasErr := decode(t, content)
-	assert.False(t, hasErr)
-	window := session.Windows[0]
-	assert.Equal(t, enums.LayoutUnknown, window.Layout)
-	assert.Equal(t, "bb62,80x24,0,0", window.LayoutValue())
-}
-
-func TestDecodeMissingWindow(t *testing.T) {
-	// window has MinItems: 1, so a session with no window is invalid.
-	_, hasErr := decode(t, `session { name = "demo" }`)
-	assert.True(t, hasErr)
-}
-
-func TestDecodeRejectsBlockLabels(t *testing.T) {
-	// Blocks take no labels; names are supplied via the `name` attribute.
-	_, hasErr := decode(t, `session "demo" { window { pane { commands = ["x"] } } }`)
-	assert.True(t, hasErr)
-}
-
-func TestDecodeRejectsDuplicateSession(t *testing.T) {
-	// Exactly one session block is allowed per profile. The duplicate is caught
-	// before the body is decoded, so empty blocks isolate the check.
-	_, hasErr := decode(t, "session {}\nsession {}")
-	assert.True(t, hasErr)
-}
-
-func TestDecodeRejectsStrayTopLevel(t *testing.T) {
-	// Only session and variable blocks live at the root; anything else is a
-	// typo and must be rejected rather than silently ignored.
-	t.Run("stray attribute", func(t *testing.T) {
-		_, hasErr := decode(t, "oops = \"typo\"\nsession {}")
-		assert.True(t, hasErr)
-	})
-
-	t.Run("unknown block", func(t *testing.T) {
-		_, hasErr := decode(t, "windo {}\nsession {}")
-		assert.True(t, hasErr)
-	})
-}
-
-func TestDecodeWithVariableBlockTolerated(t *testing.T) {
-	// A variable block sitting alongside the session must not be mistaken for
-	// an unexpected top-level block.
-	content := `
-variable "x" {
-  type    = string
-  default = "y"
-}
-
-session {
-  name = "demo"
-  window {
-    pane {}
-  }
-}`
-	session, hasErr := decode(t, content)
-	assert.False(t, hasErr)
-	assert.Equal(t, "demo", session.Name)
+// Only session and variable blocks live at the root, so a typo is rejected and not ignored.
+func TestDecodeRejectsInvalidStructure(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		src  string
+	}{
+		{"a session without a window", `session { name = "demo" }`},                  // window has MinItems 1
+		{"a block label", `session "demo" { window { pane { commands = ["x"] } } }`}, // names come from the name attribute
+		{"a second session block", "session {}\nsession {}"},                         // the duplicate is caught before the body is decoded, so empty blocks isolate the check
+		{"a stray top-level attribute", "oops = \"typo\"\nsession {}"},
+		{"an unknown top-level block", "windo {}\nsession {}"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, hasErr := decode(t, tc.src)
+			assert.True(t, hasErr)
+		})
+	}
 }
 
 func TestDecodeSizeBlock(t *testing.T) {
@@ -316,97 +265,6 @@ session {
 		assert.Equal(t, "80", pane.Size.X)
 		assert.Equal(t, "", pane.Size.Y)
 	})
-
-	t.Run("rejects an empty size block", func(t *testing.T) {
-		content := `
-session {
-  window {
-    pane {
-      commands = ["echo"]
-      size {}
-    }
-  }
-}`
-		_, hasErr := decode(t, content)
-		assert.True(t, hasErr)
-	})
-
-	t.Run("rejects an invalid size value", func(t *testing.T) {
-		content := `
-session {
-  window {
-    pane {
-      commands = ["echo"]
-      size {
-        x = "not-a-size"
-      }
-    }
-  }
-}`
-		_, hasErr := decode(t, content)
-		assert.True(t, hasErr)
-	})
-}
-
-func TestDecodePaneWithoutCommands(t *testing.T) {
-	// A pane with no commands attribute must not panic (commands is null).
-	content := `
-session {
-  window {
-    pane {
-      name = "p"
-    }
-  }
-}`
-	session, hasErr := decode(t, content)
-	assert.False(t, hasErr)
-	assert.Empty(t, session.Windows[0].Panes[0].Commands)
-}
-
-func TestDecodeSessionCommands(t *testing.T) {
-	content := `
-session {
-  name     = "demo"
-  commands = ["echo booting", "tmux source ~/.tmux.conf"]
-  window {
-    pane {
-      name = "p"
-    }
-  }
-}`
-	session, hasErr := decode(t, content)
-	assert.False(t, hasErr)
-	assert.Equal(t, []string{"echo booting", "tmux source ~/.tmux.conf"}, session.Commands)
-}
-
-func TestDecodeOptions(t *testing.T) {
-	content := `
-session {
-  name = "demo"
-  options = {
-    "base-index" = "1"
-  }
-  window {
-    name = "w"
-    options = {
-      "automatic-rename" = "off"
-    }
-    pane {
-      name = "p"
-      options = {
-        "remain-on-exit" = "on"
-      }
-      commands = ["echo"]
-    }
-  }
-}`
-	session, hasErr := decode(t, content)
-	assert.False(t, hasErr)
-	assert.Equal(t, "1", session.Options["base-index"])
-
-	window := session.Windows[0]
-	assert.Equal(t, "off", window.Options["automatic-rename"])
-	assert.Equal(t, "on", window.Panes[0].Options["remain-on-exit"])
 }
 
 func TestDecodeAdjust(t *testing.T) {
@@ -436,22 +294,5 @@ session {
 		assert.Equal(t, "5", pane.Adjustments[0].Amount)
 		assert.Equal(t, enums.AdjustmentRight, pane.Adjustments[1].Direction)
 		assert.Equal(t, "10", pane.Adjustments[1].Amount)
-	})
-
-	t.Run("rejects an invalid direction", func(t *testing.T) {
-		content := `
-session {
-  window {
-    pane {
-      commands = ["echo"]
-      adjust {
-        direction = "sideways"
-        amount    = "5"
-      }
-    }
-  }
-}`
-		_, hasErr := decode(t, content)
-		assert.True(t, hasErr)
 	})
 }

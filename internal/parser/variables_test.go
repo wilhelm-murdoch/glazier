@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -39,18 +40,6 @@ func TestCollectFlagVariables(t *testing.T) {
 	assert.Equal(t, cty.StringVal("a=b"), out["token"])
 }
 
-func TestCollectBaseVariablesPath(t *testing.T) {
-	out, err := collectBaseVariables()
-	assert.NoError(t, err)
-
-	path, ok := out["path"]
-	assert.True(t, ok)
-
-	attrs := path.AsValueMap()
-	assert.False(t, attrs["pwd"].AsString() == "")
-	assert.False(t, attrs["base"].AsString() == "")
-}
-
 func TestCollectBaseVariables(t *testing.T) {
 	t.Setenv("GLAZE_ENV_FROM_ENV", "env-value")
 
@@ -61,8 +50,10 @@ func TestCollectBaseVariables(t *testing.T) {
 	assert.True(t, out["env"].GetAttr("FROM_ENV").RawEquals(cty.StringVal("env-value")))
 
 	// the built-in path object is always present.
-	_, hasPath := out["path"]
-	assert.True(t, hasPath)
+	path, hasPath := out["path"]
+	require.True(t, hasPath)
+	assert.NotEmpty(t, path.GetAttr("pwd").AsString())
+	assert.NotEmpty(t, path.GetAttr("base").AsString())
 
 	// --var values are not collected here. VariableContext resolves them against their variable blocks under `var`.
 	_, hasVar := out["var"]

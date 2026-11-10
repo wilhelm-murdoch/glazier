@@ -14,10 +14,9 @@ import (
 func summaries(t *testing.T, profile string, requireAll bool) []string {
 	t.Helper()
 
-	p, diags := New(writeGlaze(t, profile))
-	require.False(t, diags.HasErrors(), diags.Error())
+	p := parse(t, profile)
 
-	_, diags = p.VariableContext(nil, "", requireAll)
+	_, diags := p.VariableContext(nil, "", requireAll)
 
 	var out []string
 	for _, diag := range diags {
@@ -68,13 +67,12 @@ func TestDecodeSessionNameNamesTheMissingVariable(t *testing.T) {
 		{"used through a local", variables + "locals {\n  base = \"svc-${var.region}\"\n}", "name = local.base"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			p, diags := New(writeGlaze(t, profileWithName(tc.blocks, tc.nameLine)))
-			require.False(t, diags.HasErrors())
+			p := parse(t, profileWithName(tc.blocks, tc.nameLine))
 
 			// `down` resolves only what it can, so var.region has no value here.
 			ctx, _ := p.VariableContext(nil, "", false)
 
-			_, diags = p.DecodeSessionName(spec.SessionName, ctx)
+			_, diags := p.DecodeSessionName(spec.SessionName, ctx)
 			require.True(t, diags.HasErrors())
 			require.Len(t, diags, 1, diags.Error())
 			assert.Equal(t, "Required variable not set", diags[0].Summary)

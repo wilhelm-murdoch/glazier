@@ -14,10 +14,7 @@ import (
 func localsContext(t *testing.T, content string, flags []string, requireAll bool) (map[string]cty.Value, bool, string) {
 	t.Helper()
 
-	p, diags := NewFromBytes([]byte(content), "test.glaze")
-	require.False(t, diags.HasErrors(), "unexpected parse error: %s", diags)
-
-	ctx, ctxDiags := p.VariableContext(flags, "", requireAll)
+	ctx, ctxDiags := parse(t, content).VariableContext(flags, "", requireAll)
 
 	locals := map[string]cty.Value{}
 	if obj, ok := ctx.Variables["local"]; ok && obj.Type().IsObjectType() {

@@ -107,10 +107,9 @@ func TestValueSize(t *testing.T) {
 
 func TestLocalsBudget(t *testing.T) {
 	t.Run("stops a doubling chain at the local that passes the budget", func(t *testing.T) {
-		p, diags := New(writeGlaze(t, doublingLocals(20)))
-		assert.False(t, diags.HasErrors())
+		p := parse(t, doublingLocals(20))
 
-		_, diags = p.VariableContext(nil, "", true)
+		_, diags := p.VariableContext(nil, "", true)
 		require.True(t, diags.HasErrors())
 		assert.Equal(t, "Locals too large", diags[0].Summary)
 		// 8 bytes doubled 17 times is 1 MiB, and with the locals before it the sum passes the budget at a17.
@@ -118,19 +117,17 @@ func TestLocalsBudget(t *testing.T) {
 	})
 
 	t.Run("also stops the lenient pass that down uses", func(t *testing.T) {
-		p, diags := New(writeGlaze(t, doublingLocals(20)))
-		assert.False(t, diags.HasErrors())
+		p := parse(t, doublingLocals(20))
 
-		_, diags = p.VariableContext(nil, "", false)
+		_, diags := p.VariableContext(nil, "", false)
 		require.True(t, diags.HasErrors())
 		assert.Equal(t, "Locals too large", diags[0].Summary)
 	})
 
 	t.Run("accepts locals under the budget", func(t *testing.T) {
-		p, diags := New(writeGlaze(t, doublingLocals(10)))
-		assert.False(t, diags.HasErrors())
+		p := parse(t, doublingLocals(10))
 
-		_, diags = p.VariableContext(nil, "", true)
+		_, diags := p.VariableContext(nil, "", true)
 		assert.False(t, diags.HasErrors(), diags.Error())
 	})
 }
