@@ -191,10 +191,12 @@ When `up` fails or a signal stops it, Glazier removes the session that this run 
 ### Shell completion
 `glaze completion <shell>` prints a completion script for bash, zsh, fish or pwsh. The script asks the `glaze` binary for the subcommands and the flags each time you press Tab, so it stays correct after an upgrade. The packages, the Homebrew formula and the AUR package install the scripts for you. With `go install` or a release zip, load the script yourself:
 ```console
-$ source <(glaze completion bash)                            # bash: add this line to ~/.bashrc
-$ source <(glaze completion zsh)                             # zsh: add this line to ~/.zshrc
-$ glaze completion fish > ~/.config/fish/completions/glaze.fish
+$ eval "$(glaze completion bash)"                            # bash: add this line to ~/.bashrc
+$ source <(glaze completion zsh)                             # zsh: add this line to ~/.zshrc, after compinit
+$ mkdir -p ~/.config/fish/completions && glaze completion fish > ~/.config/fish/completions/glaze.fish
 ```
+
+Use `eval` for bash. The `source <(...)` form does nothing in bash 3.2, which is the bash that macOS includes. The zsh script calls `compdef`, so `compinit` must run first.
 
 After `up`, `down` and `format`, Tab lists the names of the profile registry. See [Profile registry](#profile-registry). The fish script drops each candidate that starts with `glaze`, so fish does not complete a profile name such as `glaze-api`. The name still works when you type it.
 
