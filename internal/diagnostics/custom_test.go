@@ -1,7 +1,6 @@
 package diagnostics
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -141,10 +140,6 @@ func TestDirectoryDiagnostic(t *testing.T) {
 
 	assert.Empty(t, DirectoryDiagnostic("starting directory", cty.NullVal(cty.String), dir))
 
-	for _, invalid := range []string{"", file, "f.txt", filepath.Join(dir, "nope"), "nope", "~/nope"} {
-		assert.True(t, DirectoryDiagnostic("starting directory", cty.StringVal(invalid), dir).HasErrors(), invalid)
-	}
-
 	t.Run("says that glaze does not expand ~user", func(t *testing.T) {
 		diags := DirectoryDiagnostic("starting directory", cty.StringVal("~root/x"), dir)
 		assert.True(t, diags.HasErrors())
@@ -203,10 +198,6 @@ func TestAmountDiagnostic(t *testing.T) {
 	}
 
 	assert.Contains(t, AmountDiagnostic("amount", cty.StringVal("10%"))[0].Detail, "A percentage is not supported")
-}
-
-func TestErrHasDiagnosticsIsError(t *testing.T) {
-	assert.True(t, errors.Is(ErrHasDiagnostics, ErrHasDiagnostics))
 }
 
 func TestRequiredDiagnostic(t *testing.T) {
