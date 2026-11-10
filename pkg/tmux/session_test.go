@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 func TestSessionIdString(t *testing.T) {
@@ -48,7 +47,7 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Equal(t, "@1", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
-		assert.Equal(t, enums.LayoutTiled, window.Layout)
+		assert.Equal(t, "tiled", window.RawLayout)
 		assert.True(t, window.IsActive)
 
 		// No starting directory was given, so no -c flag should be sent.

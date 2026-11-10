@@ -2,10 +2,9 @@ package tmux
 
 import (
 	"fmt"
-
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+// WindowId is the number in a tmux window id such as @5.
 type WindowId int
 
 // String returns the tmux id of the window, for example @5.
@@ -20,7 +19,6 @@ type Window struct {
 	IsActive bool
 	Id       WindowId
 	Index    int
-	Layout   enums.Layout
 
 	// RawLayout is the #{window_layout} coordinate string, which `save` keeps when no named preset matches.
 	RawLayout string

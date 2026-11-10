@@ -164,7 +164,7 @@ func (r *CommandRecorder) On(subcommand string, result fakeResult) *CommandRecor
 // resultFor returns the next queued result for the subcommand of args, or a
 // zero fakeResult (success, no output) when nothing was queued.
 func (r *CommandRecorder) resultFor(args []string) fakeResult {
-	sub := subcommandOf(args)
+	sub := Subcommand(args)
 	if q := r.queues[sub]; len(q) > 0 {
 		res := q[0]
 		r.queues[sub] = q[1:]
@@ -179,7 +179,7 @@ func (r *CommandRecorder) Called(subcommand string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if Subcommand(c) == subcommand {
 			return true
 		}
 	}
@@ -192,7 +192,7 @@ func (r *CommandRecorder) ArgsFor(subcommand string) []string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for _, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if Subcommand(c) == subcommand {
 			return c
 		}
 	}
@@ -205,7 +205,7 @@ func (r *CommandRecorder) InputFor(subcommand string) string {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i, c := range r.Calls {
-		if subcommandOf(c) == subcommand {
+		if Subcommand(c) == subcommand {
 			return r.inputs[i]
 		}
 	}

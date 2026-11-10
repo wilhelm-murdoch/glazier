@@ -89,7 +89,7 @@ func shellKind(command string) (family shellFamily, known bool) {
 	return shellPOSIX, false
 }
 
-// Run evaluates the commands in order in the pane. It returns when every command but the last has finished,
+// Run evaluates the commands in order in the pane. It returns when every command but the last is complete,
 // because the last command can run for as long as the pane exists.
 func (r *CommandRunner) Run(pane string, commands []string) error {
 	if len(commands) == 0 {
@@ -111,7 +111,7 @@ func (r *CommandRunner) Run(pane string, commands []string) error {
 	}
 
 	if err := r.typeLine(pane, r.evalLine(name)); err != nil {
-		r.deleteBuffer(name)
+		r.client.deleteBuffer(name)
 		return err
 	}
 
@@ -216,9 +216,7 @@ func (r *CommandRunner) wait(pane, name string) error {
 			return nil
 		case <-ctx.Done():
 			// The cancelled context also stops the waiting client, so only the buffer is left to remove.
-			cleanup := *r
-			cleanup.client = r.client.WithoutCancel()
-			cleanup.deleteBuffer(name)
+			r.client.WithoutCancel().deleteBuffer(name)
 
 			return context.Cause(ctx)
 		case <-deadline:
@@ -236,7 +234,7 @@ func (r *CommandRunner) wait(pane, name string) error {
 					return nil
 				}
 
-				r.deleteBuffer(name)
+				r.client.deleteBuffer(name)
 				return ErrPaneExited
 			case <-time.After(paneCheckInterval):
 				return r.giveUp(name, done, ErrPaneExited)
@@ -251,7 +249,7 @@ func (r *CommandRunner) giveUp(name string, done <-chan error, reason error) err
 		<-done
 	}
 
-	r.deleteBuffer(name)
+	r.client.deleteBuffer(name)
 
 	return reason
 }
@@ -265,6 +263,6 @@ func (r *CommandRunner) paneAlive(pane string) bool {
 }
 
 // deleteBuffer removes the buffer. An error means the shell already removed it.
-func (r *CommandRunner) deleteBuffer(name string) {
-	_, _ = r.client.output("delete-buffer", "-b", name)
+func (c Client) deleteBuffer(name string) {
+	_ = c.run("delete-buffer", "-b", name)
 }

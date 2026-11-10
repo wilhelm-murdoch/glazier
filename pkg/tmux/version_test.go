@@ -130,6 +130,7 @@ func TestCheckVersionWarnsForUnknownVersion(t *testing.T) {
 	assert.NoError(t, client.CheckVersion())
 	assert.Contains(t, logs.String(), "could not read the tmux version")
 	assert.Contains(t, logs.String(), "openbsd-7.6")
+	assert.Contains(t, logs.String(), "minimum=3.2a")
 }
 
 func TestCheckVersionFails(t *testing.T) {

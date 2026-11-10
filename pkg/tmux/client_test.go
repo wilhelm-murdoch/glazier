@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
 type TestDepsClient struct {
@@ -55,6 +54,14 @@ func TestClientSessions(t *testing.T) {
 			expectedError: "",
 			expectedValues: [][]string{
 				{"test-session-a", "/tmp/foo"},
+			},
+			sessionCount: 1,
+		}, {
+			name:          "keeps a space that q: escaped at the end of a name",
+			cmdResponse:   `$1;a\ ;/tmp/foo\ `,
+			expectedError: "",
+			expectedValues: [][]string{
+				{"a ", "/tmp/foo "},
 			},
 			sessionCount: 1,
 		}, {
@@ -445,6 +452,7 @@ func TestClientCurrentSession(t *testing.T) {
 
 		_, err := testClient().CurrentSession()
 		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
+		assert.ErrorContains(t, err, "could not determine current session")
 	})
 
 	t.Run("wraps the underlying error", func(t *testing.T) {
@@ -469,7 +477,7 @@ func TestClientWindows(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(windows))
 		assert.True(t, slices.ContainsFunc(windows, func(w *Window) bool {
-			return w.Name == "win-a" && w.Layout == enums.LayoutTiled && w.IsActive
+			return w.Name == "win-a" && w.RawLayout == "tiled" && w.IsActive
 		}))
 	})
 
@@ -542,7 +550,7 @@ func TestClientNewWindowFromLine(t *testing.T) {
 		assert.Equal(t, "@3", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
-		assert.Equal(t, enums.LayoutMainVertical, window.Layout)
+		assert.Equal(t, "main-vertical", window.RawLayout)
 		assert.True(t, window.IsActive)
 	})
 

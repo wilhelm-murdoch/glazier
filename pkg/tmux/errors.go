@@ -57,6 +57,7 @@ func NewCommandError(args []string, err error) CommandError {
 	return CommandError{args: args, err: err, ExitStatus: exitStatus(err)}
 }
 
+// Error returns the error from running the command and the command itself.
 func (ce CommandError) Error() string {
 	return fmt.Sprintf("%s (command: %s)", ce.err, strings.Join(ce.args, " "))
 }

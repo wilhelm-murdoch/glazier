@@ -548,7 +548,7 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	if a.Command.Bool("clear") {
 		current, err := a.tmux.CurrentSession()
 		if err != nil {
-			return false, fmt.Errorf("could not determine current session: %w", err)
+			return false, err
 		}
 
 		if current != nil && current.Name == tmux.SanitizeSessionName(profile.Name) {

@@ -78,7 +78,7 @@ func (a *ActionLs) Run(ctx context.Context) error {
 	// Only a pane of this server has a current session; elsewhere nothing gets a marker.
 	currentSession, err := a.tmux.CurrentSession()
 	if err != nil {
-		return fmt.Errorf("could not determine current session: %w", err)
+		return err
 	}
 
 	table := a.table()
