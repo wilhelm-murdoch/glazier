@@ -168,7 +168,7 @@ func TestRun(t *testing.T) {
 		{"unknown subcommand", []string{"nope"}, exitUsage, "unknown command `nope`"},
 		{"no arguments shows the help", nil, exitOK, ""},
 		{"malformed --var", []string{"format", "--var", "nokey", "--profile-path", bad}, exitUsage, "key=value"},
-		{"unknown log level", []string{"--log-level", "loud", "format"}, exitUsage, "loud"},
+		{"unknown log level", []string{"--log-level", "loud", "format"}, exitUsage, "`loud` is not a log level; use one of critical, debug, error, info, trace, warning"},
 		{"missing profile", []string{"format", "--profile-path", filepath.Join(dir, "missing.glaze")}, exitInvalidProfile, "glaze profile not found"},
 		{"invalid profile", []string{"format", "--validate", "--profile-path", bad}, exitInvalidProfile, "contains errors"},
 		{"version", []string{"--version"}, exitOK, ""},
@@ -340,6 +340,14 @@ func TestRun(t *testing.T) {
 			assert.Contains(t, out.String(), "glaze up [options] [name]")
 			assert.Contains(t, out.String(), "profile registry")
 		}
+	})
+
+	t.Run("the version line goes to the writer of the app", func(t *testing.T) {
+		var out bytes.Buffer
+		app := newApp()
+		app.Writer = &out
+		assert.NoError(t, app.Run(context.Background(), []string{"glaze", "--version"}))
+		assert.Equal(t, fmt.Sprintf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date), out.String())
 	})
 
 	t.Run("format prints a registry profile without tmux", func(t *testing.T) {

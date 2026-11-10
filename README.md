@@ -137,7 +137,7 @@ All subcommands have their own `--help` output. The packages also install a man 
 ```console
 $ glaze --help
 NAME:
-   glaze - easily manage tmux sessions, windows and panes
+   glaze - manage tmux sessions, windows and panes from a profile
 
 USAGE:
    glaze [global options] [command [command options]]
@@ -152,15 +152,15 @@ COMMANDS:
    up          apply the specified glaze profile
    down        kill the session described by the specified glaze profile
    ls          list the sessions running on the target tmux server
-   format      rewrites the target glaze profile file to a canonical format
-   save        running this within a tmux session will save its current state to the specified glaze profile
+   format      rewrite a profile in the canonical format
+   save        write the structure of a running session as a profile
    help, h     Shows a list of commands or help for one command
-   completion  Output shell completion script for bash, zsh, fish, or Powershell
+   completion  print a completion script for bash, zsh, fish or pwsh
 
 GLOBAL OPTIONS:
-   --log-level string  specify a log level (default: "info")
+   --log-level string  set the log level: trace, debug, info, warning, error or critical (default: "info")
    --help, -h          show help
-   --version, -v       print only the version
+   --version, -v       print the version, the stage, the commit and the build date
 
 COPYRIGHT:
    (c) 2026 Wilhelm Codes ( https://wilhelm.codes )

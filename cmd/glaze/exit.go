@@ -13,7 +13,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux"
 )
 
-// The exit codes of glaze. The README lists them, so a change here needs a change there.
+// The exit codes of glaze. The README and packaging/glaze.1 (EXIT STATUS) list them, so a change here needs a change in both.
 const (
 	exitOK             = 0
 	exitFailure        = 1
@@ -62,9 +62,13 @@ func exitCode(err error) int {
 	}
 }
 
-// configureCompletion shows the completion command in the help and makes an unknown shell a usage error, like an unknown command.
+// configureCompletion shows the completion command in the help with the wording of the man page and makes an unknown shell a usage error, like an unknown command.
 func configureCompletion(cmd *cli.Command) {
 	cmd.Hidden = false
+	cmd.Usage = "print a completion script for bash, zsh, fish or pwsh"
+	cmd.Description = "source <(glaze completion bash)        # add to ~/.bashrc\n" +
+		"source <(glaze completion zsh)         # add to ~/.zshrc\n" +
+		"glaze completion fish > ~/.config/fish/completions/glaze.fish"
 	cmd.Action = func(_ context.Context, cmd *cli.Command) error {
 		if cmd.Args().Present() {
 			return fmt.Errorf("%w: unknown shell `%s` (see `glaze completion --help`)", errUsage, cmd.Args().First())
