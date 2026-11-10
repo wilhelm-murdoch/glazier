@@ -67,9 +67,9 @@ func exitCode(err error) int {
 func configureCompletion(cmd *cli.Command) {
 	cmd.Hidden = false
 	cmd.Usage = "print a completion script for bash, zsh, fish or pwsh"
-	cmd.Description = "source <(glaze completion bash)        # add to ~/.bashrc\n" +
-		"source <(glaze completion zsh)         # add to ~/.zshrc\n" +
-		"glaze completion fish > ~/.config/fish/completions/glaze.fish"
+	cmd.Description = "eval \"$(glaze completion bash)\"        # add to ~/.bashrc\n" +
+		"source <(glaze completion zsh)         # add to ~/.zshrc, after compinit\n" +
+		"mkdir -p ~/.config/fish/completions && glaze completion fish > ~/.config/fish/completions/glaze.fish"
 	cmd.Action = func(_ context.Context, cmd *cli.Command) error {
 		if cmd.Args().Present() {
 			return fmt.Errorf("%w: unknown shell `%s` (see `glaze completion --help`)", errUsage, cmd.Args().First())
