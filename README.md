@@ -277,7 +277,7 @@ work  /home/v/.config/glaze/work.glaze
 
 | Flag | Description |
 |------|-------------|
-| `--profiles` | List the profiles in the profile registry instead of the sessions. The command reads no profile and needs no tmux. When there is no profile registry, it writes nothing to stdout, logs that there is no profile registry and that `glaze save <name>` creates it, and exits with code `0`. It warns about a file that `up` cannot use. |
+| `--profiles` | List the profiles in the profile registry instead of the sessions. The command reads no profile and needs no tmux. When there is no profile registry, it writes nothing to stdout and exits with code `0`. It logs that there is no profile registry and that `glaze save <name>` creates it. It warns about a file that `up` cannot use. |
 | `--socket-path` / `--socket-name` | A custom tmux socket. |
 
 ### `glaze format`
@@ -337,7 +337,7 @@ A profile name writes `<name>.glaze` into the profile registry. Glazier creates 
 > This is a deliberate safety choice, not a missing feature:
 > - An exported **command** runs again on the next `glaze up`. A **hook** is a command bound to an event, thus the same risk applies. A destructive command from a forgotten pane can delete your filesystem or overload a database on replay.
 > - Glazier can read **environment variables** only as the full session environment. That environment includes secrets from your shell, for example tokens and keys. An export writes those secrets into a file that you could commit.
-> - **Options** read back as effective state. They mix your `tmux.conf` and your manual changes with the values that glaze set. To apply that state again on `up` gives unwanted results.
+> - **Options** read back as effective state. They mix your `tmux.conf` and your manual changes with the values that Glazier set. To apply that state again on `up` gives unwanted results.
 >
 > `save` leaves out what tmux set by default and what no longer exists, so the profile stays valid and portable. A pane title that is the host name is tmux's default title, and a window that tmux names after its program (`automatic-rename`) gets a different name on each run, so `save` writes neither. A directory that no longer exists is left out with a warning, and the pane then uses the directory of its session.
 >
@@ -372,7 +372,7 @@ Glazier reads a word such as `-x` as a flag, so `-x` is an unknown flag with exi
 
 Glazier never reads a word as a path, and a profile name never reads the current directory or `$GLAZE_PATH`. When `work.glaze` exists in one of those places but not in the profile registry, the error says so.
 
-Use lower case. Glazier does not fold case: on a case-insensitive macOS volume, `glaze up Work` opens `work.glaze`, and `glaze save Work --force` replaces `work.glaze` and stores the file as `Work.glaze`; on Linux the two names are two files. `help` is an ordinary profile name, so `glaze up help` applies the profile `help`. Use `glaze up --help` or `glaze help up` for the help of a command.
+Use lower case. Glazier does not fold case. On a case-insensitive macOS volume, `glaze up Work` opens `work.glaze`, and `glaze save Work --force` replaces the content of `work.glaze` and keeps the file name. On Linux the two names are two files. `help` is an ordinary profile name, so `glaze up help` applies the profile `help`. Use `glaze up --help` or `glaze help up` for the help of a command.
 
 ### The profile name and the session name
 
@@ -406,7 +406,7 @@ Without a name, `glaze` locates a profile in this order:
 - `.glaze` in the current working directory
 - `$GLAZE_PATH/.glaze`
 
-A command without a name never reads the profile registry. `GLAZE_PATH` names the directory that holds `.glaze`, not the file. When a path names a directory where glaze expects a file, or the other way round, the error says so. When Glazier finds no profile, the error lists the places it searched and says that `glaze up <name>` reads the profile registry.
+A command without a name never reads the profile registry. `GLAZE_PATH` names the directory that holds `.glaze`, not the file. When a path names a directory where Glazier expects a file, or the other way round, the error says so. When Glazier finds no profile, the error lists the places it searched and says that `glaze up <name>` reads the profile registry.
 
 > [!NOTE]
 > Glazier expands `~` and `~/` to your home directory in `--profile-path`, `$GLAZE_PATH`, `$GLAZE_REGISTRY` and `starting_directory`. It does not expand `~user`. It does not expand `~` in `XDG_CONFIG_HOME`, because your shell does that. A value that starts with a literal `~` is not absolute, so Glazier ignores it.
@@ -598,6 +598,11 @@ Built-in namespaces sit alongside `var.`. They need no declaration:
 Glazier limits a profile in two ways, so that a profile from an unknown source cannot use all the memory or crash `glaze`. All locals together can hold at most 1 MiB, counted as the bytes of each string plus one for each element. Brackets, braces, parentheses and strings can nest at most 256 levels deep in a profile or a `--var-file`. Large nested `for` expressions are not limited, so read a profile from an unknown source before you run `glaze` on it.
 
 ```hcl
+variable "district" {
+  type    = string
+  default = "watson"
+}
+
 session {
   name               = "gig-${var.district}"
   starting_directory = path.pwd
@@ -666,7 +671,7 @@ session {
 
 What each piece does:
 
-- **`var.project` has no default**, thus it is required. If you omit it, glaze reports a missing variable and does not build a partial session.
+- **`var.project` has no default**, thus it is required. If you omit it, Glazier reports a missing variable and does not build a partial session.
 - **`var.branch` and `var.editor` have defaults.** You ignore them in the common case. You override them only when necessary.
 - The session **name** combines the branch and the basename of the current directory. Thus `feature-x@glazier` tells you what you see.
 - **`starting_directory = var.project`** uses the value directly. The `${...}` wrapper is necessary only when you splice a value into a larger string.
@@ -759,14 +764,19 @@ $ make vet                   # run go vet
 $ make lint                  # run golangci-lint with gosec (pinned, run with `go run`)
 $ make vuln                  # run the govulncheck vulnerability scan
 $ make fuzz                  # find and run each native Go Fuzz* target
-$ make all                   # deps > build > test > race > lint > cover > vuln
+$ make e2e                   # run every end-to-end case on the host tmux (RUN='TestX/case' filters)
+$ make e2e-matrix            # run every case on six tmux targets in Docker (BASE=github/main compares)
+$ make e2e-check             # vet, lint and unit-test the e2e module; no tmux is necessary
+$ make all                   # deps > build > test > race > lint > cover > vuln > e2e-check
 $ make install               # go install the version-stamped binary
-$ make release               # cross-compile and zip (linux/darwin, amd64/arm64)
+$ make completions           # render the shell completion scripts into release/completions/
+$ make packages              # build the .deb, .rpm and .apk packages from the release binaries
+$ make release               # cross-compile and zip (linux/darwin, amd64/arm64), then build the packages and SHA256SUMS
 ```
 
 The `Makefile` pins each tool version and runs each tool with `go run <tool>@<version>`. No global installs or bootstrap scripts are necessary. The lint configuration is in [`.golangci.yml`](./.golangci.yml). Go **1.26+** is required. The `Makefile` and CI read the version from `go.mod`.
 
-The test suite includes an end-to-end test, `pkg/tmux/e2e_test.go`. The test drives a real `tmux` server on a throwaway socket. The test skips itself when `tmux` is not on the `PATH`. The attacker-controllable surfaces, HCL profile decoding and variable collection, have native Go fuzz targets. The seed corpora replay as plain tests in each build. The `make fuzz` target runs real input generation.
+The test suite includes one test on a real tmux, `pkg/tmux/e2e_test.go`. The test drives a real `tmux` server on a throwaway socket. The test skips itself when `tmux` is not on the `PATH`. The end-to-end suite is the separate `e2e/` module. It runs the compiled binary on six tmux versions in Docker, and CI and the release workflow run it. See [`e2e/README.md`](./e2e/README.md) to run and extend it. The attacker-controllable surfaces, HCL profile decoding and variable collection, have native Go fuzz targets. The seed corpora replay as plain tests in each build. The `make fuzz` target runs real input generation.
 
 CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/). Both call the same Makefile targets. A green local `make all` is a green build. GitHub also runs CodeQL, govulncheck, OpenSSF Scorecard and weekly scheduled fuzzing.
 
@@ -778,4 +788,4 @@ The architecture, the functionality and the base structure of this project are m
 
 ## License
 
-[MIT](LICENSE) © Wilhelm Murdoch
+[MIT](LICENSE.md) © Wilhelm Murdoch
