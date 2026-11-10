@@ -59,6 +59,29 @@ func TestOptions(t *testing.T) {
 		c.Match("invalid option value error names the value", `bad value: maybe`, r.Stderr)
 	})
 
+	// glaze sets synchronize-panes after it runs the commands, so each pane gets its own commands.
+	harness.Run(t, "options_synchronize_panes_window", func(c *harness.Case) {
+		c.Fixture("options/synchronize-panes-window.glaze")
+		c.OK(c.Up(), "up")
+		c.EventuallyEqual("the first pane ran only its own command", "p", fileLines(c, "p"))
+		c.EventuallyEqual("the second pane ran only its own command", "q", fileLines(c, "q"))
+		c.Equal("the window is synchronized", "on", c.Option("=synchronize-panes-window:w", "synchronize-panes", "-w"))
+		c.EventuallyEqual("no glaze buffer is left", "", pasteBuffers(c))
+	})
+
+	// The option from the session block waits for the session commands too, and a window can turn it off again.
+	harness.Run(t, "options_synchronize_panes_session", func(c *harness.Case) {
+		c.Fixture("options/synchronize-panes-session.glaze")
+		c.OK(c.Up(), "up")
+		c.EventuallyEqual("pane p ran only its own command", "p", fileLines(c, "p"))
+		c.EventuallyEqual("pane q ran only its own command", "q", fileLines(c, "q"))
+		c.EventuallyEqual("pane r ran only its own command", "r", fileLines(c, "r"))
+		c.EventuallyEqual("the session command ran once", "s", fileLines(c, "s"))
+		c.Equal("window one is synchronized", "on", c.Option(c.WindowID("synchronize-panes-session", "one"), "synchronize-panes", "-w"))
+		c.Equal("window two is not synchronized", "off", c.Option(c.WindowID("synchronize-panes-session", "two"), "synchronize-panes", "-w"))
+		c.EventuallyEqual("no glaze buffer is left", "", pasteBuffers(c))
+	})
+
 	harness.Run(t, "options_user_option", func(c *harness.Case) {
 		c.Fixture("options/user-option.glaze")
 		c.OK(c.Up(), "user @option")

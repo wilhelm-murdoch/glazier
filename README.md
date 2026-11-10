@@ -533,6 +533,8 @@ Glazier uses this form for every shell except fish. fish gets `eval (... | strin
 
 By default, Glazier waits with no time limit, because a setup command such as `npm install` can be slow. If the shell of the pane exits, Glazier stops the wait. Use `--command-timeout` to set a limit. In both cases, Glazier shows a warning and continues with the next pane.
 
+Glazier sets `synchronize-panes` on a window after the commands of every pane and of the session. tmux copies each key that a pane of a synchronized window gets into all panes of that window. With the option on, each pane would run the commands of every other pane. A hook in your `tmux.conf` that sets `synchronize-panes` before the commands run has the same effect, and Glazier cannot stop it.
+
 > [!NOTE]
 > The `eval` runs only the `commands` from your profile. Earlier versions of Glazier typed the same commands into the pane. Thus the trust model does not change: a person who can change your profile can run commands in your panes.
 >
