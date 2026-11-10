@@ -1,6 +1,7 @@
 package actions
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -66,10 +67,6 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		return err
 	}
 
-	if err := a.checkRegistryName(); err != nil {
-		return err
-	}
-
 	if err := a.tmux.CheckVersion(); err != nil {
 		return err
 	}
@@ -79,7 +76,7 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		return err
 	}
 
-	// An existing session stays as it is, and resolveSession has attached to it. `--clear` kills it first to rebuild it.
+	// An existing session stays as it is, and resolveSession attaches to it. `--clear` kills it first to rebuild it.
 	if existed {
 		return nil
 	}
@@ -90,7 +87,7 @@ func (a *ActionUp) Run(ctx context.Context) error {
 		}
 
 		a.rollBack()
-		return fmt.Errorf("failed to provision session `%s`: %w", a.session.Name, err)
+		return fmt.Errorf("could not provision session `%s`: %w", a.session.Name, err)
 	}
 
 	return a.attachToSession()
@@ -122,7 +119,7 @@ func (a *ActionUp) rollBack() {
 	a.Logger.Info("removed the partly built session", "session", session.Name)
 }
 
-// attachToSession handles attaching the tmux client to the newly created session.
+// attachToSession attaches the terminal to a.session unless --detached is set. Inside another server or without a terminal it logs the attach command and returns nil.
 func (a *ActionUp) attachToSession() error {
 	if a.Command.Bool("detached") {
 		return nil
@@ -206,8 +203,7 @@ func (a *ActionUp) warnRenamedWindows() {
 	}
 }
 
-// applySessionSettings applies the environment variables and hooks defined on
-// the session block to the resolved tmux session.
+// applySessionSettings sets the envs, hooks and session options of the session block, and keeps its window options for every window.
 func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	if a.session == nil {
 		return nil
@@ -229,19 +225,15 @@ func (a *ActionUp) applySessionSettings(profile *decoders.Session) error {
 	return a.apply("option", target, sessionOptions, a.session.SetOption)
 }
 
-// generateWindows iterates through the windows and panes defined within the
-// specified profile and create them within the tmux session.
+// generateWindows creates each declared window in file order, the first one from the window that tmux made with the session, and provisions its panes.
 func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Window) error {
+	a.windowNames = make(map[tmux.WindowId]string, len(windows))
 	for i, ws := range windows {
 		a.warnRename("window", ws.Name, tmux.SanitizeName(ws.Name))
 
 		wtmx, err := a.createWindow(ws, i == 0, first)
 		if err != nil {
 			return err
-		}
-
-		if a.windowNames == nil {
-			a.windowNames = map[tmux.WindowId]string{}
 		}
 
 		a.windowNames[wtmx.Id] = wtmx.Name
@@ -260,11 +252,8 @@ func (a *ActionUp) generateWindows(windows []*decoders.Window, first *tmux.Windo
 			return err
 		}
 
-		// Remove the default pane directly from the session.
-		if defaultPane != nil {
-			if err := defaultPane.Kill(); err != nil {
-				return err
-			}
+		if err := defaultPane.Kill(); err != nil {
+			return err
 		}
 
 		if err := a.apply("hook", fmt.Sprintf("window `%s`", wtmx.Name), ws.Hooks, wtmx.SetHook); err != nil {
@@ -345,6 +334,7 @@ func partition(values map[string]string, belongs func(key string) bool) (in, out
 	return in, out
 }
 
+// generatePanes splits every declared pane from the newest pane, in file order, then configures each one; it returns the panes in file order.
 func (a *ActionUp) generatePanes(
 	panes []*decoders.Pane,
 	defaultPane *tmux.Pane,
@@ -416,7 +406,7 @@ func (a *ActionUp) resizePanes(ws *decoders.Window, panes []*tmux.Pane, wtmx *tm
 	return nil
 }
 
-// configurePane applies the hooks, options, commands, size, adjustments and focus of a pane.
+// configurePane applies the hooks, options, commands and focus of a pane; resizePanes applies size and adjust after the layout.
 func (a *ActionUp) configurePane(ps *decoders.Pane, ptmx *tmux.Pane, wtmx *tmux.Window) error {
 	target := fmt.Sprintf("pane `%s` in window `%s`", ptmx.Name, wtmx.Name)
 	if err := a.apply("hook", target, ps.Hooks, ptmx.SetHook); err != nil {
@@ -469,7 +459,7 @@ func (a *ActionUp) runCommands(kind, name, target string, commands []string) err
 
 	err := a.runner.Run(target, commands)
 	if errors.Is(err, tmux.ErrPaneExited) || errors.Is(err, tmux.ErrCommandTimeout) {
-		a.Logger.Warn(fmt.Sprintf("glaze stopped waiting for the %s commands", kind), "name", name, "reason", err)
+		a.Logger.Warn(fmt.Sprintf("glaze stopped waiting for the %s commands", kind), "name", name, "error", err)
 		return nil
 	}
 
@@ -487,9 +477,8 @@ func (a *ActionUp) getDefaultPane(window *tmux.Window) (*tmux.Pane, error) {
 		return nil, fmt.Errorf("could not locate default pane for window `%s`", window.Name)
 	}
 
-	// The pane that tmux creates with a window has the lowest id.
 	return slices.MinFunc(panes, func(x, y *tmux.Pane) int {
-		return int(x.Id) - int(y.Id)
+		return cmp.Compare(x.Id, y.Id)
 	}), nil
 }
 
@@ -505,7 +494,7 @@ func (a *ActionUp) getFirstWindow(session *tmux.Session) (*tmux.Window, error) {
 	}
 
 	return slices.MinFunc(windows, func(x, y *tmux.Window) int {
-		return int(x.Id) - int(y.Id)
+		return cmp.Compare(x.Id, y.Id)
 	}), nil
 }
 
@@ -548,16 +537,16 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 	if a.Command.Bool("clear") {
 		current, err := a.tmux.CurrentSession()
 		if err != nil {
-			return false, fmt.Errorf("could not determine current session: %w", err)
+			return false, err
 		}
 
 		if current != nil && current.Name == tmux.SanitizeSessionName(profile.Name) {
 			return false, fmt.Errorf("glaze runs inside session `%s`, so --clear would also end glaze; run it from another session or outside tmux", current.Name)
 		}
 
-		a.Logger.Info("clearing previous session", "name", profile.Name)
+		a.Logger.Info("clearing previous session", "session", profile.Name)
 		if err := a.tmux.KillSessionByName(profile.Name); err != nil {
-			a.Logger.Warn("could not kill session", "name", profile.Name, "reason", err)
+			a.Logger.Warn("could not kill session", "session", profile.Name, "error", err)
 		}
 	}
 
@@ -570,11 +559,11 @@ func (a *ActionUp) resolveSession(profile *decoders.Session) (bool, error) {
 		return true, a.useExistingSession(profile)
 	}
 
-	a.Logger.Info("creating new session", "name", profile.Name)
+	a.Logger.Info("creating new session", "session", profile.Name)
 	session, err := a.tmux.NewSession(profile.Name, profile.StartingDirectory)
 	if errors.Is(err, tmux.ErrDuplicateSession) {
 		// Another run created the session after has-session, so this run does not own it.
-		a.Logger.Info("another run created the session first", "name", profile.Name)
+		a.Logger.Info("another run created the session first", "session", profile.Name)
 		return true, a.useExistingSession(profile)
 	}
 
@@ -597,7 +586,7 @@ func (a *ActionUp) useExistingSession(profile *decoders.Session) error {
 	a.session = session
 
 	if !a.Command.Bool("detached") {
-		a.Logger.Info("attaching to existing session", "name", profile.Name)
+		a.Logger.Info("attaching to existing session", "session", profile.Name)
 	}
 
 	return a.attachToSession()

@@ -35,6 +35,7 @@ func ParseVersion(output string) (Version, bool) {
 	return Version{Major: major, Minor: minor, Patch: match[3]}, true
 }
 
+// String returns the version number, for example 3.2a.
 func (v Version) String() string {
 	return fmt.Sprintf("%d.%d%s", v.Major, v.Minor, v.Patch)
 }
@@ -72,7 +73,7 @@ func (c Client) Version() (Version, error) {
 func (c Client) CheckVersion() error {
 	version, err := c.Version()
 	if errors.Is(err, ErrUnknownVersion) {
-		c.logger.Warn("could not read the tmux version; glaze needs tmux "+MinVersion.String()+" or later", "error", err)
+		c.logger.Warn("could not read the tmux version", "error", err, "minimum", MinVersion)
 		return nil
 	}
 

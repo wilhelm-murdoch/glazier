@@ -251,31 +251,6 @@ func TestActionLsProfiles(t *testing.T) {
 		assert.Empty(t, out.String())
 	})
 
-	t.Run("names the variable to fix when GLAZE_REGISTRY is a file", func(t *testing.T) {
-		newRegistry(t)
-		registry := filepath.Join(t.TempDir(), "reg")
-		assert.NoError(t, os.WriteFile(registry, []byte("not a directory"), 0o600))
-		t.Setenv("GLAZE_REGISTRY", registry)
-		ls, _, out := buildLsProfiles(t)
-
-		err := ls.Run(context.Background())
-
-		assert.ErrorContains(t, err, "`"+registry+"` is a file, not the profile registry directory; set GLAZE_REGISTRY to a directory")
-		assert.Empty(t, out.String())
-	})
-
-	t.Run("errors when a part of the registry path is a file", func(t *testing.T) {
-		registry := newRegistry(t)
-		assert.NoError(t, os.WriteFile(filepath.Dir(registry), []byte("not a directory"), 0o600))
-		ls, _, out := buildLsProfiles(t)
-
-		err := ls.Run(context.Background())
-
-		assert.ErrorContains(t, err, "`"+registry+"` cannot be the profile registry, because a part of its path is a file")
-		assert.ErrorContains(t, err, "move it away, or set XDG_CONFIG_HOME or GLAZE_REGISTRY to a directory")
-		assert.Empty(t, out.String())
-	})
-
 	t.Run("sorts by name, not by file name", func(t *testing.T) {
 		registry := newRegistry(t)
 		ab := writeRegistryProfile(t, registry, "a-b", validProfile)

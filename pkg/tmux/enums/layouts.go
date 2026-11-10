@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Layout is a named tmux layout preset.
 type Layout int
 
 const (
@@ -27,6 +28,7 @@ const (
 )
 
 var (
+	// LayoutList is every preset that a profile can name.
 	LayoutList = []string{
 		LayoutEvenHorizontalString,
 		LayoutEvenVerticalString,

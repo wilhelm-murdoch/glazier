@@ -5,6 +5,7 @@ import (
 
 	"github.com/hashicorp/hcl/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
@@ -14,12 +15,7 @@ import (
 // blocks alongside the diagnostics raised while decoding them.
 func declaredFrom(t *testing.T, content string) ([]*Variable, hcl.Diagnostics) {
 	t.Helper()
-	p, diags := NewFromBytes([]byte(content), "test.glaze")
-	if diags.HasErrors() {
-		t.Fatalf("unexpected parse error: %s", diags)
-	}
-
-	return p.DecodeVariableBlocks()
+	return parse(t, content).DecodeVariableBlocks()
 }
 
 func TestDecodeVariableBlocks(t *testing.T) {
@@ -41,21 +37,19 @@ variable "district" {
 		assert.True(t, v.Default.RawEquals(cty.StringVal("watson")))
 	})
 
-	t.Run("maps each primitive type keyword", func(t *testing.T) {
+	t.Run("maps each type keyword in declaration order", func(t *testing.T) {
 		vars, diags := declaredFrom(t, `
 variable "s" { type = string }
 variable "n" { type = number }
 variable "b" { type = bool }`)
 		assert.False(t, diags.HasErrors())
-
-		byName := make(map[string]*Variable)
-		for _, v := range vars {
-			byName[v.Name] = v
-		}
-
-		assert.Equal(t, cty.String, byName["s"].Type)
-		assert.Equal(t, cty.Number, byName["n"].Type)
-		assert.Equal(t, cty.Bool, byName["b"].Type)
+		require.Len(t, vars, 3)
+		assert.Equal(t, "s", vars[0].Name)
+		assert.Equal(t, cty.String, vars[0].Type)
+		assert.Equal(t, "n", vars[1].Name)
+		assert.Equal(t, cty.Number, vars[1].Type)
+		assert.Equal(t, "b", vars[2].Name)
+		assert.Equal(t, cty.Bool, vars[2].Type)
 	})
 
 	t.Run("converts a default to the declared type", func(t *testing.T) {
@@ -71,14 +65,9 @@ variable "flag" {
   default = true
 }`)
 		assert.False(t, diags.HasErrors())
-
-		byName := make(map[string]*Variable)
-		for _, v := range vars {
-			byName[v.Name] = v
-		}
-
-		assert.True(t, byName["count"].Default.RawEquals(cty.NumberIntVal(1)))
-		assert.True(t, byName["flag"].Default.RawEquals(cty.True))
+		require.Len(t, vars, 2)
+		assert.True(t, vars[0].Default.RawEquals(cty.NumberIntVal(1)))
+		assert.True(t, vars[1].Default.RawEquals(cty.True))
 	})
 
 	t.Run("records that a variable has no default", func(t *testing.T) {
@@ -86,16 +75,6 @@ variable "flag" {
 		assert.False(t, diags.HasErrors())
 		assert.False(t, vars[0].HasDefault)
 		assert.Equal(t, cty.NilVal, vars[0].Default)
-	})
-
-	t.Run("collects multiple variables in declaration order", func(t *testing.T) {
-		vars, diags := declaredFrom(t, `
-variable "a" { type = string }
-variable "b" { type = number }`)
-		assert.False(t, diags.HasErrors())
-		assert.Len(t, vars, 2)
-		assert.Equal(t, "a", vars[0].Name)
-		assert.Equal(t, "b", vars[1].Name)
 	})
 
 	t.Run("rejects an unsupported type keyword", func(t *testing.T) {
@@ -182,6 +161,7 @@ func TestResolveVariables(t *testing.T) {
 	stringVar := &Variable{Name: "name", Type: cty.String}
 	numberVar := &Variable{Name: "count", Type: cty.Number}
 	boolVar := &Variable{Name: "on", Type: cty.Bool}
+	withDefault := &Variable{Name: "name", Type: cty.String, Default: cty.StringVal("default"), HasDefault: true}
 
 	t.Run("coerces flag values to the declared type", func(t *testing.T) {
 		out, diags := ResolveVariables(
@@ -197,22 +177,12 @@ func TestResolveVariables(t *testing.T) {
 	})
 
 	t.Run("falls back to a default", func(t *testing.T) {
-		withDefault := &Variable{
-			Name: "name", Type: cty.String,
-			Default: cty.StringVal("default"), HasDefault: true,
-		}
-
 		out, diags := ResolveVariables([]*Variable{withDefault}, nil, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("default")))
 	})
 
 	t.Run("a flag overrides a default", func(t *testing.T) {
-		withDefault := &Variable{
-			Name: "name", Type: cty.String,
-			Default: cty.StringVal("default"), HasDefault: true,
-		}
-
 		out, diags := ResolveVariables([]*Variable{withDefault}, []string{"name=override"}, "", true)
 		assert.False(t, diags.HasErrors())
 		assert.True(t, out["name"].RawEquals(cty.StringVal("override")))
@@ -255,24 +225,17 @@ func TestResolveVariables(t *testing.T) {
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags.Error(), "Invalid variable value")
 	})
+
+	t.Run("reports undefined flags in name order", func(t *testing.T) {
+		_, diags := ResolveVariables(nil, []string{"zed=1", "alpha=2", "mid=3"}, "", false)
+		assert.Len(t, diags, 3)
+		assert.Contains(t, diags[0].Detail, `"alpha"`)
+		assert.Contains(t, diags[1].Detail, `"mid"`)
+		assert.Contains(t, diags[2].Detail, `"zed"`)
+	})
 }
 
 func TestVariableContext(t *testing.T) {
-	t.Run("exposes resolved variables under the var namespace", func(t *testing.T) {
-		p, diags := NewFromBytes([]byte(`variable "district" { type = string }`), "test.glaze")
-		assert.False(t, diags.HasErrors())
-
-		ctx, ctxDiags := p.VariableContext([]string{"district=watson"}, "", true)
-		assert.False(t, ctxDiags.HasErrors())
-
-		varObj := ctx.Variables["var"]
-		assert.True(t, varObj.GetAttr("district").RawEquals(cty.StringVal("watson")))
-
-		// built-ins keep their bare top-level names alongside var.
-		_, hasPath := ctx.Variables["path"]
-		assert.True(t, hasPath)
-	})
-
 	t.Run("var is an empty object when nothing is declared", func(t *testing.T) {
 		p, diags := NewFromBytes([]byte("session {\n  name = \"demo\"\n  window {\n    pane {}\n  }\n}"), "test.glaze")
 		assert.False(t, diags.HasErrors())
@@ -280,6 +243,10 @@ func TestVariableContext(t *testing.T) {
 		ctx, ctxDiags := p.VariableContext(nil, "", true)
 		assert.False(t, ctxDiags.HasErrors())
 		assert.True(t, ctx.Variables["var"].RawEquals(cty.EmptyObjectVal))
+
+		// built-ins keep their bare top-level names alongside var.
+		_, hasPath := ctx.Variables["path"]
+		assert.True(t, hasPath)
 	})
 
 	t.Run("surfaces resolution diagnostics", func(t *testing.T) {

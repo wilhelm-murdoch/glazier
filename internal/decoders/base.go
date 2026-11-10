@@ -4,6 +4,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
+// DefaultGlazeElementName is the name of a session, window or pane whose block sets none.
 const DefaultGlazeElementName = "default"
 
 // Base holds the attributes that sessions, windows and panes share.

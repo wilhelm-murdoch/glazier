@@ -105,9 +105,8 @@ func (a *ActionDown) sessionName() (string, error) {
 	}
 
 	// A nameless registry profile stops here, before any session is looked up.
-	a.base.evalContext = ctx
-	if err := a.base.checkRegistryName(); err != nil {
-		return "", err
+	if diags := a.base.Parser.CheckRegistryName(a.base.ProfileName, ctx); diags.HasErrors() {
+		return "", a.base.DiagnosticsManager.Report(diags)
 	}
 
 	name, diags := a.base.Parser.DecodeSessionName(spec.SessionName, ctx)

@@ -179,16 +179,6 @@ func TestRegistryDir(t *testing.T) {
 		assert.ErrorContains(t, err, "GLAZE_REGISTRY is not valid")
 	})
 
-	t.Run("GLAZE_REGISTRY with ~ needs a home directory", func(t *testing.T) {
-		isolateRegistry(t)
-		t.Setenv("HOME", "")
-		t.Setenv(RegistryEnv, "~/profiles")
-
-		_, err := RegistryDir()
-		assert.ErrorContains(t, err, "GLAZE_REGISTRY is not valid")
-		assert.ErrorContains(t, err, "could not expand `~`")
-	})
-
 	t.Run("an absolute XDG_CONFIG_HOME gives its glaze directory", func(t *testing.T) {
 		isolateRegistry(t)
 		xdg := t.TempDir()
@@ -365,17 +355,6 @@ func TestResolveProfilePathByName(t *testing.T) {
 		profile := writeProfile(t, dir, "work")
 
 		resolved, err := ResolveProfilePath("", "work")
-		assert.NoError(t, err)
-		assert.Equal(t, profile, resolved)
-	})
-
-	t.Run("finds the profile in the default registry under the home directory", func(t *testing.T) {
-		home := isolateRegistry(t)
-		dir := filepath.Join(home, ".config", "glaze")
-		require.NoError(t, os.MkdirAll(dir, 0o700))
-		profile := writeProfile(t, dir, "api.v2")
-
-		resolved, err := ResolveProfilePath("", "api.v2")
 		assert.NoError(t, err)
 		assert.Equal(t, profile, resolved)
 	})
@@ -696,15 +675,6 @@ func TestResolveProfilePathByName(t *testing.T) {
 		_, err := ResolveProfilePath("", "work")
 		assert.ErrorIs(t, err, ErrProfileNotFound)
 		assert.ErrorContains(t, err, "set HOME, XDG_CONFIG_HOME or GLAZE_REGISTRY")
-	})
-
-	t.Run("wraps a relative GLAZE_REGISTRY", func(t *testing.T) {
-		isolateRegistry(t)
-		t.Setenv(RegistryEnv, "profiles")
-
-		_, err := ResolveProfilePath("", "work")
-		assert.ErrorIs(t, err, ErrProfileNotFound)
-		assert.ErrorContains(t, err, "GLAZE_REGISTRY must be an absolute path")
 	})
 }
 

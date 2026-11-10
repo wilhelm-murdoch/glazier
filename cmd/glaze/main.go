@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -37,7 +38,7 @@ var (
 	// Date describes the date of the current build.
 	Date = unstampedDate
 
-	// Release describes the stage of the current build, eg; development, production, etc...
+	// Stage describes the stage of the current build, for example development or production.
 	Stage = "unknown"
 )
 
@@ -45,19 +46,18 @@ var (
 // format; it is shared by every command that accepts variables.
 func validateVarFlags(value []string) error {
 	for _, variable := range value {
-		if !strings.Contains(variable, "=") {
+		key, _, ok := strings.Cut(variable, "=")
+		if !ok {
 			return fmt.Errorf(
 				"the --var `%s` does not match the required format of `key=value`",
 				variable,
 			)
 		}
 
-		parts := strings.SplitN(variable, "=", 2)
-
-		if strings.HasSuffix(parts[0], " ") {
+		if strings.HasSuffix(key, " ") {
 			return fmt.Errorf(
 				"the --var name `%s` appears to have trailing spaces and does not match the required format of `key=value`",
-				parts[0],
+				key,
 			)
 		}
 	}
@@ -71,7 +71,7 @@ func variableFlags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringSliceFlag{
 			Name:      "var",
-			Usage:     "set multiple variables in the form of \"key=value\"",
+			Usage:     "set a variable as key=value; repeat the flag for each variable",
 			Validator: validateVarFlags,
 		},
 		&cli.StringFlag{
@@ -100,7 +100,7 @@ func socketFlags() []cli.Flag {
 func profilePathFlag() cli.Flag {
 	return &cli.StringFlag{
 		Name:  "profile-path",
-		Usage: "specify a path to a target glaze definition file",
+		Usage: "specify the path to a profile",
 	}
 }
 
@@ -128,7 +128,7 @@ func run(ctx context.Context, args []string, stderr io.Writer) int {
 	}
 
 	if err != nil {
-		_, _ = fmt.Fprintf(stderr, "%s\n", err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return exitCode(err)
 	}
 
@@ -217,26 +217,24 @@ func newApp() *cli.Command {
 	var logLevel string
 
 	cli.VersionPrinter = func(ctx *cli.Command) {
-		fmt.Printf("Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
+		_, _ = fmt.Fprintf(ctx.Root().Writer, "Version: %s, Stage: %s, Commit: %s, Date: %s\n", Version, Stage, Commit, Date)
 	}
 
 	// The flag belongs to glaze itself, so `glaze up -v` is a usage error and does not start a session.
 	cli.VersionFlag = &cli.BoolFlag{
 		Name:    "version",
-		Usage:   "print only the version",
+		Usage:   "print the version, the stage, the commit and the build date",
 		Aliases: []string{"v"},
 		Local:   true,
 	}
 
-	currentYear, _, _ := time.Now().Date()
-
 	app := &cli.Command{
 		Name:    "glaze",
-		Usage:   "easily manage tmux sessions, windows and panes",
+		Usage:   "manage tmux sessions, windows and panes from a profile",
 		Version: Version,
 		// A plain string, because the help template prints an author with %v, which shows a struct field by field.
 		Authors:   []any{"Wilhelm Murdoch <wilhelm@devilmayco.de>"},
-		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, currentYear),
+		Copyright: fmt.Sprintf(`(c) %d Wilhelm Codes ( https://wilhelm.codes )`, time.Now().Year()),
 		// glaze picks the exit code itself, so the CLI library must not exit the process.
 		ExitErrHandler: func(context.Context, *cli.Command, error) {},
 		OnUsageError:   usageError,
@@ -248,11 +246,11 @@ func newApp() *cli.Command {
 			&cli.StringFlag{
 				Name:        "log-level",
 				Value:       "info",
-				Usage:       "specify a log level",
+				Usage:       "set the log level: trace, debug, info, warning, error or critical",
 				Destination: &logLevel,
 				Validator: func(value string) error {
 					if _, ok := logger.FriendlyToInternal[value]; !ok {
-						return fmt.Errorf("specified an invalid log level value: %s", value)
+						return fmt.Errorf("`%s` is not a log level; use one of %s", value, strings.Join(slices.Sorted(maps.Keys(logger.FriendlyToInternal)), ", "))
 					}
 
 					return nil
@@ -277,7 +275,7 @@ func newApp() *cli.Command {
 					},
 					&cli.BoolFlag{
 						Name:  "debug",
-						Usage: "prints a list of all commands sent to the specified tmux socket",
+						Usage: "print each command sent to the tmux socket and the text of each pane and session command",
 					},
 					&cli.BoolFlag{
 						Name:  "keep-on-failure",
@@ -319,18 +317,18 @@ func newApp() *cli.Command {
 			},
 			{
 				Name:          "format",
-				Usage:         "rewrites the target glaze profile file to a canonical format",
+				Usage:         "rewrite a profile in the canonical format",
 				ArgsUsage:     "[name]",
 				Description:   registryDescription,
 				ShellComplete: completeProfileNames,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.BoolFlag{
 						Name:  "stdout",
-						Usage: "writes the formatted glaze output to your terminal",
+						Usage: "writes the formatted profile to your terminal",
 					},
 					&cli.BoolFlag{
 						Name:  "validate",
-						Usage: "validates the given glaze definition file and returns any diagnostics",
+						Usage: "validates the given profile and returns any diagnostics",
 					},
 					profilePathFlag(),
 				}, variableFlags()),
@@ -338,13 +336,13 @@ func newApp() *cli.Command {
 			},
 			{
 				Name:        "save",
-				Usage:       "running this within a tmux session will save its current state to the specified glaze profile",
+				Usage:       "write the structure of a running session as a profile",
 				ArgsUsage:   "[name]",
 				Description: saveDescription,
 				Flags: slices.Concat([]cli.Flag{
 					&cli.StringFlag{
 						Name:  "profile-path",
-						Usage: "path the saved glaze definition file should be written to (defaults to .glaze)",
+						Usage: "path the saved profile should be written to (defaults to .glaze)",
 					},
 					&cli.StringFlag{
 						Name:  "session",
@@ -352,7 +350,7 @@ func newApp() *cli.Command {
 					},
 					&cli.BoolFlag{
 						Name:  "stdout",
-						Usage: "writes the saved glaze output to your terminal instead of a file",
+						Usage: "writes the saved profile to your terminal instead of a file",
 					},
 					&cli.BoolFlag{
 						Name:  "force",

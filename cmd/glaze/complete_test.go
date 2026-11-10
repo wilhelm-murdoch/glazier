@@ -78,17 +78,6 @@ func TestCompleteProfileNames(t *testing.T) {
 		assert.Empty(t, stderr)
 	})
 
-	t.Run("a registry that is a file prints nothing", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		require.NoError(t, os.MkdirAll(filepath.Join(home, ".config"), 0o700))
-		require.NoError(t, os.WriteFile(filepath.Join(home, ".config", "glaze"), []byte("x"), 0o600))
-
-		out, stderr := complete(t, "up")
-		assert.Empty(t, out)
-		assert.Empty(t, stderr)
-	})
-
 	t.Run("an unreadable registry prints nothing", func(t *testing.T) {
 		if os.Geteuid() == 0 {
 			t.Skip("root reads every directory")

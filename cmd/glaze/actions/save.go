@@ -263,7 +263,7 @@ func (a *ActionSave) existingDirectory(dir, kind, name string) string {
 	}
 
 	// The directory comes from tmux, which reports where the shell of the pane is.
-	if info, err := os.Stat(dir); err == nil && info.IsDir() { //nolint:gosec // G703
+	if files.IsDir(dir) {
 		return dir
 	}
 

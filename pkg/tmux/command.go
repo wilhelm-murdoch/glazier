@@ -11,25 +11,25 @@ import (
 	"time"
 )
 
-// redactedValue replaces a secret value in logs and errors.
-const redactedValue = "<redacted>"
-
-var (
-	// Ensure Command properly implements the Commander interface.
-	_ Commander = (*Command)(nil)
-
-	// Assign NewCommand to newCommand so we can test its functionality via
-	// dependency injection.
-	newCommand = func(client Client, args ...string) Commander {
-		return NewCommand(client, args...)
-	}
+const (
+	// redactedValue replaces a secret value in logs and errors.
+	redactedValue = "<redacted>"
 
 	// cancelGracePeriod is how long a cancelled tmux command gets to exit after SIGTERM before it gets SIGKILL.
 	cancelGracePeriod = 5 * time.Second
 )
 
-// Commander is an interface that represents what kind of actions a Command, and
-// other implemenations, can perform.
+var (
+	// Command implements Commander.
+	_ Commander = (*Command)(nil)
+
+	// newCommand is the factory for tmux commands. Tests replace it to fake tmux.
+	newCommand = func(client Client, args ...string) Commander {
+		return NewCommand(client, args...)
+	}
+)
+
+// Commander is what a Command, and a test double for one, can do.
 type Commander interface {
 	fmt.Stringer
 	Exec() error
@@ -59,10 +59,12 @@ func OverrideTerminalCheck(check func() bool) func() {
 
 // Command is one tmux command, ready to run.
 type Command struct {
-	cmd  *exec.Cmd
-	args []string
+	cmd *exec.Cmd
 
-	// shown is args for logs and errors, with secret values redacted.
+	// attach is true for `tmux attach`, the one command that keeps the terminal.
+	attach bool
+
+	// shown is the arguments for logs and errors, with secret values redacted.
 	shown  []string
 	logger *slog.Logger
 }
@@ -80,7 +82,8 @@ func NewCommand(client Client, args ...string) *Command {
 
 	// Glaze reads output as UTF-8, so stop tmux printing non-ASCII as "_" under a non-UTF-8 locale.
 	// An attached client is the user's terminal, so its locale decides.
-	if subcommandOf(args) != "attach" {
+	attach := Subcommand(args) == "attach"
+	if !attach {
 		prefix = append(prefix, "-u")
 	}
 
@@ -95,13 +98,13 @@ func NewCommand(client Client, args ...string) *Command {
 	cmd.Cancel = func() error { return cmd.Process.Signal(syscall.SIGTERM) }
 	cmd.WaitDelay = cancelGracePeriod
 
-	return &Command{args: args, shown: shown, cmd: cmd, logger: client.logger}
+	return &Command{attach: attach, shown: shown, cmd: cmd, logger: client.logger}
 }
 
 // redactSecrets returns a copy of args with the value of `setenv NAME VALUE` replaced, because an env value is often a secret.
 func redactSecrets(args []string) []string {
 	shown := slices.Clone(args)
-	if sub := subcommandOf(args); sub != "setenv" && sub != "set-environment" {
+	if sub := Subcommand(args); sub != "setenv" && sub != "set-environment" {
 		return shown
 	}
 
@@ -127,8 +130,8 @@ func redactSecrets(args []string) []string {
 	return shown
 }
 
-// subcommandOf returns the tmux command in args, skipping any socket flags.
-func subcommandOf(args []string) string {
+// Subcommand returns the tmux command in args, skipping any socket flags.
+func Subcommand(args []string) string {
 	if i := subcommandIndex(args); i < len(args) {
 		return args[i]
 	}
@@ -176,7 +179,7 @@ func (c Command) debug() {
 func (c *Command) Exec() error {
 	c.debug()
 
-	if subcommandOf(c.args[1:]) != "attach" {
+	if !c.attach {
 		if output, err := c.cmd.CombinedOutput(); err != nil {
 			return NewCommandErrorWithOutput(c.shown, err, string(output))
 		}

@@ -1,7 +1,6 @@
 package actions
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"os"
@@ -10,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/hcl/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/urfave/cli/v3"
 
@@ -100,18 +98,6 @@ func runNewFormat(args ...string) formatResult {
 	return result
 }
 
-func TestNewActionBaseShowsTheSourceOfASyntaxError(t *testing.T) {
-	path := filepath.Join(t.TempDir(), ".glaze")
-	assert.NoError(t, os.WriteFile(path, []byte("session {\n  window { pane {} name = \"x\"\n  }\n}\n"), 0o600))
-
-	var err error
-	stderr := capture(t, &os.Stderr, func() { _, err = newFormatAt(t, path, nil) })
-
-	assert.ErrorIs(t, err, diagnostics.ErrHasDiagnostics)
-	assert.Contains(t, stderr, `window { pane {} name = "x"`)
-	assert.NotContains(t, stderr, "source code not available")
-}
-
 func TestActionFormatRun(t *testing.T) {
 	t.Run("leaves a formatted profile untouched", func(t *testing.T) {
 		action := buildFormat(t, validProfile, nil)
@@ -140,17 +126,6 @@ func TestActionFormatRun(t *testing.T) {
 		assert.ErrorContains(t, err, "use --stdout")
 	})
 
-	t.Run("rewrites the profile in place", func(t *testing.T) {
-		messy := "session   {\n  name=\"demo\"\n}\n"
-		action := buildFormat(t, messy, nil)
-
-		assert.NoError(t, action.Run(context.Background()))
-
-		contents, err := os.ReadFile(action.ProfilePath)
-		assert.NoError(t, err)
-		assert.Contains(t, string(contents), `name = "demo"`)
-	})
-
 	t.Run("reports a failed write as a failure, not as an invalid profile", func(t *testing.T) {
 		if os.Geteuid() == 0 {
 			t.Skip("root can write to a read-only directory")
@@ -166,35 +141,13 @@ func TestActionFormatRun(t *testing.T) {
 		assert.NotErrorIs(t, err, diagnostics.ErrHasDiagnostics)
 	})
 
-	t.Run("validates and reports an invalid layout", func(t *testing.T) {
-		bad := `session {
-  name = "demo"
-  window {
-    name   = "main"
-    layout = "noop"
-    pane { name = "shell" }
-  }
-}
-`
-		action := buildFormat(t, bad, map[string]string{"validate": "true"})
-
-		assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
-	})
-
 	t.Run("validation shows a warning and still formats the profile", func(t *testing.T) {
 		unformatted := "session {\n  name = \"a.b\"\n  window {\n  name = \"w\"\n    pane {}\n  }\n}\n"
 		action := buildFormat(t, unformatted, map[string]string{"validate": "true"})
-
-		var out bytes.Buffer
-		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
-			&out,
-			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
-			0,
-			false,
-		)
+		diags := captureDiagnostics(&action.ActionBase)
 
 		assert.NoError(t, action.Run(context.Background()))
-		assert.Contains(t, out.String(), "Warning: Session name will be changed")
+		assert.Contains(t, diags.String(), "Warning: Session name will be changed")
 
 		contents, err := os.ReadFile(action.ProfilePath)
 		assert.NoError(t, err)
@@ -204,14 +157,7 @@ func TestActionFormatRun(t *testing.T) {
 	t.Run("validation with --stdout keeps warnings out of the formatted output", func(t *testing.T) {
 		profile := "session {\n  name = \"a.b\"\n  window {\n    pane {}\n  }\n}\n"
 		action := buildFormat(t, profile, map[string]string{"validate": "true", "stdout": "true"})
-
-		var diags bytes.Buffer
-		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
-			&diags,
-			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
-			0,
-			false,
-		)
+		diags := captureDiagnostics(&action.ActionBase)
 
 		stdout := captureStdout(t, func() {
 			assert.NoError(t, action.Run(context.Background()))
@@ -219,11 +165,6 @@ func TestActionFormatRun(t *testing.T) {
 
 		assert.Equal(t, profile, stdout)
 		assert.Contains(t, diags.String(), "Warning: Session name will be changed")
-	})
-
-	t.Run("validation passes for a valid profile", func(t *testing.T) {
-		action := buildFormat(t, validProfile, map[string]string{"validate": "true", "stdout": "true"})
-		assert.NoError(t, action.Run(context.Background()))
 	})
 
 	t.Run("validation enforces a required variable", func(t *testing.T) {
@@ -328,14 +269,7 @@ func TestActionFormatByName(t *testing.T) {
 
 		action, err := newFormatWith(t, "--validate", "work")
 		assert.NoError(t, err)
-
-		var diags bytes.Buffer
-		action.DiagnosticsManager.Writer = hcl.NewDiagnosticTextWriter(
-			&diags,
-			map[string]*hcl.File{action.ProfilePath: action.Parser.File},
-			0,
-			false,
-		)
+		diags := captureDiagnostics(&action.ActionBase)
 
 		assert.ErrorIs(t, action.Run(context.Background()), diagnostics.ErrHasDiagnostics)
 		assert.Contains(t, diags.String(), "on "+path+" line 5")

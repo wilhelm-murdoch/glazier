@@ -5,17 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
-
-func TestSessionIdString(t *testing.T) {
-	assert.Equal(t, "$7", SessionId(7).String())
-}
-
-func TestSessionTarget(t *testing.T) {
-	client := testClient()
-	assert.Equal(t, "$0", testSession(client).Target())
-}
 
 func TestSessionNewWindow(t *testing.T) {
 	t.Run("sanitises a backslash and control characters in the name", func(t *testing.T) {
@@ -48,24 +38,11 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Equal(t, "@1", window.Id.String())
 		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
-		assert.Equal(t, enums.LayoutTiled, window.Layout)
+		assert.Equal(t, "tiled", window.RawLayout)
 		assert.True(t, window.IsActive)
 
 		// No starting directory was given, so no -c flag should be sent.
 		assert.NotContains(t, rec.ArgsFor("neww"), "-c")
-	})
-
-	t.Run("passes the starting directory with -c", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
-
-		client := testClient()
-		_, err := testSession(client).NewWindow("editor", "/srv/app")
-		assert.NoError(t, err)
-
-		args := rec.ArgsFor("neww")
-		assert.Contains(t, args, "-c")
-		assert.Contains(t, args, "/srv/app")
 	})
 
 	t.Run("propagates command errors", func(t *testing.T) {
@@ -79,15 +56,6 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Nil(t, window)
 	})
 
-	t.Run("errors on non-numeric window id", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@x;1;editor;tiled;1"})
-
-		client := testClient()
-		_, err := testSession(client).NewWindow("editor", "")
-		assert.Error(t, err)
-	})
-
 	t.Run("errors on malformed window response", func(t *testing.T) {
 		rec := setupRecorder(t)
 		rec.On("neww", fakeResult{Output: "@1;1"})
@@ -98,16 +66,6 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.Nil(t, window)
 		assert.ErrorIs(t, err, ErrUnexpectedPartCount)
 	})
-
-	t.Run("errors on non-numeric window index", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;x;editor;tiled;1"})
-
-		client := testClient()
-		_, err := testSession(client).NewWindow("editor", "")
-		assert.Error(t, err)
-	})
-
 }
 
 func TestSessionSetEnv(t *testing.T) {

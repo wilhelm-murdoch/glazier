@@ -6,6 +6,7 @@ import (
 	"github.com/wilhelm-murdoch/glazier/pkg/tmux/enums"
 )
 
+// PaneId is the number in a tmux pane id such as %7.
 type PaneId int
 
 // String returns the tmux id of the pane, for example %7.

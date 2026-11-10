@@ -3,7 +3,6 @@ package files
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,16 +16,12 @@ var (
 	ErrProfileNotFound = errors.New("glaze profile not found")
 )
 
-// FileExists is a utility function that simply checks if the given path is not only a file, but that it exists and is readable.
+// FileExists reports whether path, after symlinks, exists and is not a directory.
 func FileExists(path string) bool {
-	// The path is the user's own --profile-path/GLAZE_PATH input to a local
-	// CLI; there is no privilege boundary to traverse.
-	fileInfo, err := os.Stat(path) //nolint:gosec // G703
-	if err != nil || errors.Is(err, fs.ErrNotExist) || fileInfo.IsDir() {
-		return false
-	}
+	// The path is the user's own --profile-path or GLAZE_PATH input to a local CLI.
+	info, err := os.Stat(path) //nolint:gosec // G703
 
-	return true
+	return err == nil && !info.IsDir()
 }
 
 // ExpandPath replaces a leading `~` or `~/` with the home directory. It rejects `~user` and fails when there is no home directory.
@@ -74,7 +69,7 @@ func ResolveProfilePath(profilePath, name string) (string, error) {
 			return profilePath, fmt.Errorf("%w: %w", ErrProfileNotFound, err)
 		}
 
-		if isDir(expanded) {
+		if IsDir(expanded) {
 			return profilePath, fmt.Errorf("%w: `%s` is a directory; --profile-path must name a profile file", ErrProfileNotFound, profilePath)
 		}
 
@@ -94,7 +89,7 @@ func ResolveProfilePath(profilePath, name string) (string, error) {
 			return local, nil
 		}
 
-		if isDir(local) {
+		if IsDir(local) {
 			return local, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, local)
 		}
 	}
@@ -116,7 +111,7 @@ func ResolveProfilePath(profilePath, name string) (string, error) {
 			return profile, nil
 		}
 
-		if isDir(profile) {
+		if IsDir(profile) {
 			return profile, fmt.Errorf("%w: `%s` is a directory, not a profile", ErrProfileNotFound, profile)
 		}
 	}
@@ -127,9 +122,9 @@ func ResolveProfilePath(profilePath, name string) (string, error) {
 	)
 }
 
-// isDir reports whether path, after symlinks, is a directory.
-func isDir(path string) bool {
-	// The path is the user's own --profile-path, GLAZE_PATH or current directory.
+// IsDir reports whether path, after symlinks, is a directory.
+func IsDir(path string) bool {
+	// The path is the user's own --profile-path, GLAZE_PATH, current directory or a directory that tmux reports.
 	info, err := os.Stat(path) //nolint:gosec // G703
 
 	return err == nil && info.IsDir()

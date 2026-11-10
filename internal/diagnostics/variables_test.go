@@ -11,92 +11,36 @@ import (
 // a throwaway range used as the subject for the constructors that take one.
 var testRange = hcl.Range{Filename: "test.glaze"}
 
-func TestUndefinedVariable(t *testing.T) {
-	d := UndefinedVariable("ghost")
-	assert.Equal(t, hcl.DiagError, d.Severity)
-	assert.Equal(t, "Undefined variable", d.Summary)
-	assert.Contains(t, d.Detail, "ghost")
-	// a flag has no source position, so the diagnostic carries no subject.
-	assert.Nil(t, d.Subject)
-}
+func TestVariableDiagnostics(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		diag    *hcl.Diagnostic
+		summary string
+		detail  []string
+		subject bool
+	}{
+		{"an undefined variable from a flag has no subject", UndefinedVariable("ghost"), "Undefined variable", []string{"ghost"}, false}, // a flag has no source position
+		{"a required variable has a subject", RequiredVariable("region", testRange), "Required variable not set", []string{"region"}, true},
+		{"an invalid type names the keyword", InvalidVariableType("x", "list", testRange), "Invalid variable type", []string{"list"}, true},
+		{"an invalid type without a keyword lists the types", InvalidVariableType("x", "", testRange), "Invalid variable type", []string{"string, number or bool"}, true},
+		{"an invalid description names the variable", InvalidVariableDescription("x", testRange), "Invalid variable description", []string{"x"}, true},
+		{"an invalid default names the type and the cause", InvalidVariableDefault("x", "number", errors.New("boom"), testRange), "Invalid variable default", []string{"number", "boom"}, true},
+		{"an invalid value names the type and the cause", InvalidVariableValue("x", "bool", errors.New("nope"), testRange), "Invalid variable value", []string{"bool", "nope"}, true},
+		{"a duplicate variable names the variable", DuplicateVariable("x", testRange, testRange), "Duplicate variable declaration", []string{"x"}, true},
+		{"a duplicate local names the local", DuplicateLocal("accent", testRange, testRange), "Duplicate local value", []string{"accent"}, true},
+		{"an unreadable var file has no subject", VarFileUnreadable("vars.json", errors.New("permission denied")), "Unable to read var file", []string{"vars.json", "permission denied"}, false},
+		{"an undeclared var file variable names the file", UndeclaredVarFileVariable("ghost", "vars.glazevars", testRange), "Undefined variable", []string{"ghost", "vars.glazevars"}, true},
+		{"an undeclared var file variable from JSON has no subject", UndeclaredVarFileVariable("ghost", "vars.json", hcl.Range{}), "Undefined variable", []string{"ghost"}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, hcl.DiagError, tc.diag.Severity)
+			assert.Equal(t, tc.summary, tc.diag.Summary)
 
-func TestRequiredVariable(t *testing.T) {
-	d := RequiredVariable("region", testRange)
-	assert.Equal(t, hcl.DiagError, d.Severity)
-	assert.Equal(t, "Required variable not set", d.Summary)
-	assert.Contains(t, d.Detail, "region")
-	assert.NotNil(t, d.Subject)
-}
+			for _, part := range tc.detail {
+				assert.Contains(t, tc.diag.Detail, part)
+			}
 
-func TestInvalidVariableType(t *testing.T) {
-	t.Run("names the offending keyword", func(t *testing.T) {
-		d := InvalidVariableType("x", "list", testRange)
-		assert.Equal(t, "Invalid variable type", d.Summary)
-		assert.Contains(t, d.Detail, "list")
-	})
-
-	t.Run("handles a non-keyword type", func(t *testing.T) {
-		d := InvalidVariableType("x", "", testRange)
-		assert.Equal(t, "Invalid variable type", d.Summary)
-		assert.Contains(t, d.Detail, "string, number or bool")
-	})
-}
-
-func TestInvalidVariableDescription(t *testing.T) {
-	d := InvalidVariableDescription("x", testRange)
-	assert.Equal(t, "Invalid variable description", d.Summary)
-	assert.Contains(t, d.Detail, "x")
-}
-
-func TestInvalidVariableDefault(t *testing.T) {
-	d := InvalidVariableDefault("x", "number", errors.New("boom"), testRange)
-	assert.Equal(t, "Invalid variable default", d.Summary)
-	assert.Contains(t, d.Detail, "number")
-	assert.Contains(t, d.Detail, "boom")
-}
-
-func TestInvalidVariableValue(t *testing.T) {
-	d := InvalidVariableValue("x", "bool", errors.New("nope"), testRange)
-	assert.Equal(t, "Invalid variable value", d.Summary)
-	assert.Contains(t, d.Detail, "bool")
-	assert.Contains(t, d.Detail, "nope")
-}
-
-func TestDuplicateVariable(t *testing.T) {
-	first := hcl.Range{Filename: "test.glaze"}
-	d := DuplicateVariable("x", first, testRange)
-	assert.Equal(t, "Duplicate variable declaration", d.Summary)
-	assert.Contains(t, d.Detail, "x")
-	assert.NotNil(t, d.Subject)
-}
-
-func TestDuplicateLocal(t *testing.T) {
-	first := hcl.Range{Filename: "test.glaze"}
-	d := DuplicateLocal("accent", first, testRange)
-	assert.Equal(t, "Duplicate local value", d.Summary)
-	assert.Contains(t, d.Detail, "accent")
-	assert.NotNil(t, d.Subject)
-}
-
-func TestVarFileUnreadable(t *testing.T) {
-	d := VarFileUnreadable("vars.json", errors.New("permission denied"))
-	assert.Equal(t, hcl.DiagError, d.Severity)
-	assert.Equal(t, "Unable to read var file", d.Summary)
-	assert.Contains(t, d.Detail, "vars.json")
-	assert.Contains(t, d.Detail, "permission denied")
-}
-
-func TestUndeclaredVarFileVariable(t *testing.T) {
-	t.Run("carries a subject when the entry has a range", func(t *testing.T) {
-		d := UndeclaredVarFileVariable("ghost", "vars.glazevars", testRange)
-		assert.Equal(t, "Undefined variable", d.Summary)
-		assert.Contains(t, d.Detail, "ghost")
-		assert.Contains(t, d.Detail, "vars.glazevars")
-		assert.NotNil(t, d.Subject)
-	})
-
-	t.Run("omits the subject for rangeless JSON entries", func(t *testing.T) {
-		d := UndeclaredVarFileVariable("ghost", "vars.json", hcl.Range{})
-		assert.Nil(t, d.Subject)
-	})
+			assert.Equal(t, tc.subject, tc.diag.Subject != nil)
+		})
+	}
 }

@@ -57,11 +57,7 @@ func NewFromBytes(src []byte, filename string) (*Parser, hcl.Diagnostics) {
 		return nil, diags
 	}
 
-	return newParser(hclparse.NewParser().ParseHCL(src, filename))
-}
-
-// newParser returns a parser for file, or the diagnostics when the file has syntax errors.
-func newParser(file *hcl.File, diags hcl.Diagnostics) (*Parser, hcl.Diagnostics) {
+	file, diags := hclparse.NewParser().ParseHCL(src, filename)
 	if diags.HasErrors() {
 		return nil, diags
 	}
@@ -133,8 +129,7 @@ func (p *Parser) Decode(
 	}
 
 	if decodedSpec.IsNull() {
-		// We should never get to this point: sessionBlock guarantees a session
-		// block exists, and decoding its body yields a non-null object.
+		// sessionBlock found a session block, so the decode of its body is never null.
 		panic("glaze definition invalid")
 	}
 

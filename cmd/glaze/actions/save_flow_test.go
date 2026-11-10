@@ -193,7 +193,7 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("display-message", tmuxtest.Result{Output: "1"}) // @1 has automatic-rename on
 		rec.On("lsp", tmuxtest.Result{Output: "%1;1;buildhost;1;" + gone})
 		rec.On("display-message", tmuxtest.Result{Output: "0"}) // @2 was named
-		rec.On("lsp", tmuxtest.Result{Output: "%2;1;tail;1;" + dir})
+		rec.On("lsp", tmuxtest.Result{Output: "%2;1;tail;0;" + dir})
 
 		session, err := save.resolveSession()
 		require.NoError(t, err)
@@ -207,6 +207,8 @@ func TestActionSaveRun(t *testing.T) {
 		assert.Equal(t, "logs", captured.Windows[1].Name)
 		assert.Equal(t, "tail", captured.Windows[1].Panes[0].Name)
 		assert.Equal(t, dir, captured.Windows[1].Panes[0].StartingDirectory)
+		assert.False(t, captured.Windows[1].Focus)
+		assert.False(t, captured.Windows[1].Panes[0].Focus)
 		assert.Contains(t, logs.String(), "the directory no longer exists")
 		assert.Contains(t, logs.String(), gone)
 
@@ -214,27 +216,6 @@ func TestActionSaveRun(t *testing.T) {
 		assert.NotContains(t, profile, `"zsh"`)
 		assert.NotContains(t, profile, `"buildhost"`)
 		assert.NotContains(t, profile, gone)
-	})
-
-	t.Run("does not mark inactive windows or panes as focused", func(t *testing.T) {
-		save, rec := buildSave(t, map[string]string{"stdout": "true"})
-		insidePane(t)
-
-		rec.On("list-sessions", tmuxtest.Result{})
-		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
-		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;0"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;0;/tmp"})
-
-		// Capturing through the public model so we can assert on the result.
-		session, err := save.resolveSession()
-		assert.NoError(t, err)
-
-		captured, err := save.captureSession(session)
-		assert.NoError(t, err)
-		assert.False(t, captured.Windows[0].Focus)
-		assert.False(t, captured.Windows[0].Panes[0].Focus)
 	})
 
 	t.Run("needs --session outside tmux", func(t *testing.T) {
@@ -274,27 +255,22 @@ func TestActionSaveRun(t *testing.T) {
 			}
 		}
 	})
-
-	t.Run("errors when the target session cannot be found", func(t *testing.T) {
-		save, rec := buildSave(t, map[string]string{"session": "ghost"})
-
-		rec.On("list-sessions", tmuxtest.Result{})
-		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp"})
-
-		err := save.Run(context.Background())
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "not found")
-	})
 }
 
 func TestActionSaveRunWithAProfileName(t *testing.T) {
-	t.Run("writes the profile of the name into the profile registry and creates it with mode 0700", func(t *testing.T) {
+	t.Run("creates the registry with mode 0700 and writes a profile that round-trips", func(t *testing.T) {
 		registry := newRegistry(t)
 		dir := t.TempDir()
 		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
 		recordSession(rec, dir)
 
 		require.NoError(t, save.Run(context.Background()))
+		// A name with --session skips the lookup of the current session.
+		for _, call := range rec.Calls {
+			if call[0] == "display-message" {
+				assert.NotContains(t, strings.Join(call, " "), "session_id")
+			}
+		}
 
 		// MkdirAll with 0700 cannot lose a bit under any umask; the file mode can, so only its guaranteed bits are checked.
 		info, err := os.Stat(registry)
@@ -308,11 +284,21 @@ func TestActionSaveRunWithAProfileName(t *testing.T) {
 		assert.Equal(t, os.FileMode(0o600), fileInfo.Mode().Perm()&0o600)
 		assert.Zero(t, fileInfo.Mode().Perm()&^0o644)
 
-		contents, err := os.ReadFile(path) //nolint:gosec // G304
-		require.NoError(t, err)
-		assert.Contains(t, string(contents), `"sv"`)
-		assert.Contains(t, string(contents), `"main"`)
-		assert.Contains(t, string(contents), `"shell"`)
+		p, diags := parser.New(path)
+		require.False(t, diags.HasErrors(), diags.Error())
+
+		session, decodeDiags := p.Decode(spec.Session(registry), parser.BuildEvalContext(map[string]cty.Value{}))
+		require.False(t, decodeDiags.HasErrors(), decodeDiags.Error())
+		require.NotNil(t, session)
+
+		assert.Equal(t, "sv", session.Name)
+		assert.Equal(t, dir, session.StartingDirectory)
+		require.Len(t, session.Windows, 1)
+		assert.Equal(t, "main", session.Windows[0].Name)
+		assert.True(t, session.Windows[0].Focus)
+		require.Len(t, session.Windows[0].Panes, 1)
+		assert.Equal(t, "shell", session.Windows[0].Panes[0].Name)
+		assert.True(t, session.Windows[0].Panes[0].Focus)
 	})
 
 	t.Run("logs the absolute path of the registry profile", func(t *testing.T) {
@@ -331,25 +317,6 @@ func TestActionSaveRunWithAProfileName(t *testing.T) {
 		assert.Contains(t, stderr, "saving session")
 		assert.Contains(t, stderr, "saved session")
 		assert.Equal(t, 2, strings.Count(stderr, "path="+path), stderr)
-	})
-
-	t.Run("accepts --session together with a name", func(t *testing.T) {
-		registry := newRegistry(t)
-		dir := t.TempDir()
-		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
-		recordSession(rec, dir)
-
-		// The flag names the session to capture and the name names the file, so both go into the same run.
-		require.NoError(t, save.Run(context.Background()))
-		assert.True(t, rec.Called("ls"))
-		assert.FileExists(t, filepath.Join(registry, "work.glaze"))
-
-		// --session bypasses the current-session lookup, which reads the session of the pane.
-		for _, call := range rec.Calls {
-			if call[0] == "display-message" {
-				assert.NotContains(t, strings.Join(call, " "), "session_id")
-			}
-		}
 	})
 
 	t.Run("refuses a second save of the name before the capture", func(t *testing.T) {
@@ -493,30 +460,5 @@ func TestActionSaveRunWithAProfileName(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotContains(t, stderr, "XDG_CONFIG_HOME")
 		assert.FileExists(t, path)
-	})
-
-	t.Run("writes a registry profile that round-trips through the parser", func(t *testing.T) {
-		registry := newRegistry(t)
-		dir := t.TempDir()
-		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
-		recordSession(rec, dir)
-
-		require.NoError(t, save.Run(context.Background()))
-
-		p, diags := parser.New(filepath.Join(registry, "work.glaze"))
-		require.False(t, diags.HasErrors(), diags.Error())
-
-		session, decodeDiags := p.Decode(spec.Session(registry), parser.BuildEvalContext(map[string]cty.Value{}))
-		require.False(t, decodeDiags.HasErrors(), decodeDiags.Error())
-		require.NotNil(t, session)
-
-		assert.Equal(t, "sv", session.Name)
-		assert.Equal(t, dir, session.StartingDirectory)
-		require.Len(t, session.Windows, 1)
-		assert.Equal(t, "main", session.Windows[0].Name)
-		assert.True(t, session.Windows[0].Focus)
-		require.Len(t, session.Windows[0].Panes, 1)
-		assert.Equal(t, "shell", session.Windows[0].Panes[0].Name)
-		assert.True(t, session.Windows[0].Panes[0].Focus)
 	})
 }

@@ -9,11 +9,13 @@ import (
 	"path/filepath"
 )
 
-// ErrNotRegular means that glaze can rewrite only a regular file, not a pipe, a device or a directory.
-var ErrNotRegular = errors.New("not a regular file")
+var (
+	// ErrNotRegular means that glaze can rewrite only a regular file, not a pipe, a device or a directory.
+	ErrNotRegular = errors.New("not a regular file")
 
-// ErrFileExists means that the file exists and the caller did not allow glaze to replace it.
-var ErrFileExists = errors.New("file exists")
+	// ErrFileExists means that the file exists and the caller did not allow glaze to replace it.
+	ErrFileExists = errors.New("file exists")
+)
 
 // IsRegular reports whether path, after symlinks, is a regular file.
 func IsRegular(path string) bool {
@@ -31,8 +33,11 @@ func WriteFile(path string, data []byte, perm fs.FileMode) error {
 	}
 
 	info, err := os.Stat(target)
-	existing := err == nil
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
 
+	existing := err == nil
 	if existing {
 		if !info.Mode().IsRegular() {
 			return fmt.Errorf("could not write `%s`: %w", path, ErrNotRegular)
@@ -47,8 +52,6 @@ func WriteFile(path string, data []byte, perm fs.FileMode) error {
 		_ = file.Close()
 
 		perm = info.Mode().Perm()
-	} else if !errors.Is(err, fs.ErrNotExist) {
-		return err
 	}
 
 	temp, err := createTemp(target, perm)

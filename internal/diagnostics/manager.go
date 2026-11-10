@@ -14,11 +14,10 @@ import (
 
 const diagnosticTextWriterWidth = 78
 
-// ErrHasDiagnostics means that the diagnostics hold an error. Write has already printed them, so the caller only stops.
+// ErrHasDiagnostics means that the diagnostics hold an error. Write prints them before it returns this error, so the caller only stops.
 var ErrHasDiagnostics = errors.New("the glaze profile contains errors")
 
-// DiagnosticsManager embeds the structure of hcl.Diagnostics and combines it
-// with a DiagnosticsWriter to simplify use.
+// DiagnosticsManager collects hcl.Diagnostics and writes them once, in source order, through an hcl.DiagnosticWriter.
 type DiagnosticsManager struct {
 	hcl.Diagnostics
 	Writer hcl.DiagnosticWriter
@@ -61,10 +60,9 @@ func New(filePath string, file *hcl.File) *DiagnosticsManager {
 	files := map[string]*hcl.File{filePath: file}
 
 	return &DiagnosticsManager{
-		Diagnostics: hcl.Diagnostics{},
-		Writer:      hcl.NewDiagnosticTextWriter(os.Stderr, files, diagnosticTextWriterWidth, term.ColorEnabled(os.Stderr)),
-		profile:     filePath,
-		files:       files,
+		Writer:  hcl.NewDiagnosticTextWriter(os.Stderr, files, diagnosticTextWriterWidth, term.ColorEnabled(os.Stderr)),
+		profile: filePath,
+		files:   files,
 	}
 }
 

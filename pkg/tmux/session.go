@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// SessionId is the number in a tmux session id such as $3.
 type SessionId int
 
 // String returns the tmux id of the session, for example $3.
