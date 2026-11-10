@@ -60,4 +60,10 @@ func TestDecodeAcceptsValidHooksAndLayouts(t *testing.T) {
 	require.False(t, diags.HasErrors(), diags.Error())
 	assert.Equal(t, enums.LayoutUnknown, session.Windows[0].Layout)
 	assert.Equal(t, "e5be,80x24,0,0{40x24,0,0,1,39x24,41,0,2}", session.Windows[0].LayoutValue())
+
+	// A layout of one cell has no braces and fits one pane.
+	session, diags = parse(t, windowProfile("", "    layout = \"bb62,80x24,0,0\"\n    pane {}\n")).Decode(spec.Session(""), BuildEvalContext(nil))
+	require.False(t, diags.HasErrors(), diags.Error())
+	assert.Equal(t, enums.LayoutUnknown, session.Windows[0].Layout)
+	assert.Equal(t, "bb62,80x24,0,0", session.Windows[0].LayoutValue())
 }

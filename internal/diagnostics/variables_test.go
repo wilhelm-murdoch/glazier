@@ -19,17 +19,17 @@ func TestVariableDiagnostics(t *testing.T) {
 		detail  []string
 		subject bool
 	}{
-		{"an undefined variable from a flag has no subject, because a flag has no source position", UndefinedVariable("ghost"), "Undefined variable", []string{"ghost"}, false},
-		{"a required variable", RequiredVariable("region", testRange), "Required variable not set", []string{"region"}, true},
+		{"an undefined variable from a flag has no subject", UndefinedVariable("ghost"), "Undefined variable", []string{"ghost"}, false}, // a flag has no source position
+		{"a required variable has a subject", RequiredVariable("region", testRange), "Required variable not set", []string{"region"}, true},
 		{"an invalid type names the keyword", InvalidVariableType("x", "list", testRange), "Invalid variable type", []string{"list"}, true},
-		{"an invalid type without a keyword", InvalidVariableType("x", "", testRange), "Invalid variable type", []string{"string, number or bool"}, true},
-		{"an invalid description", InvalidVariableDescription("x", testRange), "Invalid variable description", []string{"x"}, true},
-		{"an invalid default", InvalidVariableDefault("x", "number", errors.New("boom"), testRange), "Invalid variable default", []string{"number", "boom"}, true},
-		{"an invalid value", InvalidVariableValue("x", "bool", errors.New("nope"), testRange), "Invalid variable value", []string{"bool", "nope"}, true},
-		{"a duplicate variable", DuplicateVariable("x", testRange, testRange), "Duplicate variable declaration", []string{"x"}, true},
-		{"a duplicate local", DuplicateLocal("accent", testRange, testRange), "Duplicate local value", []string{"accent"}, true},
+		{"an invalid type without a keyword lists the types", InvalidVariableType("x", "", testRange), "Invalid variable type", []string{"string, number or bool"}, true},
+		{"an invalid description names the variable", InvalidVariableDescription("x", testRange), "Invalid variable description", []string{"x"}, true},
+		{"an invalid default names the type and the cause", InvalidVariableDefault("x", "number", errors.New("boom"), testRange), "Invalid variable default", []string{"number", "boom"}, true},
+		{"an invalid value names the type and the cause", InvalidVariableValue("x", "bool", errors.New("nope"), testRange), "Invalid variable value", []string{"bool", "nope"}, true},
+		{"a duplicate variable names the variable", DuplicateVariable("x", testRange, testRange), "Duplicate variable declaration", []string{"x"}, true},
+		{"a duplicate local names the local", DuplicateLocal("accent", testRange, testRange), "Duplicate local value", []string{"accent"}, true},
 		{"an unreadable var file has no subject", VarFileUnreadable("vars.json", errors.New("permission denied")), "Unable to read var file", []string{"vars.json", "permission denied"}, false},
-		{"an undeclared var file variable with a range", UndeclaredVarFileVariable("ghost", "vars.glazevars", testRange), "Undefined variable", []string{"ghost", "vars.glazevars"}, true},
+		{"an undeclared var file variable names the file", UndeclaredVarFileVariable("ghost", "vars.glazevars", testRange), "Undefined variable", []string{"ghost", "vars.glazevars"}, true},
 		{"an undeclared var file variable from JSON has no subject", UndeclaredVarFileVariable("ghost", "vars.json", hcl.Range{}), "Undefined variable", []string{"ghost"}, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

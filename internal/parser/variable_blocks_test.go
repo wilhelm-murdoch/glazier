@@ -65,6 +65,7 @@ variable "flag" {
   default = true
 }`)
 		assert.False(t, diags.HasErrors())
+		require.Len(t, vars, 2)
 		assert.True(t, vars[0].Default.RawEquals(cty.NumberIntVal(1)))
 		assert.True(t, vars[1].Default.RawEquals(cty.True))
 	})

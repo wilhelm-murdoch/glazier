@@ -133,14 +133,17 @@ func TestWindowSelect(t *testing.T) {
 }
 
 func TestWindowSelectLayout(t *testing.T) {
-	for _, layout := range []string{enums.LayoutTiled.String(), "bb62,80x24,0,0"} {
-		t.Run(layout, func(t *testing.T) {
+	for _, tc := range []struct{ name, layout string }{
+		{"passes a preset", enums.LayoutTiled.String()},
+		{"passes a raw layout string", "bb62,80x24,0,0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			rec := setupRecorder(t)
 			rec.On("selectl", fakeResult{})
 
 			window := testWindow(testSession(testClient()))
-			assert.NoError(t, window.SelectLayout(layout))
-			assert.Equal(t, []string{"selectl", "-t", "@0", layout}, rec.ArgsFor("selectl"))
+			assert.NoError(t, window.SelectLayout(tc.layout))
+			assert.Equal(t, []string{"selectl", "-t", "@0", tc.layout}, rec.ArgsFor("selectl"))
 		})
 	}
 }

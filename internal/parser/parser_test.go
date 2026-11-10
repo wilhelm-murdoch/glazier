@@ -197,7 +197,7 @@ session {
 	assert.Empty(t, session.StartingDirectory)
 	assert.Empty(t, session.Windows[0].StartingDirectory)
 	assert.Empty(t, session.Windows[0].Panes[0].StartingDirectory)
-	// A pane without a commands attribute has a null list, which must not panic.
+	// The decode gives a pane without a commands attribute a null list, and it must not panic.
 	assert.Empty(t, session.Windows[0].Panes[0].Commands)
 
 	window := session.Windows[0]
@@ -206,7 +206,7 @@ session {
 	assert.False(t, window.Focus)
 }
 
-// Only session and variable blocks live at the root, so a typo is rejected and not ignored.
+// Each row is a profile structure that the decode must reject. The root takes only session and variable blocks, so the decode rejects a typo.
 func TestDecodeRejectsInvalidStructure(t *testing.T) {
 	for _, tc := range []struct {
 		name string

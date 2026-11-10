@@ -255,17 +255,22 @@ func TestActionSaveRun(t *testing.T) {
 			}
 		}
 	})
-
 }
 
 func TestActionSaveRunWithAProfileName(t *testing.T) {
-	t.Run("writes the profile of the name into the registry with mode 0700 and it round-trips", func(t *testing.T) {
+	t.Run("creates the registry with mode 0700 and writes a profile that round-trips", func(t *testing.T) {
 		registry := newRegistry(t)
 		dir := t.TempDir()
 		save, rec := buildSaveAt(t, "critical", "work", map[string]string{"session": "sv"})
 		recordSession(rec, dir)
 
 		require.NoError(t, save.Run(context.Background()))
+		// A name with --session skips the lookup of the current session.
+		for _, call := range rec.Calls {
+			if call[0] == "display-message" {
+				assert.NotContains(t, strings.Join(call, " "), "session_id")
+			}
+		}
 
 		// MkdirAll with 0700 cannot lose a bit under any umask; the file mode can, so only its guaranteed bits are checked.
 		info, err := os.Stat(registry)

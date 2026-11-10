@@ -761,6 +761,17 @@ func TestListProfiles(t *testing.T) {
 		assert.ErrorContains(t, err, "`"+file+"` is a file, not the profile registry directory; move it away, or set XDG_CONFIG_HOME or GLAZE_REGISTRY to a directory")
 	})
 
+	t.Run("reports a registry with a file in its path", func(t *testing.T) {
+		isolateRegistry(t)
+		file := filepath.Join(t.TempDir(), "config")
+		require.NoError(t, os.WriteFile(file, []byte("session {}"), 0o600))
+		dir := filepath.Join(file, "glaze")
+		t.Setenv(RegistryEnv, dir)
+
+		_, _, err := ListProfiles(dir)
+		assert.ErrorContains(t, err, "`"+dir+"` cannot be the profile registry, because a part of its path is a file; set GLAZE_REGISTRY to a directory")
+	})
+
 	t.Run("reports a registry that cannot be read", func(t *testing.T) {
 		dir := t.TempDir()
 		writeProfile(t, dir, "work")
