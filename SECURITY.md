@@ -22,25 +22,7 @@ Please include enough detail to reproduce: affected version, a minimal proof of 
 
 What glaze touches that matters for security:
 
-- **Profiles execute commands by design.** A `.glaze` profile's `commands`,
-  `hooks`, and `options` are sent to your tmux server and run in your shell
-  with your privileges. Applying an untrusted profile is equivalent to running
-  an untrusted script - that is intended behavior, not a vulnerability. Reports
-  along the lines of "a malicious profile can run commands" are out of scope;
-  **a way to make a profile do something its text does not say** (command or
-  argument injection through variable expansion, template functions, escaping
-  bugs in the tmux command serialization) is very much in scope.
-- **Untrusted input parsing.** The HCL parser, the variable/template expansion
-  (`--var`, `GLAZE_ENV_*`), the profile name that becomes a path in the
-  profile registry, and the raw tmux layout-string validation all consume
-  attacker-controllable text. Panics, hangs, or memory exhaustion on malformed
-  profiles are in scope (these surfaces are fuzzed in CI).
-- **Secret leakage.** `glaze save` deliberately refuses to export commands,
-  hooks, environment variables, and options precisely so secrets in a live
-  session can't end up in a file you might commit. Anything that defeats that
-  boundary - `save` output containing session environment values, for example -
-  is a valuable report. `glaze diff` does not compare or print commands, envs,
-  hooks or options, for the same reason. Output of `diff` that shows one of
-  them is in scope.
-- **No network exposure.** glaze talks only to a local tmux socket; it makes no
-  network connections of its own.
+- **Profiles execute commands by design.** A `.glaze` profile's `commands`, `hooks`, and `options` are sent to your tmux server and run in your shell with your privileges. Applying an untrusted profile is equivalent to running an untrusted script - that is intended behavior, not a vulnerability. Reports along the lines of "a malicious profile can run commands" are out of scope; **a way to make a profile do something its text does not say** (command or argument injection through variable expansion, template functions, escaping bugs in the tmux command serialization) is very much in scope.
+- **Untrusted input parsing.** The HCL parser, the variable/template expansion (`--var`, `GLAZE_ENV_*`), the profile name that becomes a path in the profile registry, and the raw tmux layout-string validation all consume attacker-controllable text. Panics, hangs, or memory exhaustion on malformed profiles are in scope (these surfaces are fuzzed in CI).
+- **Secret leakage.** `glaze save` deliberately refuses to export commands, hooks, environment variables, and options precisely so secrets in a live session can't end up in a file you might commit. Anything that defeats that boundary - `save` output containing session environment values, for example - is a valuable report. `glaze diff` does not compare or print commands, envs, hooks or options, for the same reason. Output of `diff` that shows one of them is in scope.
+- **No network exposure.** glaze talks only to a local tmux socket; it makes no network connections of its own.

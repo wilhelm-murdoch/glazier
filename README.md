@@ -860,7 +860,7 @@ The test suite includes one test on a real tmux, `pkg/tmux/e2e_test.go`. The tes
 
 CI runs on [Woodpecker](./.woodpecker/workflow.yaml) and [GitHub Actions](./.github/workflows/). Both call the same Makefile targets. A green local `make all` is a green build. GitHub also runs CodeQL, govulncheck, OpenSSF Scorecard and weekly scheduled fuzzing.
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions and [SECURITY.md](./SECURITY.md) for the security policy and reporting channel.
+See [SECURITY.md](./SECURITY.md) for the security policy and reporting channel.
 
 ## AI Disclosure
 
