@@ -166,8 +166,8 @@ As for
 .BR up .
 .SS ls
 List the sessions that run on the tmux server: the name, the number of
-windows, the path and a marker for an attached session. The command succeeds
-with an empty table when no server runs.
+windows, the path and a marker for the session of the pane that runs the
+command. The command succeeds with an empty table when no server runs.
 .TP
 .B \-\-profiles
 List the profiles in the profile registry instead of the sessions: the name
@@ -369,8 +369,8 @@ Glazier does not fold case. On a case-insensitive macOS volume,
 .B glaze up Work
 opens work.glaze, and
 .B glaze save Work \-\-force
-replaces work.glaze and stores the file as Work.glaze. On Linux the two names
-are two files.
+replaces the content of work.glaze and keeps the file name. On Linux the two
+names are two files.
 .PP
 The profile name selects the file. The session name comes from the
 .B name

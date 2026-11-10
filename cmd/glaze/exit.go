@@ -62,7 +62,8 @@ func exitCode(err error) int {
 	}
 }
 
-// configureCompletion shows the completion command in the help with the wording of the man page and makes an unknown shell a usage error, like an unknown command.
+// configureCompletion shows the completion command in the help with the wording of the man page.
+// It makes an unknown shell a usage error, like an unknown command.
 func configureCompletion(cmd *cli.Command) {
 	cmd.Hidden = false
 	cmd.Usage = "print a completion script for bash, zsh, fish or pwsh"

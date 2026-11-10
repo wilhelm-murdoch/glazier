@@ -189,7 +189,7 @@ Each exit code has one meaning. A script can use the code to find the cause of a
 When `up` fails or a signal stops it, Glazier removes the session that this run created, so the next `up` starts again from nothing. Glazier never removes a session that existed before the run. A second signal stops Glazier at once, with no clean-up.
 
 ### Shell completion
-`glaze completion <shell>` prints a completion script for bash, zsh or fish. The script asks the `glaze` binary for the subcommands and the flags each time you press Tab, so it stays correct after an upgrade. The packages, the Homebrew formula and the AUR package install the scripts for you. With `go install` or a release zip, load the script yourself:
+`glaze completion <shell>` prints a completion script for bash, zsh, fish or pwsh. The script asks the `glaze` binary for the subcommands and the flags each time you press Tab, so it stays correct after an upgrade. The packages, the Homebrew formula and the AUR package install the scripts for you. With `go install` or a release zip, load the script yourself:
 ```console
 $ source <(glaze completion bash)                            # bash: add this line to ~/.bashrc
 $ source <(glaze completion zsh)                             # zsh: add this line to ~/.zshrc
@@ -766,7 +766,7 @@ $ make vuln                  # run the govulncheck vulnerability scan
 $ make fuzz                  # find and run each native Go Fuzz* target
 $ make e2e                   # run every end-to-end case on the host tmux (RUN='TestX/case' filters)
 $ make e2e-matrix            # run every case on six tmux targets in Docker (BASE=github/main compares)
-$ make e2e-check             # vet, lint and unit-test the e2e module; no tmux is necessary
+$ make e2e-check             # vet, lint, unit-test and vuln-scan the e2e module; no tmux is necessary
 $ make all                   # deps > build > test > race > lint > cover > vuln > e2e-check
 $ make install               # go install the version-stamped binary
 $ make completions           # render the shell completion scripts into release/completions/
