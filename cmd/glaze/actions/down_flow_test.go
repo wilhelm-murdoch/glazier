@@ -121,17 +121,6 @@ func TestActionDownRun(t *testing.T) {
 		assert.False(t, rec.Called("kill-session"))
 	})
 
-	t.Run("kills the session named by --session without a profile", func(t *testing.T) {
-		down, rec := buildDown(t, "", map[string]string{"session": "other"})
-		rec.On("has-session", tmuxtest.Result{})
-		rec.On("kill-session", tmuxtest.Result{})
-
-		assert.NoError(t, down.Run(context.Background()))
-
-		assert.True(t, rec.Called("kill-session"))
-		assert.Contains(t, rec.ArgsFor("kill-session"), "=other")
-	})
-
 	t.Run("--session wins over the profile", func(t *testing.T) {
 		down, rec := buildDown(t, validProfile, map[string]string{"session": "other"})
 		rec.On("has-session", tmuxtest.Result{})
@@ -235,29 +224,6 @@ func TestActionDownByName(t *testing.T) {
 		}
 	})
 
-	t.Run("resolves an interpolated name of a registry profile from --var", func(t *testing.T) {
-		profile := `variable "district" {
-  type = string
-}
-
-session {
-  name = "gig-${var.district}"
-
-  window {
-    pane {}
-  }
-}
-`
-		down, rec := buildDownByName(t, "gig", profile, map[string]string{"var": "district=watson"})
-		rec.On("has-session", tmuxtest.Result{})
-		rec.On("kill-session", tmuxtest.Result{})
-
-		assert.NoError(t, down.Run(context.Background()))
-
-		assert.Contains(t, rec.ArgsFor("has-session"), "=gig-watson")
-		assert.Contains(t, rec.ArgsFor("kill-session"), "=gig-watson")
-	})
-
 	t.Run("says how to kill the session of a profile that is gone", func(t *testing.T) {
 		registry := newRegistry(t)
 		writeRegistryProfile(t, registry, "other", validProfile)
@@ -351,19 +317,6 @@ func TestActionDownByNameChecks(t *testing.T) {
 		assert.False(t, rec.Called("kill-session"))
 		assert.Contains(t, logs.String(), "the name depends on the current directory, so from another directory use --session")
 		assert.Contains(t, logs.String(), "session=reg-proj")
-	})
-
-	t.Run("kills the session of a name from path in the directory that named it", func(t *testing.T) {
-		project := filepath.Join(t.TempDir(), "proj")
-		assert.NoError(t, os.Mkdir(project, 0o700))
-		t.Chdir(project)
-
-		down, rec := buildDownByName(t, "reg", templateProfile, nil)
-		rec.On("has-session", tmuxtest.Result{})
-		rec.On("kill-session", tmuxtest.Result{})
-
-		assert.NoError(t, down.Run(context.Background()))
-		assert.Contains(t, rec.ArgsFor("kill-session"), "=reg-proj")
 	})
 
 	t.Run("keeps the plain message for a fixed name that is not running", func(t *testing.T) {

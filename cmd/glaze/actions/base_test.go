@@ -103,18 +103,22 @@ func runWithProfile(t *testing.T, contents string) (*ActionBase, error) {
 }
 
 func TestNewActionBase(t *testing.T) {
-	t.Run("returns an error for a profile with a syntax error", func(t *testing.T) {
-		base, err := runWithProfile(t, "session \"x\" {\n  window {\n")
+	t.Run("shows the source of a syntax error", func(t *testing.T) {
+		path := filepath.Join(t.TempDir(), ".glaze")
+		assert.NoError(t, os.WriteFile(path, []byte("session {\n  window { pane {} name = \"x\"\n  }\n}\n"), 0o600))
 
-		assert.Nil(t, base)
-		assert.Error(t, err)
-	})
+		var (
+			action *ActionFormat
+			err    error
+		)
 
-	t.Run("succeeds for a valid profile", func(t *testing.T) {
-		base, err := runWithProfile(t, "session {\n  name = \"demo\"\n}\n")
+		// NewFormat reads the profile through NewActionBase, so this also covers the error that NewFormat passes on.
+		stderr := capture(t, &os.Stderr, func() { action, err = newFormatAt(t, path, nil) })
 
-		assert.NoError(t, err)
-		assert.NotNil(t, base)
+		assert.Nil(t, action)
+		assert.ErrorIs(t, err, diagnostics.ErrHasDiagnostics)
+		assert.Contains(t, stderr, `window { pane {} name = "x"`)
+		assert.NotContains(t, stderr, "source code not available")
 	})
 
 	t.Run("keeps an empty profile name for a path", func(t *testing.T) {

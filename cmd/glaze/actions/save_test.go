@@ -13,55 +13,28 @@ import (
 	"github.com/wilhelm-murdoch/glazier/internal/spec"
 )
 
-func TestGenerateProfile(t *testing.T) {
-	captured := savedSession{
-		Name:              "demo",
-		StartingDirectory: "/home/user",
-		Windows: []savedWindow{
-			{
-				Name:   "editor",
-				Layout: "main-vertical",
-				Panes: []savedPane{
-					{Name: "shell", StartingDirectory: "/home/user/project"},
-					{Name: "logs", StartingDirectory: "/var/log"},
-				},
-			},
-			{
-				Name:   "scratch",
-				Layout: "tiled",
-				Panes: []savedPane{
-					{Name: "repl"},
-				},
-			},
-		},
-	}
-
-	output := string(generateProfile(captured))
-
-	assert.Contains(t, output, `"demo"`)
-	assert.Contains(t, output, `"/home/user"`)
-	assert.Contains(t, output, `"main-vertical"`)
-	assert.Contains(t, output, `"shell"`)
-	assert.Contains(t, output, `"repl"`)
-	assert.Contains(t, output, "session {")
-	assert.Contains(t, output, "window {")
-	assert.Contains(t, output, "pane {")
-}
-
 // TestGenerateProfileRoundTrips proves the generated output is a valid glaze
 // definition by parsing and decoding it back through the real spec.
 func TestGenerateProfileRoundTrips(t *testing.T) {
+	sessionDir := t.TempDir()
+	paneDir := t.TempDir()
 	captured := savedSession{
 		Name:              "demo",
-		StartingDirectory: t.TempDir(),
+		StartingDirectory: sessionDir,
 		Windows: []savedWindow{
 			{
 				Name:   "editor",
 				Layout: "main-vertical",
 				Focus:  true,
 				Panes: []savedPane{
-					{Name: "shell", StartingDirectory: t.TempDir(), Focus: true},
+					{Name: "shell", StartingDirectory: paneDir, Focus: true},
+					{Name: "logs"},
 				},
+			},
+			{
+				Name:   "scratch",
+				Layout: "tiled",
+				Panes:  []savedPane{{Name: "repl"}},
 			},
 		},
 	}
@@ -79,14 +52,23 @@ func TestGenerateProfileRoundTrips(t *testing.T) {
 	assert.NotNil(t, session)
 
 	assert.Equal(t, "demo", session.Name)
-	assert.Equal(t, 1, len(session.Windows))
+	assert.Equal(t, sessionDir, session.StartingDirectory)
+	assert.Equal(t, 2, len(session.Windows))
 
 	window := session.Windows[0]
 	assert.Equal(t, "editor", window.Name)
+	assert.Equal(t, "main-vertical", window.LayoutValue())
 	assert.True(t, window.Focus)
-	assert.Equal(t, 1, len(window.Panes))
+	assert.Equal(t, 2, len(window.Panes))
 	assert.Equal(t, "shell", window.Panes[0].Name)
+	assert.Equal(t, paneDir, window.Panes[0].StartingDirectory)
 	assert.True(t, window.Panes[0].Focus)
+	assert.False(t, window.Panes[1].Focus)
+
+	scratch := session.Windows[1]
+	assert.Equal(t, "scratch", scratch.Name)
+	assert.Equal(t, 1, len(scratch.Panes))
+	assert.Equal(t, "repl", scratch.Panes[0].Name)
 }
 
 // A layout that tmux 3.9 prints is JSON, so its quotes must survive the HCL string and the profile must validate.
@@ -108,7 +90,9 @@ func TestGenerateProfileRoundTripsAJSONLayout(t *testing.T) {
 	assert.Equal(t, layout, session.Windows[0].LayoutValue())
 }
 
-func TestGenerateProfileOmitsEmptyOptionals(t *testing.T) {
+// TestGenerateProfileOmitsEmptyOptionalsAndValidates checks that a profile with no layout, directory or focus leaves them out and decodes.
+// An earlier "unknown" placeholder broke `format --validate`.
+func TestGenerateProfileOmitsEmptyOptionalsAndValidates(t *testing.T) {
 	captured := savedSession{
 		Name: "minimal",
 		Windows: []savedWindow{
@@ -119,50 +103,11 @@ func TestGenerateProfileOmitsEmptyOptionals(t *testing.T) {
 		},
 	}
 
-	output := string(generateProfile(captured))
-
-	assert.NotContains(t, output, "starting_directory")
-	assert.NotContains(t, output, "layout")
-	assert.NotContains(t, output, "focus")
-}
-
-func TestGenerateProfileEmitsFocus(t *testing.T) {
-	captured := savedSession{
-		Name: "demo",
-		Windows: []savedWindow{
-			{
-				Name:  "focused",
-				Focus: true,
-				Panes: []savedPane{
-					{Name: "active", Focus: true},
-					{Name: "idle"},
-				},
-			},
-		},
-	}
-
-	output := string(generateProfile(captured))
-
-	// The active window and the active pane get `focus = true` and the idle pane does not. hclwrite aligns `=`, so match `= true`.
-	assert.Equal(t, 2, strings.Count(output, "= true"))
-	assert.NotContains(t, output, "= false")
-}
-
-// TestGenerateProfileWithoutLayoutValidates checks that a profile with no layout decodes.
-// An earlier "unknown" placeholder broke `format --validate`.
-func TestGenerateProfileWithoutLayoutValidates(t *testing.T) {
-	captured := savedSession{
-		Name: "demo",
-		Windows: []savedWindow{
-			{
-				Name:  "editor",
-				Panes: []savedPane{{Name: "shell"}},
-			},
-		},
-	}
-
 	output := generateProfile(captured)
+
+	assert.NotContains(t, string(output), "starting_directory")
 	assert.NotContains(t, string(output), "layout")
+	assert.NotContains(t, string(output), "focus")
 
 	path := filepath.Join(t.TempDir(), "saved.glaze")
 	assert.NoError(t, os.WriteFile(path, output, 0o600))
