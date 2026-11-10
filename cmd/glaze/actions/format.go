@@ -44,10 +44,6 @@ func (a *ActionFormat) Run(_ context.Context) error {
 			return a.DiagnosticsManager.Report(validationDiags)
 		}
 
-		if err := a.checkRegistryName(); err != nil {
-			return err
-		}
-
 		// Warnings do not stop the format. Report shows them and returns no error.
 		if len(validationDiags) > 0 {
 			if err := a.DiagnosticsManager.Report(validationDiags); err != nil {

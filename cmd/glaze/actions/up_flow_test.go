@@ -530,7 +530,7 @@ func TestActionUpRun(t *testing.T) {
 		failingProvision(rec, nil)
 
 		err := up.Run(context.Background())
-		assert.ErrorContains(t, err, "failed to provision session `demo`")
+		assert.ErrorContains(t, err, "could not provision session `demo`")
 		assert.ErrorContains(t, err, "no space for new pane")
 		assert.Equal(t, []string{"kill-session", "-t", "$1"}, rec.ArgsFor("kill-session"))
 	})
