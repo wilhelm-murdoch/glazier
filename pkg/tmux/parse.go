@@ -8,8 +8,8 @@ import (
 
 const (
 	formatActiveSessions       = "#{session_id};#{q:session_name};#{q:session_path}"
-	formatActiveWindows        = "#{window_id};#{window_index};#{q:window_name};#{window_layout};#{window_active}"
-	formatActivePanes          = "#{pane_id};#{pane_index};#{q:pane_title};#{pane_active};#{q:pane_current_path}"
+	formatActiveWindows        = "#{window_id};#{q:window_name};#{window_layout};#{window_active}"
+	formatActivePanes          = "#{pane_id};#{q:pane_title};#{pane_active};#{q:pane_current_path}"
 	tmuxLinePartDelimiter byte = ';'
 )
 

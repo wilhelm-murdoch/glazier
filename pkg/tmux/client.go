@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"os/exec"
 	"slices"
-	"strconv"
 	"strings"
 )
 
@@ -138,22 +137,16 @@ func (c Client) Windows(session *Session) ([]*Window, error) {
 
 // NewWindowFromLine parses one line of formatActiveWindows output.
 func (c Client) NewWindowFromLine(line string, session *Session) (*Window, error) {
-	parts, id, err := getPartsFromTmuxLine(line, "@", 5)
-	if err != nil {
-		return nil, err
-	}
-
-	index, err := strconv.Atoi(parts[1])
+	parts, id, err := getPartsFromTmuxLine(line, "@", 4)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Window{
 		Id:        WindowId(id),
-		Index:     index,
-		Name:      parts[2],
-		RawLayout: parts[3],
-		IsActive:  parts[4] == "1",
+		Name:      parts[1],
+		RawLayout: parts[2],
+		IsActive:  parts[3] == "1",
 		Session:   session,
 	}, nil
 }
@@ -172,22 +165,16 @@ func (c Client) Panes(window *Window) ([]*Pane, error) {
 
 // NewPaneFromLine parses one line of formatActivePanes output.
 func (c Client) NewPaneFromLine(line string, window *Window) (*Pane, error) {
-	parts, id, err := getPartsFromTmuxLine(line, "%", 5)
-	if err != nil {
-		return nil, err
-	}
-
-	index, err := strconv.Atoi(parts[1])
+	parts, id, err := getPartsFromTmuxLine(line, "%", 4)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Pane{
 		Id:                PaneId(id),
-		Index:             index,
-		Name:              parts[2],
-		StartingDirectory: parts[4],
-		IsActive:          parts[3] == "1",
+		Name:              parts[1],
+		StartingDirectory: parts[3],
+		IsActive:          parts[2] == "1",
 		Window:            window,
 	}, nil
 }

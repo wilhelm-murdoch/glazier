@@ -166,9 +166,9 @@ func argAfter(args []string, flag string) string {
 func newSession(rec *tmuxtest.Recorder, name string) {
 	rec.On("has-session", tmuxtest.Failure("can't find session: "+name))
 	rec.On("new", tmuxtest.Result{Output: "$1;" + name + ";/tmp"})
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;shell;1;/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;default;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;shell;1;/tmp"})
 }
 
 func TestActionUpDebugFlag(t *testing.T) {
@@ -478,8 +478,8 @@ func TestActionUpRun(t *testing.T) {
 	failingProvision := func(rec *tmuxtest.Recorder, onSplit func()) {
 		rec.On("has-session", tmuxtest.Failure("can't find session: demo"))
 		rec.On("new", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;default;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
 		rec.On("splitw", tmuxtest.Failure("no space for new pane").With(onSplit))
 	}
 

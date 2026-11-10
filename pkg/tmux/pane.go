@@ -20,7 +20,6 @@ type Pane struct {
 	Name              string
 	StartingDirectory string
 	IsActive          bool
-	Index             int
 	Id                PaneId
 }
 

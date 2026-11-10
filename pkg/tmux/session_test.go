@@ -10,7 +10,7 @@ import (
 func TestSessionNewWindow(t *testing.T) {
 	t.Run("sanitises a backslash and control characters in the name", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;w-z-q;tiled;1"})
+		rec.On("neww", fakeResult{Output: "@1;w-z-q;tiled;1"})
 
 		_, err := testSession(testClient()).NewWindow("w\\z\tq", "")
 		assert.NoError(t, err)
@@ -19,7 +19,7 @@ func TestSessionNewWindow(t *testing.T) {
 
 	t.Run("escapes format sequences in the name and directory", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;w#{session_name};tiled;1"})
+		rec.On("neww", fakeResult{Output: "@1;w#{session_name};tiled;1"})
 
 		_, err := testSession(testClient()).NewWindow("w#{session_name}", "/d#S")
 		assert.NoError(t, err)
@@ -28,7 +28,7 @@ func TestSessionNewWindow(t *testing.T) {
 
 	t.Run("successfully creates a window", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("neww", fakeResult{Output: "@1;1;editor;tiled;1"})
+		rec.On("neww", fakeResult{Output: "@1;editor;tiled;1"})
 
 		client := testClient()
 		window, err := testSession(client).NewWindow("editor", "")
@@ -36,7 +36,6 @@ func TestSessionNewWindow(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, window)
 		assert.Equal(t, "@1", window.Id.String())
-		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, "tiled", window.RawLayout)
 		assert.True(t, window.IsActive)

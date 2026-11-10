@@ -95,8 +95,8 @@ func TestActionLsRun(t *testing.T) {
 		ls, rec, out := buildLs(t)
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;gig-watson;/home/v"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1\n@2;2;logs;tiled;0"})
-		rec.On("lsw", tmuxtest.Result{Output: "@3;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1\n@2;logs;tiled;0"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;main;tiled;1"})
 
 		assert.NoError(t, ls.Run(context.Background()))
 
@@ -118,8 +118,8 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
-		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@2;main;tiled;1"})
 
 		assert.NoError(t, ls.Run(context.Background()))
 
@@ -177,8 +177,8 @@ func TestActionLsRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;/tmp\n$2;other;/srv"})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/work"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
-		rec.On("lsw", tmuxtest.Result{Output: "@2;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@2;main;tiled;1"})
 
 		assert.NoError(t, ls.Run(context.Background()))
 		assert.NotContains(t, out.String(), "*")

@@ -18,7 +18,6 @@ type Window struct {
 	Name     string
 	IsActive bool
 	Id       WindowId
-	Index    int
 
 	// RawLayout is the #{window_layout} coordinate string, which `save` keeps when no named preset matches.
 	RawLayout string

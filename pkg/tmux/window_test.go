@@ -12,7 +12,7 @@ import (
 func TestWindowSplit(t *testing.T) {
 	t.Run("successfully splits the window", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
+		rec.On("splitw", fakeResult{Output: "%2;buildhost;1;/srv"})
 		rec.On("selectp", fakeResult{})
 
 		client := testClient()
@@ -21,7 +21,6 @@ func TestWindowSplit(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, PaneId(2), pane.Id)
-		assert.Equal(t, 1, pane.Index)
 		assert.Equal(t, "shell", pane.Name)
 		assert.Equal(t, "/srv", pane.StartingDirectory)
 		assert.True(t, pane.IsActive)
@@ -30,7 +29,7 @@ func TestWindowSplit(t *testing.T) {
 
 	t.Run("uses the requested directory, not the path tmux reports", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/home/server"})
+		rec.On("splitw", fakeResult{Output: "%2;buildhost;1;/home/server"})
 		rec.On("selectp", fakeResult{})
 
 		pane, err := testWindow(testSession(testClient())).Split("%1", "shell", "/srv")
@@ -40,7 +39,7 @@ func TestWindowSplit(t *testing.T) {
 
 	t.Run("sanitises a backslash and control characters in the title", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
+		rec.On("splitw", fakeResult{Output: "%2;buildhost;1;/srv"})
 		rec.On("selectp", fakeResult{})
 
 		pane, err := testWindow(testSession(testClient())).Split("%1", "p\\z\tq", "/srv")
@@ -51,7 +50,7 @@ func TestWindowSplit(t *testing.T) {
 
 	t.Run("escapes format sequences in the directory and title", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/d#S"})
+		rec.On("splitw", fakeResult{Output: "%2;buildhost;1;/d#S"})
 		rec.On("selectp", fakeResult{})
 
 		window := testWindow(testSession(testClient()))
@@ -88,7 +87,7 @@ func TestWindowSplit(t *testing.T) {
 		selectErr := errors.New("selectp failed")
 
 		rec := setupRecorder(t)
-		rec.On("splitw", fakeResult{Output: "%2;1;buildhost;1;/srv"})
+		rec.On("splitw", fakeResult{Output: "%2;buildhost;1;/srv"})
 		rec.On("selectp", fakeResult{Err: selectErr})
 
 		client := testClient()

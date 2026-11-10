@@ -75,8 +75,8 @@ func buildSaveAt(t *testing.T, logLevel, name string, flags map[string]string) (
 func recordSession(rec *tmuxtest.Recorder, dir string) {
 	rec.On("list-sessions", tmuxtest.Result{})
 	rec.On("ls", tmuxtest.Result{Output: "$1;sv;" + dir})
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;" + dir})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;" + dir})
 }
 
 // insidePane sets the environment of pane %4 of the tmux server on /tmp/tmux-501/default.
@@ -112,8 +112,8 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;bb62,80x24,0,0;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;/tmp"})
 
 		assert.NoError(t, save.Run(context.Background()))
 
@@ -164,8 +164,8 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;/tmp"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;/tmp"})
 
 		assert.NoError(t, save.Run(context.Background()))
 
@@ -189,11 +189,11 @@ func TestActionSaveRun(t *testing.T) {
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;raw;" + dir})
 		rec.On("display-message", tmuxtest.Result{Output: "buildhost"}) // #{host}
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;zsh;tiled;1\n@2;2;logs;tiled;0"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;zsh;tiled;1\n@2;logs;tiled;0"})
 		rec.On("display-message", tmuxtest.Result{Output: "1"}) // @1 has automatic-rename on
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;buildhost;1;" + gone})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;buildhost;1;" + gone})
 		rec.On("display-message", tmuxtest.Result{Output: "0"}) // @2 was named
-		rec.On("lsp", tmuxtest.Result{Output: "%2;1;tail;0;" + dir})
+		rec.On("lsp", tmuxtest.Result{Output: "%2;tail;0;" + dir})
 
 		session, err := save.resolveSession()
 		require.NoError(t, err)
@@ -244,8 +244,8 @@ func TestActionSaveRun(t *testing.T) {
 
 		rec.On("list-sessions", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$2;other;/srv"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;p;1;/srv"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;w;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;p;1;/srv"})
 
 		assert.NoError(t, save.Run(context.Background()))
 		// --session bypasses the current-session lookup, which reads the socket path and the session of the pane.
