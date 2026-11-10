@@ -66,11 +66,11 @@ func TestCaptureSession(t *testing.T) {
 		c := newCapture(t, "$1;demo;"+dir)
 
 		c.rec.On("display-message", tmuxtest.Result{Output: "buildhost"}) // #{host}
-		c.rec.On("lsw", tmuxtest.Result{Output: "@1;1;zsh;bb62,80x24,0,0;1\n@2;2;logs;bb62,80x24,0,0;0"})
+		c.rec.On("lsw", tmuxtest.Result{Output: "@1;zsh;bb62,80x24,0,0;1\n@2;logs;bb62,80x24,0,0;0"})
 		c.rec.On("display-message", tmuxtest.Result{Output: "1"}) // @1 has automatic-rename on
-		c.rec.On("lsp", tmuxtest.Result{Output: "%1;1;buildhost;1;" + gone})
+		c.rec.On("lsp", tmuxtest.Result{Output: "%1;buildhost;1;" + gone})
 		c.rec.On("display-message", tmuxtest.Result{Output: "0"}) // @2 was named
-		c.rec.On("lsp", tmuxtest.Result{Output: "%2;1;tail;1;" + dir + "\n%3;2;buildhost;0;"})
+		c.rec.On("lsp", tmuxtest.Result{Output: "%2;tail;1;" + dir + "\n%3;buildhost;0;"})
 
 		captured, err := captureSession(c.client, c.session, c.log)
 		require.NoError(t, err)
@@ -153,9 +153,9 @@ func TestCaptureSession(t *testing.T) {
 		dir := t.TempDir()
 		c := newCapture(t, "$1;demo;"+dir)
 		c.rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		c.rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		c.rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
 		c.rec.On("display-message", tmuxtest.Result{Output: "0"})
-		c.rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;" + filepath.Join(dir, ".glaze")})
+		c.rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;" + filepath.Join(dir, ".glaze")})
 
 		captured, err := captureSession(c.client, c.session, c.log)
 		require.NoError(t, err)
@@ -175,9 +175,9 @@ func TestCaptureSession(t *testing.T) {
 	t.Run("says that the session changed when a window is gone before its panes are read", func(t *testing.T) {
 		c := newCapture(t, "$1;demo;/tmp")
 		c.rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		c.rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1\n@2;2;extra;tiled;0"})
+		c.rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1\n@2;extra;tiled;0"})
 		c.rec.On("display-message", tmuxtest.Result{Output: "0"})
-		c.rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;/tmp"})
+		c.rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;/tmp"})
 		c.rec.On("display-message", tmuxtest.Result{Output: "0"})
 		c.rec.On("lsp", tmuxtest.Failure("can't find window: @2"))
 
@@ -189,7 +189,7 @@ func TestCaptureSession(t *testing.T) {
 	t.Run("says that the session changed when a window is gone before its option is read", func(t *testing.T) {
 		c := newCapture(t, "$1;demo;/tmp")
 		c.rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		c.rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		c.rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
 		c.rec.On("display-message", tmuxtest.Failure("can't find window: @1"))
 
 		_, err := captureSession(c.client, c.session, c.log)

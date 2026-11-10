@@ -159,8 +159,8 @@ func liveDemo(rec *tmuxtest.Recorder, dir string, windows ...liveWindowReplies) 
 // matchingDemo queues a live session that matches diffProfile in dir.
 func matchingDemo(rec *tmuxtest.Recorder, dir string) {
 	liveDemo(rec, dir,
-		liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-		liveWindowReplies{"@2;2;run;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+		liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+		liveWindowReplies{"@2;run;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 	)
 }
 
@@ -218,8 +218,8 @@ func TestActionDiffRun(t *testing.T) {
 	t.Run("reports a renamed window and an extra pane and returns the sentinel", func(t *testing.T) {
 		diff, rec, out, dir := buildDiff(t, diffProfile, nil)
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir + "\n%4;3;buildhost;0;" + dir},
-			liveWindowReplies{"@2;2;renamed;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir + "\n%4;buildhost;0;" + dir},
+			liveWindowReplies{"@2;renamed;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 
 		err := diff.Run(context.Background())
@@ -245,8 +245,8 @@ func TestActionDiffRun(t *testing.T) {
 	t.Run("reports a pane that glaze did not create as a change", func(t *testing.T) {
 		diff, rec, out, dir := buildDiff(t, diffProfile, nil)
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;buildhost;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;run;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;buildhost;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;run;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 
 		assert.ErrorIs(t, diff.Run(context.Background()), ErrDifferences)
@@ -264,8 +264,8 @@ func TestActionDiffRun(t *testing.T) {
 
 		// A cd in shell and a window selected by hand are facts that tmux cannot attribute to glaze or to a user.
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;0", "0", "%1;1;shell;0;" + sub + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;run;bb62,80x24,0,0;1", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;0", "0", "%1;shell;0;" + sub + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;run;bb62,80x24,0,0;1", "0", "%3;server;1;" + dir},
 		)
 
 		assert.NoError(t, diff.Run(context.Background()))
@@ -287,8 +287,8 @@ func TestActionDiffRun(t *testing.T) {
 		profile := strings.Replace(diffProfile, "    name  = \"main\"\n", "    name  = \"main\"\n    options = {\n      \"automatic-rename\" = \"on\"\n    }\n", 1)
 		diff, rec, out, dir := buildDiff(t, profile, nil)
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;zsh;bb62,80x24,0,0;1", "1", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;run;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;zsh;bb62,80x24,0,0;1", "1", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;run;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 
 		assert.NoError(t, diff.Run(context.Background()))
@@ -368,9 +368,9 @@ func TestActionDiffRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;reg-proj;" + project})
 		rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
 		rec.On("display-message", tmuxtest.Result{Output: "0"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;" + project})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;" + project})
 
 		assert.NoError(t, diff.Run(context.Background()))
 		assert.NotContains(t, logs.String(), "depends on the current directory")
@@ -405,9 +405,9 @@ func TestActionDiffRun(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;" + dir})
 		rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;bb62,80x24,0,0;1\n@2;2;run;bb62,80x24,0,0;0"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;bb62,80x24,0,0;1\n@2;run;bb62,80x24,0,0;0"})
 		rec.On("display-message", tmuxtest.Result{Output: "0"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;shell;0;" + dir + "\n%2;logs;1;" + dir})
 		rec.On("display-message", tmuxtest.Result{Output: "0"})
 		rec.On("lsp", tmuxtest.Failure("can't find window: @2"))
 
@@ -432,8 +432,8 @@ func TestActionDiffRun(t *testing.T) {
 	t.Run("prints no directory line for a pane path that tmux did not report", func(t *testing.T) {
 		diff, rec, out, dir := buildDiff(t, diffProfile, nil)
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;run;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;run;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 
 		assert.NoError(t, diff.Run(context.Background()))
@@ -445,8 +445,8 @@ func TestActionDiffRun(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
 		t.Setenv("TMUX_PANE", "%2")
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;renamed;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;renamed;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"}) // #{socket_path}
 		rec.On("display-message", tmuxtest.Result{Output: "$1;demo;" + dir})        // the session of the pane
@@ -463,8 +463,8 @@ func TestActionDiffRun(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/default,1234,0")
 		t.Setenv("TMUX_PANE", "%9")
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;renamed;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;renamed;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 		rec.On("display-message", tmuxtest.Result{Output: "$2;other;/srv"})
@@ -480,8 +480,8 @@ func TestActionDiffRun(t *testing.T) {
 		t.Setenv("TMUX", "/tmp/tmux-501/work,1234,0")
 		t.Setenv("TMUX_PANE", "%2")
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;main;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;renamed;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;main;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;renamed;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 		rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-501/default"})
 
@@ -492,8 +492,8 @@ func TestActionDiffRun(t *testing.T) {
 	t.Run("prints nothing with --quiet and still returns the sentinel", func(t *testing.T) {
 		diff, rec, out, dir := buildDiff(t, diffProfile, map[string]string{"quiet": "true"})
 		liveDemo(rec, dir,
-			liveWindowReplies{"@1;1;renamed;bb62,80x24,0,0;1", "0", "%1;1;shell;0;" + dir + "\n%2;2;logs;1;" + dir},
-			liveWindowReplies{"@2;2;run;bb62,80x24,0,0;0", "0", "%3;1;server;1;" + dir},
+			liveWindowReplies{"@1;renamed;bb62,80x24,0,0;1", "0", "%1;shell;0;" + dir + "\n%2;logs;1;" + dir},
+			liveWindowReplies{"@2;run;bb62,80x24,0,0;0", "0", "%3;server;1;" + dir},
 		)
 
 		assert.ErrorIs(t, diff.Run(context.Background()), ErrDifferences)
@@ -564,9 +564,9 @@ func TestActionDiffByName(t *testing.T) {
 		rec.On("has-session", tmuxtest.Result{})
 		rec.On("ls", tmuxtest.Result{Output: "$1;demo;" + registry})
 		rec.On("display-message", tmuxtest.Result{Output: "buildhost"})
-		rec.On("lsw", tmuxtest.Result{Output: "@1;1;main;tiled;1"})
+		rec.On("lsw", tmuxtest.Result{Output: "@1;main;tiled;1"})
 		rec.On("display-message", tmuxtest.Result{Output: "0"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;shell;1;" + registry})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;shell;1;" + registry})
 
 		assert.NoError(t, diff.Run(context.Background()))
 

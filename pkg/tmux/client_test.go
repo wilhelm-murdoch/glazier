@@ -3,7 +3,6 @@ package tmux
 import (
 	"errors"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -470,7 +469,7 @@ func TestClientCurrentSession(t *testing.T) {
 func TestClientWindows(t *testing.T) {
 	t.Run("returns windows for a session", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("lsw", fakeResult{Output: "@1;1;win-a;tiled;1\n@2;2;win-b;even-vertical;0"})
+		rec.On("lsw", fakeResult{Output: "@1;win-a;tiled;1\n@2;win-b;even-vertical;0"})
 
 		client := testClient()
 		windows, err := client.Windows(testSession(client))
@@ -495,7 +494,7 @@ func TestClientWindows(t *testing.T) {
 
 	t.Run("errors on a malformed window line", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("lsw", fakeResult{Output: "@x;1;win;tiled;1"})
+		rec.On("lsw", fakeResult{Output: "@x;win;tiled;1"})
 
 		client := testClient()
 		_, err := client.Windows(testSession(client))
@@ -506,7 +505,7 @@ func TestClientWindows(t *testing.T) {
 func TestClientPanes(t *testing.T) {
 	t.Run("returns panes for a window", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("lsp", fakeResult{Output: "%1;1;pane-a;1;/tmp\n%2;2;pane-b;0;/var"})
+		rec.On("lsp", fakeResult{Output: "%1;pane-a;1;/tmp\n%2;pane-b;0;/var"})
 
 		client := testClient()
 		window := testWindow(testSession(client))
@@ -515,7 +514,6 @@ func TestClientPanes(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 2, len(panes))
 		assert.Equal(t, PaneId(1), panes[0].Id)
-		assert.Equal(t, 1, panes[0].Index)
 		assert.Equal(t, "pane-a", panes[0].Name)
 		assert.Equal(t, "/tmp", panes[0].StartingDirectory)
 		assert.True(t, panes[0].IsActive)
@@ -535,20 +533,11 @@ func TestClientPanes(t *testing.T) {
 
 	t.Run("errors on a malformed pane line", func(t *testing.T) {
 		rec := setupRecorder(t)
-		rec.On("lsp", fakeResult{Output: "%x;1;pane-a;1;/tmp"})
+		rec.On("lsp", fakeResult{Output: "%x;pane-a;1;/tmp"})
 
 		client := testClient()
 		_, err := client.Panes(testWindow(testSession(client)))
 		assert.Error(t, err)
-	})
-
-	t.Run("errors on a non-numeric index", func(t *testing.T) {
-		rec := setupRecorder(t)
-		rec.On("lsp", fakeResult{Output: "%4;x;shell;1;/srv"})
-
-		client := testClient()
-		_, err := client.Panes(testWindow(testSession(client)))
-		assert.ErrorIs(t, err, strconv.ErrSyntax)
 	})
 }
 
@@ -557,10 +546,9 @@ func TestClientNewWindowFromLine(t *testing.T) {
 		client := testClient()
 		session := testSession(client)
 
-		window, err := client.NewWindowFromLine("@3;1;editor;main-vertical;1", session)
+		window, err := client.NewWindowFromLine("@3;editor;main-vertical;1", session)
 		assert.NoError(t, err)
 		assert.Equal(t, "@3", window.Id.String())
-		assert.Equal(t, 1, window.Index)
 		assert.Equal(t, "editor", window.Name)
 		assert.Equal(t, "main-vertical", window.RawLayout)
 		assert.True(t, window.IsActive)
@@ -568,13 +556,8 @@ func TestClientNewWindowFromLine(t *testing.T) {
 
 	client := testClient()
 	session := testSession(client)
-	t.Run("errors on a non-numeric index", func(t *testing.T) {
-		_, err := client.NewWindowFromLine("@3;x;editor;tiled;1", session)
-		assert.Error(t, err)
-	})
-
 	t.Run("errors on too few parts", func(t *testing.T) {
-		_, err := client.NewWindowFromLine("@3;1;editor", session)
+		_, err := client.NewWindowFromLine("@3;editor", session)
 		assert.Error(t, err)
 	})
 }

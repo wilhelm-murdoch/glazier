@@ -246,10 +246,10 @@ func testSession(c Client) *Session {
 
 // testWindow builds a Window attached to the given session.
 func testWindow(s *Session) *Window {
-	return &Window{Session: s, Index: 1, Name: "win"}
+	return &Window{Session: s, Name: "win"}
 }
 
 // testPane builds a Pane attached to the given window.
 func testPane(w *Window) *Pane {
-	return &Pane{Window: w, Index: 1, Name: "pane"}
+	return &Pane{Window: w, Name: "pane"}
 }

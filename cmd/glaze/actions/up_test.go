@@ -108,9 +108,9 @@ func TestActionUpApplySessionSettings(t *testing.T) {
 func TestActionUpGenerateWindows(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;ice-breaker;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;breach;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;ice-breaker;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;breach;1;/tmp"})
 
 	pane := &decoders.Pane{
 		Base:     &decoders.Base{Name: "breach", StartingDirectory: "/tmp"},
@@ -142,9 +142,9 @@ func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
 	var logs bytes.Buffer
 	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w-z;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p-z;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w-z;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p-z;1;/tmp"})
 
 	window := windowWithPane(`w\z`, enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p\tz"}})
 	assert.NoError(t, up.generateWindows([]*decoders.Window{window}, nil))
@@ -158,10 +158,10 @@ func TestActionUpWarnsAboutRenamedWindowAndPane(t *testing.T) {
 func TestActionUpResizesPanesAfterTheLayout(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%3;2;b;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;a;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;b;1;/tmp"})
 
 	window := windowWithPane("w", enums.LayoutEvenHorizontal, &decoders.Pane{
 		Base:        &decoders.Base{Name: "a"},
@@ -194,9 +194,9 @@ func TestActionUpIgnoresSizeInARawLayout(t *testing.T) {
 	var logs bytes.Buffer
 	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;a;1;/tmp"})
 
 	window := windowWithPane("w", enums.LayoutUnknown, &decoders.Pane{
 		Base: &decoders.Base{Name: "a"},
@@ -216,11 +216,11 @@ func TestActionUpIgnoresSizeInARawLayout(t *testing.T) {
 func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%3;2;b;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%4;3;c;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;a;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;b;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%4;c;1;/tmp"})
 
 	window := windowWithPane("w", enums.LayoutEvenHorizontal, &decoders.Pane{Base: &decoders.Base{Name: "a"}})
 	window.Panes = append(window.Panes,
@@ -252,10 +252,10 @@ func TestActionUpGeneratePanesRebalancesAfterEachSplit(t *testing.T) {
 func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;runner;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%3;2;shell;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;runner;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;shell;1;/tmp"})
 
 	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{
 		Base:     &decoders.Base{Name: "runner"},
@@ -280,10 +280,10 @@ func TestActionUpGeneratePanesCreatesAllPanesFirst(t *testing.T) {
 func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;default;tiled;1"})
 
 	rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-1000/default"})
 	rec.On("show-options", tmuxtest.Result{Output: ""})
@@ -315,12 +315,12 @@ func TestActionUpProvisionSessionRunsSessionCommands(t *testing.T) {
 func TestActionUpProvisionSessionUsesTheFirstWindow(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
-	rec.On("neww", tmuxtest.Result{Output: "@4;2;second;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("lsp", tmuxtest.Result{Output: "%5;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%6;1;q;1;/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@3;bash;tiled;1"})
+	rec.On("neww", tmuxtest.Result{Output: "@4;second;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("lsp", tmuxtest.Result{Output: "%5;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%6;q;1;/tmp"})
 
 	profile := &decoders.Session{Base: &decoders.Base{Name: "demo"}}
 	profile.Windows = []*decoders.Window{
@@ -346,12 +346,12 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 
 		rec.On("show-options", tmuxtest.Result{Output: "history-limit 2000"})
 		rec.On("show-options", tmuxtest.Result{Output: "remain-on-exit off"})
-		rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
-		rec.On("neww", tmuxtest.Result{Output: "@4;2;second;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-		rec.On("lsp", tmuxtest.Result{Output: "%5;1;default;1;/tmp"})
-		rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
-		rec.On("splitw", tmuxtest.Result{Output: "%6;1;q;1;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;bash;tiled;1"})
+		rec.On("neww", tmuxtest.Result{Output: "@4;second;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+		rec.On("lsp", tmuxtest.Result{Output: "%5;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%6;q;1;/tmp"})
 
 		profile := &decoders.Session{Base: &decoders.Base{
 			Name:    "demo",
@@ -392,9 +392,9 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 
 		rec.On("show-options", tmuxtest.Result{Output: "history-limit 2000\nstatus on"})
 		rec.On("show-options", tmuxtest.Result{Output: "remain-on-exit off"})
-		rec.On("lsw", tmuxtest.Result{Output: "@3;1;bash;tiled;1"})
-		rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-		rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+		rec.On("lsw", tmuxtest.Result{Output: "@3;bash;tiled;1"})
+		rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+		rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
 
 		pane := &decoders.Pane{Base: &decoders.Base{Name: "p", Options: map[string]string{"status": "off"}}}
 		window := windowWithPane("w", enums.LayoutTiled, pane)
@@ -423,10 +423,10 @@ func TestActionUpProvisionSessionAppliesOptionsAtTheirScope(t *testing.T) {
 func TestActionUpProvisionSessionSerialisesAllButLastSessionCommand(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;default;tiled;1"})
 
 	pane := &decoders.Pane{Base: &decoders.Base{Name: "p"}}
 	window := windowWithPane("w", enums.LayoutTiled, pane)
@@ -452,10 +452,10 @@ func TestActionUpContinuesAfterCommandsTimeOut(t *testing.T) {
 	var logs bytes.Buffer
 	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;slow;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%3;2;next;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;slow;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%3;next;1;/tmp"})
 	rec.On("display-message", tmuxtest.Result{Output: "/tmp/tmux-1000/default"})
 	rec.On("show-options", tmuxtest.Result{Output: "/bin/bash"})
 
@@ -481,9 +481,9 @@ func TestActionUpContinuesAfterCommandsTimeOut(t *testing.T) {
 func TestActionUpStopsWhenCommandsCannotBeLoaded(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
 	rec.On("load-buffer", tmuxtest.Result{Err: errors.New("no server")})
 
 	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"htop"}})
@@ -495,9 +495,9 @@ func TestActionUpStopsWhenCommandsCannotBeLoaded(t *testing.T) {
 func TestActionUpStopsWhenTheShellCannotBeRead(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;w;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;w;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
 	rec.On("display-message", tmuxtest.Result{Err: errors.New("no server")})
 
 	window := windowWithPane("w", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "p"}, Commands: []string{"htop"}})
@@ -509,9 +509,9 @@ func TestActionUpStopsWhenTheShellCannotBeRead(t *testing.T) {
 func TestActionUpStopsWhenTheActivePaneCannotBeFound(t *testing.T) {
 	up, rec := newTestUp(t)
 
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;default;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;p;1;/tmp"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;default;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;p;1;/tmp"})
 	rec.On("display-message", tmuxtest.Result{Err: errors.New("no server")})
 
 	profile := &decoders.Session{Base: &decoders.Base{Name: "demo"}, Commands: []string{"htop"}}
@@ -574,14 +574,14 @@ func TestActionUpWarnsWhenTmuxRenamesAWindow(t *testing.T) {
 	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
 	// generateWindows records the name that glaze gave the window.
-	rec.On("neww", tmuxtest.Result{Output: "@1;1;editor;tiled;1"})
-	rec.On("lsp", tmuxtest.Result{Output: "%1;1;default;1;/tmp"})
-	rec.On("splitw", tmuxtest.Result{Output: "%2;1;a;1;/tmp"})
+	rec.On("neww", tmuxtest.Result{Output: "@1;editor;tiled;1"})
+	rec.On("lsp", tmuxtest.Result{Output: "%1;default;1;/tmp"})
+	rec.On("splitw", tmuxtest.Result{Output: "%2;a;1;/tmp"})
 	assert.NoError(t, up.generateWindows([]*decoders.Window{windowWithPane("editor", enums.LayoutTiled, &decoders.Pane{Base: &decoders.Base{Name: "a"}})}, nil))
 	assert.Equal(t, "editor", up.windowNames[1])
 
 	// A tmux.conf hook renamed @1, and a window that glaze did not create (@9) is left alone.
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;x;tiled;1\n@9;2;other;tiled;0"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;x;tiled;1\n@9;other;tiled;0"})
 	up.warnRenamedWindows()
 
 	assert.Contains(t, logs.String(), "tmux renamed the window")
@@ -597,7 +597,7 @@ func TestActionUpDoesNotWarnWhenTheNamesMatch(t *testing.T) {
 	up.Logger = &logger.Logger{Logger: slog.New(slog.NewTextHandler(&logs, nil))}
 
 	up.windowNames = map[tmux.WindowId]string{1: "editor"}
-	rec.On("lsw", tmuxtest.Result{Output: "@1;1;editor;tiled;1"})
+	rec.On("lsw", tmuxtest.Result{Output: "@1;editor;tiled;1"})
 	up.warnRenamedWindows()
 
 	assert.NotContains(t, logs.String(), "renamed")
