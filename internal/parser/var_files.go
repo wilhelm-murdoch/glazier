@@ -6,7 +6,6 @@ import (
 	"slices"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
 	"github.com/zclconf/go-cty/cty/convert"
 
@@ -23,16 +22,12 @@ func loadVarFile(path string, byName map[string]*Variable) (map[string]cty.Value
 		return nil, hcl.Diagnostics{diagnostics.VarFileUnreadable(path, err)}
 	}
 
-	if diags := checkNesting(src, path); diags.HasErrors() {
-		return nil, diags
-	}
-
-	file, diags := hclparse.NewParser().ParseHCL(src, path)
+	p, diags := NewFromBytes(src, path)
 	if diags.HasErrors() {
 		return nil, diags
 	}
 
-	attrs, d := file.Body.JustAttributes()
+	attrs, d := p.File.Body.JustAttributes()
 	diags = diags.Extend(d)
 	if diags.HasErrors() {
 		return nil, diags

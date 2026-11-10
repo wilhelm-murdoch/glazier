@@ -2,6 +2,7 @@ package parser
 
 import (
 	"maps"
+	"slices"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
@@ -57,10 +58,6 @@ func (p *Parser) DecodeVariableBlocks() ([]*Variable, hcl.Diagnostics) {
 	seen := make(map[string]hcl.Range)
 
 	for _, block := range content.Blocks {
-		if block.Type != "variable" {
-			continue
-		}
-
 		name := block.Labels[0]
 		if previous, ok := seen[name]; ok {
 			diags = diags.Append(diagnostics.DuplicateVariable(name, previous, block.DefRange))
@@ -175,7 +172,9 @@ func ResolveVariables(declared []*Variable, flags []string, varFile string, requ
 		maps.Copy(out, fileValues)
 	}
 
-	for name, raw := range collectFlagVariables(flags) {
+	flagValues := collectFlagVariables(flags)
+	for _, name := range slices.Sorted(maps.Keys(flagValues)) {
+		raw := flagValues[name]
 		variable, ok := byName[name]
 		if !ok {
 			diags = diags.Append(diagnostics.UndefinedVariable(name))

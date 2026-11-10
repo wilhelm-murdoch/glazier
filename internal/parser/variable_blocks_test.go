@@ -255,6 +255,14 @@ func TestResolveVariables(t *testing.T) {
 		assert.True(t, diags.HasErrors())
 		assert.Contains(t, diags.Error(), "Invalid variable value")
 	})
+
+	t.Run("reports undefined flags in name order", func(t *testing.T) {
+		_, diags := ResolveVariables(nil, []string{"zed=1", "alpha=2", "mid=3"}, "", false)
+		assert.Len(t, diags, 3)
+		assert.Contains(t, diags[0].Detail, `"alpha"`)
+		assert.Contains(t, diags[1].Detail, `"mid"`)
+		assert.Contains(t, diags[2].Detail, `"zed"`)
+	})
 }
 
 func TestVariableContext(t *testing.T) {
