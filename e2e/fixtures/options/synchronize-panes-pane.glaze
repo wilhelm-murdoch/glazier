@@ -1,0 +1,17 @@
+# Two panes turn synchronize-panes on. Each pane must still get only its own commands.
+session {
+  name = "synchronize-panes-pane"
+  window {
+    name = "w"
+    pane {
+      name     = "p"
+      options  = { "synchronize-panes" = "on" }
+      commands = ["echo p >> p"]
+    }
+    pane {
+      name     = "q"
+      options  = { "synchronize-panes" = "on" }
+      commands = ["echo q >> q"]
+    }
+  }
+}
