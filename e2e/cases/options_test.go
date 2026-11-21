@@ -1,6 +1,8 @@
 package cases
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/wilhelm-murdoch/glazier/e2e/harness"
@@ -79,6 +81,21 @@ func TestOptions(t *testing.T) {
 		c.EventuallyEqual("the session command ran once", "s", fileLines(c, "s"))
 		c.Equal("window one is synchronized", "on", c.Option(c.WindowID("synchronize-panes-session", "one"), "synchronize-panes", "-w"))
 		c.Equal("window two is not synchronized", "off", c.Option(c.WindowID("synchronize-panes-session", "two"), "synchronize-panes", "-w"))
+		c.EventuallyEqual("no glaze buffer is left", "", pasteBuffers(c))
+	})
+
+	// The option on a pane waits for the commands too, or a later pane's commands reach every earlier synchronized pane.
+	harness.Run(t, "options_synchronize_panes_pane", func(c *harness.Case) {
+		c.Fixture("options/synchronize-panes-pane.glaze")
+		c.OK(c.Up(), "up")
+		c.EventuallyEqual("the first pane ran only its own command", "p", fileLines(c, "p"))
+		c.EventuallyEqual("the second pane ran only its own command", "q", fileLines(c, "q"))
+		panes := strings.Fields(c.Tmux("list-panes", "-t", "=synchronize-panes-pane:w", "-F", "#{pane_id}"))
+		c.Equal("the window has two panes", "2", fmt.Sprint(len(panes)))
+		for i, id := range panes {
+			c.Equal(fmt.Sprintf("pane %d is synchronized", i+1), "on", c.Option(id, "synchronize-panes", "-p"))
+		}
+
 		c.EventuallyEqual("no glaze buffer is left", "", pasteBuffers(c))
 	})
 

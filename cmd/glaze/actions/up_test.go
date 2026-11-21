@@ -664,6 +664,33 @@ func TestActionUpProvisionSessionSetsSynchronizePanesAfterTheCommands(t *testing
 		}, events)
 	})
 
+	t.Run("a pane value waits for the last key too", func(t *testing.T) {
+		up, rec := newTestUp(t)
+		queueWindows(rec)
+
+		profile := synchronizedProfile()
+		delete(profile.Options, "synchronize-panes")
+		profile.Windows[0].Panes[0].Options = map[string]string{"synchronize-panes": "on"}
+		profile.Windows[0].Panes[1].Options = map[string]string{"synchronize-panes": "on"}
+
+		assert.NoError(t, up.provisionSession(profile))
+
+		var events []string
+		for _, call := range rec.Calls {
+			switch {
+			case call[0] == "set-option" && call[5] == "synchronize-panes":
+				events = append(events, call[1]+" "+call[3]+" "+call[6])
+			case call[0] == "send-keys":
+				events = append(events, "keys "+call[slices.Index(call, "-t")+1])
+			}
+		}
+
+		assert.Equal(t, []string{
+			"keys %2", "keys %2", "keys %3", "keys %3", "keys %6", "keys %6", "keys %9", "keys %9",
+			"-p %2 on", "-p %3 on", "-w @4 off",
+		}, events)
+	})
+
 	t.Run("a value that tmux rejects stops up", func(t *testing.T) {
 		up, rec := newTestUp(t)
 		queueWindows(rec)
