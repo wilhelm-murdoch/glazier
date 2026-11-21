@@ -95,6 +95,7 @@ func TestOptions(t *testing.T) {
 		for i, id := range panes {
 			c.Equal(fmt.Sprintf("pane %d is synchronized", i+1), "on", c.Option(id, "synchronize-panes", "-p"))
 		}
+
 		c.EventuallyEqual("no glaze buffer is left", "", pasteBuffers(c))
 	})
 
